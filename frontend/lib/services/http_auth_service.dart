@@ -1,0 +1,124 @@
+import '../core/endpoints.dart';
+import '../core/token_storage.dart';
+import 'auth_service.dart';
+import 'base_service.dart';
+
+class HttpAuthService implements AuthService {
+  HttpAuthService(this._baseService, this._tokenStorage);
+
+  final BaseService _baseService;
+  final TokenStorage _tokenStorage;
+
+  @override
+  Future<void> login(String email, String password) async {
+    final json = await _baseService.postJson<dynamic>(
+      Endpoints.login,
+      {
+        'email': email,
+        'password': password,
+      },
+      (data) => data,
+    );
+
+    final token = _extractToken(json);
+    if (token != null && token.isNotEmpty) {
+      await _tokenStorage.writeToken(token);
+    }
+    final userInfo = _extractUserInfo(json);
+    if (userInfo != null) {
+      await _tokenStorage.writeUserInfo(userInfo);
+    }
+  }
+
+  @override
+  Future<void> register(Map<String, dynamic> payload) async {
+    final json = await _baseService.postJson<dynamic>(
+      Endpoints.register,
+      payload,
+      (data) => data,
+    );
+
+    final token = _extractToken(json);
+    if (token != null && token.isNotEmpty) {
+      await _tokenStorage.writeToken(token);
+    }
+    final userInfo = _extractUserInfo(json);
+    if (userInfo != null) {
+      await _tokenStorage.writeUserInfo(userInfo);
+    }
+  }
+
+  @override
+  Future<void> logout() async {
+    await _baseService.postJson<dynamic>(
+      Endpoints.logout,
+      null,
+      (data) => data,
+    );
+    await _tokenStorage.clear();
+  }
+
+  @override
+  Future<Map<String, dynamic>?> me() async {
+    final json = await _baseService.getJson<dynamic>(Endpoints.me, (data) => data);
+    final userInfo = _extractUserInfo(json);
+    if (userInfo != null) {
+      await _tokenStorage.writeUserInfo(userInfo);
+    }
+    return userInfo;
+  }
+
+  String? _extractToken(dynamic json) {
+    if (json is! Map<String, dynamic>) return null;
+    final direct = json['token'];
+    if (direct is String) return direct;
+
+    final data = json['data'];
+    if (data is Map<String, dynamic>) {
+      final nested = data['token'];
+      if (nested is String) return nested;
+      final accessToken = data['access_token'];
+      if (accessToken is String) return accessToken;
+    }
+
+    final accessToken = json['access_token'];
+    if (accessToken is String) return accessToken;
+    return null;
+  }
+
+  Map<String, dynamic>? _extractUserInfo(dynamic json) {
+    if (json is! Map<String, dynamic>) return null;
+
+    dynamic user = json['user'];
+    if (user is! Map<String, dynamic>) {
+      final data = json['data'];
+      if (data is Map<String, dynamic>) {
+        user = data['user'];
+      }
+    }
+    if (user is! Map<String, dynamic>) return null;
+
+    String? role;
+    final directRole = user['role'];
+    if (directRole is String && directRole.isNotEmpty) {
+      role = directRole;
+    } else {
+      final roles = user['roles'];
+      if (roles is List && roles.isNotEmpty) {
+        final first = roles.first;
+        if (first is String) {
+          role = first;
+        } else if (first is Map<String, dynamic> && first['name'] is String) {
+          role = first['name'] as String;
+        }
+      }
+    }
+
+    return {
+      'id': user['id'],
+      'name': user['name'],
+      'email': user['email'],
+      'role': role,
+    };
+  }
+}
