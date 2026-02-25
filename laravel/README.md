@@ -26,6 +26,14 @@ Located in `routes/api.php`.
 - Organized into logical groups with `v1` versioning.
 - Route placeholders are ready for the corresponding controller methods.
 
+## Default Accounts
+
+For testing, use the following administrator account:
+- **Email**: `admin@example.com`
+- **Password**: `password123`
+
+See **[CREDENTIALS.md](file:///home/aldridge/app-dev/laravel/CREDENTIALS.md)** for more roles (Staff, Patient).
+
 ## Getting Started
 
 1. **Verify Structure**: Run `ls -R app/Models app/Services app/Http/Controllers/Api` to see the generated files.
