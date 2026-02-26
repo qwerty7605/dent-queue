@@ -56,6 +56,46 @@ class ApiClient {
         'message': 'mock status - backend not connected',
       };
     }
+    if (method == 'POST' && path == Endpoints.login) {
+      return {
+        'message': 'mock login success',
+        'token': 'mock-token-login',
+        'user': {
+          'id': 1,
+          'name': 'Mock User',
+          'email': 'mock@example.com',
+          'role': 'patient',
+        },
+      };
+    }
+    if (method == 'POST' && path == Endpoints.register) {
+      return {
+        'message': 'mock register success',
+        'token': 'mock-token-register',
+        'user': {
+          'id': 2,
+          'name': 'New Mock User',
+          'email': 'newmock@example.com',
+          'role': 'patient',
+        },
+      };
+    }
+    if (method == 'POST' && path == Endpoints.logout) {
+      return {
+        'message': 'mock logout success',
+      };
+    }
+    if (method == 'GET' && path == Endpoints.me) {
+      return {
+        'message': 'mock me success',
+        'user': {
+          'id': 1,
+          'name': 'Mock User',
+          'email': 'mock@example.com',
+          'role': 'patient',
+        },
+      };
+    }
     throw ApiException(message: 'Mock mode: endpoint not available');
   }
 

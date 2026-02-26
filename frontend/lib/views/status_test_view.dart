@@ -45,10 +45,11 @@ class _StatusTestViewState extends State<StatusTestView> {
         SnackBar(content: Text(e.message)),
       );
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
   }
 
