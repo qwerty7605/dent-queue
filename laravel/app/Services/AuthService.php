@@ -17,10 +17,14 @@ class AuthService
         $patientRole = Role::where('name', 'Patient')->first();
 
         return User::create([
-            'full_name' => $data['full_name'],
+            'first_name' => $data['first_name'],
+            'middle_name' => $data['middle_name'] ?? null,
+            'last_name' => $data['last_name'],
+            'username' => $data['username'],
             'email' => $data['email'],
+            'location' => $data['location'] ?? null,
+            'gender' => $data['gender'] ?? null,
             'password' => Hash::make($data['password']),
-            'phone_number' => $data['phone_number'] ?? null,
             'role_id' => $patientRole->id,
             'is_active' => true,
         ]);
@@ -31,11 +35,17 @@ class AuthService
      */
     public function login(array $credentials): User
     {
-        $user = User::where('email', $credentials['email'])->with('role')->first();
+        $query = User::query();
+        if (isset($credentials['username'])) {
+            $query->where('username', $credentials['username']);
+        } elseif (isset($credentials['email'])) {
+            $query->where('email', $credentials['email']);
+        }
+        $user = $query->with('role')->first();
 
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'email' => ['Invalid credentials.'],
+                'credentials' => ['Invalid credentials.'],
             ]);
         }
 

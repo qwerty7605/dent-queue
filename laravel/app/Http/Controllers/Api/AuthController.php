@@ -18,10 +18,14 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $data = $request->validate([
-            'full_name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'username' => 'required|string|max:50|unique:users,username',
+            'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
-            'phone_number' => 'nullable|string',
+            'location' => 'nullable|string|max:255',
+            'gender' => 'nullable|string|in:male,female,other',
         ]);
 
         $user = $this->authService->register($data);
@@ -36,12 +40,23 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
+        // allow login with either email or username
         $credentials = $request->validate([
-            'email' => 'required|string|email',
+            'email' => 'sometimes|required|string|email',
+            'username' => 'sometimes|required|string',
             'password' => 'required|string',
         ]);
 
-        $user = $this->authService->login($credentials);
+        // choose field for lookup
+        if (isset($credentials['username'])) {
+            $lookup = ['username' => $credentials['username']];
+        } else {
+            $lookup = ['email' => $credentials['email']];
+        }
+
+        $lookup['password'] = $credentials['password'];
+
+        $user = $this->authService->login($lookup);
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
