@@ -1,16 +1,30 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'core/api_exception.dart';
 import 'core/api_client.dart';
+import 'core/config.dart';
 import 'core/token_storage.dart';
 import 'services/base_service.dart';
 import 'services/http_auth_service.dart';
 import 'views/dashboard_view.dart';
 import 'views/login_view.dart';
 import 'views/register_view.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // pick network base URL based on running environment
+  // default to emulator for development; adjust as needed for device or prod
+  if (AppConfig.env == AppEnvironment.mock) {
+    // avoid overriding if already set via --dart-define on build
+    if (Platform.isAndroid) {
+      AppConfig.env = AppEnvironment.androidEmulator;
+    }
+    // TODO: handle iOS simulator/provider if needed
+  }
+
   final tokenStorage = SecureTokenStorage();
   final apiClient = ApiClient(tokenStorage: tokenStorage);
   final baseService = BaseService(apiClient);
@@ -42,6 +56,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
         useMaterial3: true,
+        textTheme: GoogleFonts.nunitoTextTheme(),
+        fontFamily: GoogleFonts.nunito().fontFamily,
       ),
       home: AuthSwitcherView(
         authService: authService,

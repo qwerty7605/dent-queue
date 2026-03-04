@@ -25,7 +25,9 @@ class UserSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'admin@example.com'],
             [
-                'full_name' => 'System Admin',
+                'first_name' => 'System',
+                'last_name' => 'Admin',
+                'username' => 'admin',
                 'password' => Hash::make('password123'),
                 'phone_number' => '0000000000',
                 'role_id' => $adminRole->id,
@@ -37,7 +39,9 @@ class UserSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'staff@example.com'],
             [
-                'full_name' => 'Medical Staff',
+                'first_name' => 'Medical',
+                'last_name' => 'Staff',
+                'username' => 'staff',
                 'password' => Hash::make('password123'),
                 'phone_number' => '1111111111',
                 'role_id' => $staffRole->id,
@@ -49,7 +53,9 @@ class UserSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'patient@example.com'],
             [
-                'full_name' => 'Generic Patient',
+                'first_name' => 'Generic',
+                'last_name' => 'Patient',
+                'username' => 'patient',
                 'password' => Hash::make('password123'),
                 'phone_number' => '2222222222',
                 'role_id' => $patientRole->id,

@@ -1,5 +1,6 @@
 abstract class AuthService {
-  Future<void> login(String email, String password);
+  /// `identifier` may be email or username depending on backend configuration.
+  Future<void> login(String identifier, String password);
   Future<void> register(Map<String, dynamic> payload);
   Future<void> logout();
   Future<Map<String, dynamic>?> me();

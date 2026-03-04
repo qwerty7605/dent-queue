@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api_exception.dart';
 import '../core/token_storage.dart';
 import '../services/auth_service.dart';
+import 'patient_dashboard_view.dart';
 
 class DashboardView extends StatefulWidget {
   const DashboardView({
@@ -62,9 +63,24 @@ class _DashboardViewState extends State<DashboardView> {
 
   @override
   Widget build(BuildContext context) {
+    if (_userInfo == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final name = _userInfo?['name']?.toString() ?? 'User';
     final email = _userInfo?['email']?.toString() ?? '-';
-    final role = _userInfo?['role']?.toString() ?? 'user';
+    final role = (_userInfo?['role']?.toString() ?? 'user').toLowerCase();
+
+    if (role == 'patient') {
+      return PatientDashboardView(
+        userInfo: _userInfo,
+        onLogout: () => _logout(),
+        loggingOut: _loggingOut,
+      );
+    }
+
     final title = '${_capitalize(role)} Dashboard';
 
     return Scaffold(

@@ -30,6 +30,7 @@ class _RegisterViewState extends State<RegisterView> {
   final _middleNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _locationController = TextEditingController();
+  final _emailController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -45,6 +46,7 @@ class _RegisterViewState extends State<RegisterView> {
     _middleNameController.dispose();
     _lastNameController.dispose();
     _locationController.dispose();
+    _emailController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -63,6 +65,7 @@ class _RegisterViewState extends State<RegisterView> {
         'first_name': _firstNameController.text.trim(),
         'middle_name': _middleNameController.text.trim(),
         'last_name': _lastNameController.text.trim(),
+        'email': _emailController.text.trim(),
         'location': _locationController.text.trim(),
         'gender': _gender,
         'username': _usernameController.text.trim(),
@@ -194,6 +197,21 @@ class _RegisterViewState extends State<RegisterView> {
                               controller: _locationController,
                               hint: 'Enter Location',
                               icon: Icons.location_on,
+                            ),
+                            const SizedBox(height: 10),
+                            _RegisterInput(
+                              controller: _emailController,
+                              hint: 'Enter Email',
+                              icon: Icons.email,
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Email is required';
+                                }
+                                if (!RegExp(r"^[^@]+@[^@]+\.[^@]+$").hasMatch(value)) {
+                                  return 'Invalid email address';
+                                }
+                                return null;
+                              },
                             ),
                             const SizedBox(height: 10),
                             _GenderSelect(
