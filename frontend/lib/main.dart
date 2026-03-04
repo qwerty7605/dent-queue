@@ -10,6 +10,7 @@ import 'services/http_auth_service.dart';
 import 'views/dashboard_view.dart';
 import 'views/login_view.dart';
 import 'views/register_view.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,6 +56,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
         useMaterial3: true,
+        textTheme: GoogleFonts.nunitoTextTheme(),
+        fontFamily: GoogleFonts.nunito().fontFamily,
       ),
       home: AuthSwitcherView(
         authService: authService,
