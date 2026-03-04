@@ -10,13 +10,20 @@ class HttpAuthService implements AuthService {
   final TokenStorage _tokenStorage;
 
   @override
-  Future<void> login(String email, String password) async {
+  Future<void> login(String identifier, String password) async {
+    // send the identifier under both possible keys, backend will pick one
+    final payload = {
+      'password': password,
+    };
+    if (identifier.contains('@')) {
+      payload['email'] = identifier;
+    } else {
+      payload['username'] = identifier;
+    }
+
     final json = await _baseService.postJson<dynamic>(
       Endpoints.login,
-      {
-        'email': email,
-        'password': password,
-      },
+      payload,
       (data) => data,
     );
 
@@ -25,13 +32,16 @@ class HttpAuthService implements AuthService {
       await _tokenStorage.writeToken(token);
     }
     final userInfo = _extractUserInfo(json);
-    if (userInfo != null) {
+    if (userInfo != null && userInfo['role'] != null) {
       await _tokenStorage.writeUserInfo(userInfo);
+    } else {
+      await me(); // Fetch complete user info including roles
     }
   }
 
   @override
   Future<void> register(Map<String, dynamic> payload) async {
+    // ensure email and username are present; frontend should provide both now
     final json = await _baseService.postJson<dynamic>(
       Endpoints.register,
       payload,
@@ -43,8 +53,10 @@ class HttpAuthService implements AuthService {
       await _tokenStorage.writeToken(token);
     }
     final userInfo = _extractUserInfo(json);
-    if (userInfo != null) {
+    if (userInfo != null && userInfo['role'] != null) {
       await _tokenStorage.writeUserInfo(userInfo);
+    } else {
+      await me(); // Fetch complete user info including roles
     }
   }
 
@@ -102,6 +114,8 @@ class HttpAuthService implements AuthService {
     final directRole = user['role'];
     if (directRole is String && directRole.isNotEmpty) {
       role = directRole;
+    } else if (directRole is Map<String, dynamic> && directRole['name'] is String) {
+      role = directRole['name'] as String;
     } else {
       final roles = user['roles'];
       if (roles is List && roles.isNotEmpty) {
@@ -114,9 +128,14 @@ class HttpAuthService implements AuthService {
       }
     }
 
+    final String defaultName = user['name'] ?? user['full_name'] ?? '';
+    final String parsedFirstName = user['first_name']?.toString() ?? '';
+    final String parsedLastName = user['last_name']?.toString() ?? '';
+    final String constructedName = ('$parsedFirstName $parsedLastName').trim();
+
     return {
       'id': user['id'],
-      'name': user['name'],
+      'name': constructedName.isNotEmpty ? constructedName : (defaultName.isNotEmpty ? defaultName : 'User'),
       'email': user['email'],
       'role': role,
     };

@@ -50,7 +50,8 @@ class AuthController extends Controller
         // choose field for lookup
         if (isset($credentials['username'])) {
             $lookup = ['username' => $credentials['username']];
-        } else {
+        }
+        else {
             $lookup = ['email' => $credentials['email']];
         }
 
@@ -60,7 +61,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => $user->load('role'),
             'access_token' => $token,
             'token_type' => 'Bearer',
         ]);

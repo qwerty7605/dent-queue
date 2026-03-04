@@ -1,10 +1,13 @@
 enum AppEnvironment { mock, androidEmulator, physicalDevice, production }
 
 class AppConfig {
-  static AppEnvironment env = AppEnvironment.mock; // default for UI-only dev
+  // 👇 set to the correct environment before building/running
+  static AppEnvironment env = AppEnvironment.physicalDevice; // change to emulator/production as needed
 
-  static const androidEmulatorBaseUrl = 'http://10.0.2.2:8000';
-  static const physicalDeviceBaseUrl = 'http://192.168.1.100:8000'; // TODO replace with PC LAN IP when needed
+  // use port 8080 since nginx/docker expose that
+  static const androidEmulatorBaseUrl = 'http://80:8080';
+  // replace 192.168.0.42 with your PC's actual LAN IP
+  static const physicalDeviceBaseUrl = 'http://192.168.1.18:8080';
   static const productionBaseUrl = 'https://example.com'; // TODO
 
   static String get baseUrl {

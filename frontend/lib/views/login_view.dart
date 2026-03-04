@@ -154,14 +154,14 @@ class _LoginViewState extends State<LoginView> {
                             const SizedBox(height: 28),
                             _LoginInput(
                               controller: _usernameController,
-                              hint: 'Enter your Username',
+                              hint: 'Username or Email',
                               suffix: const Icon(
-                                Icons.email,
+                                Icons.person,
                                 color: Color(0xFF606060),
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
-                                  return 'Username is required';
+                                  return 'Identifier is required';
                                 }
                                 return null;
                               },
