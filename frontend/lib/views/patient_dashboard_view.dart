@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/book_appointment_dialog.dart';
 
 class PatientDashboardView extends StatelessWidget {
   const PatientDashboardView({
@@ -44,7 +45,12 @@ class PatientDashboardView extends StatelessWidget {
       ),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (context) => const BookAppointmentDialog(),
+          );
+        },
         backgroundColor: const Color(0xFF679B6A),
         shape: const CircleBorder(),
         child: const Icon(Icons.add, color: Colors.white, size: 36),
