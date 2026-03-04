@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../widgets/book_appointment_dialog.dart';
+import '../widgets/edit_profile_dialog.dart';
 
-class PatientDashboardView extends StatelessWidget {
+class PatientDashboardView extends StatefulWidget {
   const PatientDashboardView({
     super.key,
     required this.userInfo,
@@ -14,8 +15,15 @@ class PatientDashboardView extends StatelessWidget {
   final bool loggingOut;
 
   @override
+  State<PatientDashboardView> createState() => _PatientDashboardViewState();
+}
+
+class _PatientDashboardViewState extends State<PatientDashboardView> {
+  int _selectedIndex = 0; // 0 for Appointments, 1 for Profile
+
+  @override
   Widget build(BuildContext context) {
-    final name = userInfo?['name']?.toString() ?? 'User';
+    final name = widget.userInfo?['name']?.toString() ?? 'User';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5ED), // Faint greyish green for the background
@@ -34,17 +42,17 @@ class PatientDashboardView extends StatelessWidget {
               ),
             ),
             ListTile(
-              leading: loggingOut 
+              leading: widget.loggingOut 
                 ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.logout),
               title: const Text('Logout'),
-              onTap: loggingOut ? null : onLogout,
+              onTap: widget.loggingOut ? null : widget.onLogout,
             ),
           ],
         ),
       ),
-      body: _buildBody(),
-      floatingActionButton: FloatingActionButton(
+      body: _selectedIndex == 0 ? _buildBody() : _buildProfileView(),
+      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
         onPressed: () {
           showDialog(
             context: context,
@@ -54,7 +62,7 @@ class PatientDashboardView extends StatelessWidget {
         backgroundColor: const Color(0xFF679B6A),
         shape: const CircleBorder(),
         child: const Icon(Icons.add, color: Colors.white, size: 36),
-      ),
+      ) : null, // Hide FAB on profile page
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
@@ -260,6 +268,170 @@ class PatientDashboardView extends StatelessWidget {
     );
   }
 
+  Widget _buildProfileView() {
+    final Map<String, dynamic> userInfo = widget.userInfo ?? {};
+    
+    // First try "name", if missing then try assembling from first_name, middle_name, last_name
+    String fullName = userInfo['name']?.toString() ?? '';
+    if (fullName.isEmpty) {
+      fullName = '${userInfo['first_name'] ?? ''} ${userInfo['middle_name'] ?? ''} ${userInfo['last_name'] ?? ''}'.trim();
+    }
+    fullName = fullName.toUpperCase();
+
+    final String address = (userInfo['location'] ?? userInfo['address'])?.toString() ?? 'N/A';
+    final String gender = userInfo['gender']?.toString() ?? 'N/A';
+    final String birthdate = userInfo['birthdate']?.toString() ?? 'N/A';
+    final String contactNumber = (userInfo['phone_number'] ?? userInfo['contact_number'])?.toString() ?? 'N/A';
+
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 24),
+            // Circular Avatar
+            Center(
+              child: Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF679B6A), width: 3),
+                  color: const Color(0xFFF8FAFC),
+                  image: const DecorationImage(
+                    image: AssetImage('assets/images/placeholder_baby.png'), // Using a placeholder concept, since no real image is provided. But we can use an Icon
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                child: const Icon(Icons.person, size: 80, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Name and Title
+            Text(
+              fullName.isNotEmpty ? fullName : 'User Name',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Patient Account\nID: SDQ-2',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            // Info Card
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildProfileField(Icons.person_outline, 'FULL NAME', fullName),
+                  const SizedBox(height: 20),
+                  _buildProfileField(Icons.calendar_today_outlined, 'BIRTHDATE', birthdate),
+                  const SizedBox(height: 20),
+                  _buildProfileField(Icons.location_on_outlined, 'ADDRESS', address),
+                  const SizedBox(height: 20),
+                  _buildProfileField(Icons.people_outline, 'GENDER', gender),
+                  const SizedBox(height: 20),
+                  _buildProfileField(Icons.phone_outlined, 'CONTACT NUMBER', contactNumber),
+                  const SizedBox(height: 32),
+                  
+                  // Edit Profile Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        // Show Edit Profile Dialog
+                        showDialog(
+                          context: context,
+                          builder: (context) => EditProfileDialog(userInfo: widget.userInfo ?? {}),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF679B6A), // Green brand color
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Edit Profile',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileField(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF679B6A), size: 24),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF7E8CA0),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2C3E50),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildStatusCard({
     required String title,
     required String count,
@@ -345,15 +517,19 @@ class PatientDashboardView extends StatelessWidget {
               child: Material(
                 type: MaterialType.transparency,
                 child: InkWell(
-                  onTap: () {},
-                  child: const Column(
+                  onTap: () {
+                    setState(() {
+                      _selectedIndex = 0;
+                    });
+                  },
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.event_available, color: Color(0xFF679B6A)),
-                      SizedBox(height: 4),
+                      Icon(Icons.event_available, color: _selectedIndex == 0 ? const Color(0xFF679B6A) : Colors.grey),
+                      const SizedBox(height: 4),
                       Text(
                         'Appointments',
-                        style: TextStyle(color: Color(0xFF679B6A), fontSize: 10, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: _selectedIndex == 0 ? const Color(0xFF679B6A) : Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -368,15 +544,19 @@ class PatientDashboardView extends StatelessWidget {
               child: Material(
                 type: MaterialType.transparency,
                 child: InkWell(
-                  onTap: () {},
-                  child: const Column(
+                  onTap: () {
+                    setState(() {
+                      _selectedIndex = 1;
+                    });
+                  },
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.person_outline, color: Colors.grey),
-                      SizedBox(height: 4),
+                      Icon(Icons.person_outline, color: _selectedIndex == 1 ? const Color(0xFF679B6A) : Colors.grey),
+                      const SizedBox(height: 4),
                       Text(
                         'Profile',
-                        style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: _selectedIndex == 1 ? const Color(0xFF679B6A) : Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),

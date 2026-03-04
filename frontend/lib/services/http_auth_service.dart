@@ -138,6 +138,13 @@ class HttpAuthService implements AuthService {
       'name': constructedName.isNotEmpty ? constructedName : (defaultName.isNotEmpty ? defaultName : 'User'),
       'email': user['email'],
       'role': role,
+      'first_name': user['first_name'],
+      'middle_name': user['middle_name'],
+      'last_name': user['last_name'],
+      'birthdate': user['birthdate'],
+      'location': user['location'],
+      'gender': user['gender'],
+      'phone_number': user['phone_number'],
     };
   }
 }

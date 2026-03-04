@@ -26,6 +26,7 @@ class User extends Authenticatable
         'email',
         'password',
         'phone_number',
+        'birthdate',
         'location',
         'gender',
         'role_id',
@@ -47,7 +48,7 @@ class User extends Authenticatable
      */
     public function appointments()
     {
-        return $this->hasMany(Appointment::class, 'patient_id');
+        return $this->hasMany(Appointment::class , 'patient_id');
     }
 
     /**
@@ -69,6 +70,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'birthdate' => 'date',
             'password' => 'hashed',
         ];
     }

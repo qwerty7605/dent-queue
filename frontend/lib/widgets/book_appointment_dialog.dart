@@ -348,6 +348,18 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                           onPrimary: Colors.white, // header text color
                           onSurface: Color(0xFF2C3E50), // dial numbers
                           surface: Colors.white, // dial background
+                          surfaceContainerHighest: Color(0xFFE2E8F0), // unselected boxes background 
+                        ),
+                        timePickerTheme: TimePickerThemeData(
+                          dayPeriodColor: WidgetStateColor.resolveWith((states) => 
+                            states.contains(WidgetState.selected) ? const Color(0xFF679B6A) : Colors.transparent),
+                          dayPeriodTextColor: WidgetStateColor.resolveWith((states) => 
+                            states.contains(WidgetState.selected) ? Colors.white : const Color(0xFF2C3E50)),
+                          hourMinuteColor: WidgetStateColor.resolveWith((states) => 
+                            states.contains(WidgetState.selected) ? const Color(0xFF679B6A) : const Color(0xFFE2E8F0)),
+                          hourMinuteTextColor: WidgetStateColor.resolveWith((states) => 
+                            states.contains(WidgetState.selected) ? Colors.white : const Color(0xFF2C3E50)),
+                          dialHandColor: const Color(0xFF679B6A),
                         ),
                         textButtonTheme: TextButtonThemeData(
                           style: TextButton.styleFrom(
