@@ -236,6 +236,23 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   firstDate: now,
                   lastDate: now.add(const Duration(days: 365)),
                   selectableDayPredicate: (DateTime val) => val.weekday != DateTime.sunday,
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: Color(0xFF679B6A), // header background color
+                          onPrimary: Colors.white, // header text color
+                          onSurface: Color(0xFF2C3E50), // body text color
+                        ),
+                        textButtonTheme: TextButtonThemeData(
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF679B6A), // button text color
+                          ),
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
                 );
                 if (picked != null) {
                   setState(() {
@@ -282,7 +299,26 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
 
   Widget _buildTimeField() {
     return FormField<TimeOfDay>(
-      validator: (val) => _selectedTime == null ? 'Required' : null,
+      validator: (val) {
+        if (_selectedTime == null) return 'Required';
+        
+        // Final validation before submit just in case
+        if (_selectedDate != null) {
+          final now = DateTime.now();
+          final isToday = _selectedDate!.year == now.year &&
+                          _selectedDate!.month == now.month &&
+                          _selectedDate!.day == now.day;
+                          
+          if (isToday) {
+            final double timeInDouble = _selectedTime!.hour + _selectedTime!.minute / 60.0;
+            final double nowInDouble = now.hour + now.minute / 60.0;
+            if (timeInDouble <= nowInDouble) {
+              return 'Invalid Time';
+            }
+          }
+        }
+        return null;
+      },
       builder: (FormFieldState<TimeOfDay> state) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,19 +327,44 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
             const SizedBox(height: 8),
             InkWell(
               onTap: () async {
+                if (_selectedDate == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please select a date first'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                  return;
+                }
+
                 final picked = await showTimePicker(
                   context: context,
                   initialTime: const TimeOfDay(hour: 8, minute: 0),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: Color(0xFF679B6A), // indicator and header
+                          onPrimary: Colors.white, // header text color
+                          onSurface: Color(0xFF2C3E50), // dial numbers
+                          surface: Colors.white, // dial background
+                        ),
+                        textButtonTheme: TextButtonThemeData(
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF679B6A), // button text color
+                          ),
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
                 );
+                
                 if (picked != null) {
                   final double timeInDouble = picked.hour + picked.minute / 60.0;
-                  // Prevent time selection outside 7:30 AM (7.5) - 6:00 PM (18.0)
-                  if (timeInDouble >= 7.5 && timeInDouble <= 18.0) {
-                    setState(() {
-                      _selectedTime = picked;
-                    });
-                    state.didChange(picked);
-                  } else {
+                  
+                  // Rule 1: Prevent time selection outside 7:30 AM (7.5) - 6:00 PM (18.0)
+                  if (timeInDouble < 7.5 || timeInDouble > 18.0) {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -311,7 +372,33 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                         backgroundColor: Colors.redAccent,
                       ),
                     );
+                    return;
                   }
+
+                  // Rule 2: If selecting today, prevent selecting past time
+                  final now = DateTime.now();
+                  final isToday = _selectedDate!.year == now.year &&
+                                  _selectedDate!.month == now.month &&
+                                  _selectedDate!.day == now.day;
+                                  
+                  if (isToday) {
+                    final double nowInDouble = now.hour + now.minute / 60.0;
+                    if (timeInDouble <= nowInDouble) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Cannot book an appointment in the past'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                      return;
+                    }
+                  }
+
+                  setState(() {
+                    _selectedTime = picked;
+                  });
+                  state.didChange(picked);
                 }
               },
               child: InputDecorator(
