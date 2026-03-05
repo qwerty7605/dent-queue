@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Appointment;
+use App\Models\Service;
 use App\Services\AppointmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +23,39 @@ class AppointmentController extends Controller
         return response()->json([
             'appointments' => $this->appointmentService->getPatientAppointments((int) $request->user()->id),
         ]);
+    }
+
+    /**
+     * Store a newly created appointment in storage.
+     */
+    public function storeAdmin(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'patient_id' => ['required', 'integer', 'exists:users,id'],
+            'service_type' => ['required', 'string', 'exists:services,name'],
+            'appointment_date' => ['required', 'date_format:Y-m-d'],
+            'appointment_time' => ['required', 'string'],
+        ]);
+
+        $service = Service::query()->where('name', (string) $payload['service_type'])->first();
+
+        if ($service === null) {
+            return response()->json([
+                'message' => 'The selected service type is invalid.',
+            ], 422);
+        }
+
+        $appointment = $this->appointmentService->createAppointment([
+            'patient_id' => (int) $payload['patient_id'],
+            'service_id' => (int) $service->id,
+            'appointment_date' => (string) $payload['appointment_date'],
+            'time_slot' => (string) $payload['appointment_time'],
+        ]);
+
+        return response()->json([
+            'message' => 'Appointment created successfully.',
+            'appointment' => $this->formatAppointmentResponse($appointment),
+        ], 201);
     }
 
     /**
@@ -104,5 +139,18 @@ class AppointmentController extends Controller
         }
 
         return $request->validate($rules);
+    }
+
+    private function formatAppointmentResponse(Appointment $appointment): array
+    {
+        return [
+            'id' => (int) $appointment->id,
+            'patient_id' => (int) $appointment->patient_id,
+            'service_type' => (string) optional($appointment->service)->name,
+            'appointment_date' => (string) $appointment->appointment_date,
+            'appointment_time' => (string) $appointment->time_slot,
+            'status' => ucfirst((string) $appointment->status),
+            'timestamp_created' => optional($appointment->created_at)?->toDateTimeString(),
+        ];
     }
 }

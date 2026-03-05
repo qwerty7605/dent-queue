@@ -30,7 +30,7 @@ class AppointmentService
                 'service_id' => $data['service_id'],
                 'appointment_date' => $validatedBooking['appointment_date'],
                 'time_slot' => $validatedBooking['time_slot'],
-                'status' => $data['status'] ?? 'pending',
+                'status' => 'pending',
             ])->load(['patient', 'service']);
         }
         catch (QueryException $exception) {
