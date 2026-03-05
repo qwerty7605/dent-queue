@@ -23,6 +23,8 @@ Route::prefix('v1')->group(function () {
         // Admin/Staff routes
         Route::prefix('admin')->middleware('role:admin,staff')->group(function () {
             Route::apiResource('services', ServiceController::class);
+            Route::post('/appointments/walk-in', [AppointmentController::class, 'storeWalkIn']);
+            Route::post('/appointments/follow-up', [AppointmentController::class, 'storeFollowUp']);
             Route::post('/queues/call-next', [QueueController::class, 'callNext']);
             Route::apiResource('reports', ReportController::class);
         });
