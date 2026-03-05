@@ -19,10 +19,16 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'full_name',
+        'first_name',
+        'middle_name',
+        'last_name',
+        'username',
         'email',
         'password',
         'phone_number',
+        'birthdate',
+        'location',
+        'gender',
         'role_id',
         'is_active',
     ];
@@ -35,12 +41,14 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
+
+
     /**
      * Get the appointments for the user (as a patient).
      */
     public function appointments()
     {
-        return $this->hasMany(Appointment::class, 'patient_id');
+        return $this->hasMany(Appointment::class , 'patient_id');
     }
 
     /**
@@ -62,6 +70,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'birthdate' => 'date',
             'password' => 'hashed',
         ];
     }
