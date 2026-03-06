@@ -26,6 +26,17 @@ class AppointmentService
     {
         $validatedBooking = $this->bookingRulesEngine->validate($data);
 
+        $existingAppointment = Appointment::where('patient_id', $data['patient_id'])
+            ->where('appointment_date', $validatedBooking['appointment_date'])
+            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+            ->exists();
+
+        if ($existingAppointment) {
+            throw ValidationException::withMessages([
+                'appointment_date' => ['You already have a booking for this date.'],
+            ]);
+        }
+
         return DB::transaction(function () use ($data, $validatedBooking) {
             try {
                 $appointment = Appointment::create([
@@ -34,6 +45,7 @@ class AppointmentService
                     'appointment_date' => $validatedBooking['appointment_date'],
                     'time_slot' => $validatedBooking['time_slot'],
                     'status' => 'pending',
+                    'notes' => $data['notes'] ?? null,
                 ]);
 
                 $lastQueue = Queue::where('queue_date', $validatedBooking['appointment_date'])

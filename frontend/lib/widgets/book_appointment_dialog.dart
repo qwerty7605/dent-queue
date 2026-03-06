@@ -23,6 +23,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   TimeOfDay? _selectedTime;
   final TextEditingController _notesController = TextEditingController();
 
+  String? _apiErrorMessage;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+
   final List<Map<String, dynamic>> _services = [
     {'id': 1, 'name': 'Dental Check-up'},
     {'id': 2, 'name': 'Dental Panoramic X-ray'},
@@ -47,6 +50,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   }
 
   Future<void> _submit() async {
+    setState(() => _apiErrorMessage = null);
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {
@@ -54,6 +58,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
           'service_id': int.parse(_selectedService!),
           'appointment_date': '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
           'time_slot': '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+          'notes': _notesController.text.trim(),
         };
         final response = await _appointmentService.createAppointment(payload);
         
@@ -85,24 +90,23 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
         if (!mounted) return;
         setState(() => _isLoading = false);
         String errorMessage = 'Failed to book appointment.';
-        if (e.toString().contains('already has a booking')) {
+        if (e.toString().contains('already have a booking for this time slot')) {
           errorMessage = 'You already have a booking for this time slot.';
+        } else if (e.toString().contains('already have a booking for this date')) {
+          errorMessage = 'You already have a booking for this date.';
         } else if (e.toString().contains('daily limit')) {
           errorMessage = 'The daily limit of 50 patients has been reached for this date.';
         } else if (e.toString().contains('Sunday')) {
           errorMessage = 'Sunday bookings are not allowed.';
-        } else if (e.toString().contains('past')) {
+        } else if (e.toString().contains('Past dates')) {
           errorMessage = 'Cannot book an appointment in the past.';
         } else {
           errorMessage = e.toString().replaceAll('ApiException: ', '');
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+        setState(() => _apiErrorMessage = errorMessage);
       }
+    } else {
+      setState(() => _autoValidateMode = AutovalidateMode.always);
     }
   }
 
@@ -129,6 +133,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
           padding: const EdgeInsets.all(24.0),
           child: Form(
             key: _formKey,
+            autovalidateMode: _autoValidateMode,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +160,36 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+                
+                if (_apiErrorMessage != null)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1F1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _apiErrorMessage!,
+                            style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                 // Service Type Dropdown
                 _buildLabel('SERVICE TYPE'),
@@ -196,8 +230,10 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   onChanged: (val) {
                     setState(() {
                       _selectedService = val;
-                      _formKey.currentState?.validate();
+                      _apiErrorMessage = null;
+                      _autoValidateMode = AutovalidateMode.always;
                     });
+                    _formKey.currentState?.validate();
                   },
                   validator: (value) => value == null ? 'Required' : null,
                 ),
@@ -249,8 +285,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                     ),
                   ),
                   style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
-                  validator: (value) =>
-                      value == null || value.trim().isEmpty ? 'Required' : null,
+                  validator: (value) => null, // Optional field
                 ),
                 const SizedBox(height: 32),
 
@@ -399,12 +434,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
             InkWell(
               onTap: () async {
                 if (_selectedDate == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please select a date first'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
+                  setState(() => _apiErrorMessage = 'Please select a date first');
                   return;
                 }
 
@@ -438,7 +468,10 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                           ),
                         ),
                       ),
-                      child: child!,
+                      child: MediaQuery(
+                        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+                        child: child!,
+                      ),
                     );
                   },
                 );
@@ -449,12 +482,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   // Rule 1: Prevent time selection outside 7:30 AM (7.5) - 6:00 PM (18.0)
                   if (timeInDouble < 7.5 || timeInDouble > 18.0) {
                     if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please select a time between 7:30 AM and 6:00 PM'),
-                        backgroundColor: Colors.redAccent,
-                      ),
-                    );
+                    setState(() => _apiErrorMessage = 'Please select a time between 7:30 AM and 6:00 PM');
                     return;
                   }
 
@@ -468,12 +496,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                     final double nowInDouble = now.hour + now.minute / 60.0;
                     if (timeInDouble <= nowInDouble) {
                       if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Cannot book an appointment in the past'),
-                          backgroundColor: Colors.redAccent,
-                        ),
-                      );
+                      setState(() => _apiErrorMessage = 'Cannot book an appointment in the past');
                       return;
                     }
                   }
@@ -506,7 +529,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                 child: Text(
                   _selectedTime == null
                       ? '--:-- --'
-                      : _selectedTime!.format(context),
+                      : '${_selectedTime!.hourOfPeriod == 0 ? 12 : _selectedTime!.hourOfPeriod}:${_selectedTime!.minute.toString().padLeft(2, '0')} ${_selectedTime!.period == DayPeriod.am ? 'AM' : 'PM'}',
                   style: TextStyle(
                     color: _selectedTime == null ? const Color(0xFF94A3B8) : const Color(0xFF2C3E50),
                     fontSize: 14,

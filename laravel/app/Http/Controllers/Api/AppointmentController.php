@@ -37,6 +37,7 @@ class AppointmentController extends Controller
             'service_type' => ['required', 'string', 'exists:services,name'],
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'appointment_time' => ['required', 'string'],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $service = Service::query()->where('name', (string) $payload['service_type'])->first();
@@ -52,6 +53,7 @@ class AppointmentController extends Controller
             'service_id' => (int) $service->id,
             'appointment_date' => (string) $payload['appointment_date'],
             'time_slot' => (string) $payload['appointment_time'],
+            'notes' => $payload['notes'] ?? null,
         ]);
 
         return response()->json([
@@ -70,9 +72,11 @@ class AppointmentController extends Controller
 
         $appointment = $this->appointmentService->createAppointment($payload);
 
+        $appointment->load('queue');
+
         return response()->json([
             'message' => 'Online booking created successfully.',
-            'appointment' => $appointment,
+            'appointment' => $this->formatAppointmentResponse($appointment),
         ], 201);
     }
 
@@ -84,9 +88,11 @@ class AppointmentController extends Controller
         $payload = $this->validateBookingPayload($request, true);
         $appointment = $this->appointmentService->createAppointment($payload);
 
+        $appointment->load('queue');
+
         return response()->json([
             'message' => 'Walk-in booking created successfully.',
-            'appointment' => $appointment,
+            'appointment' => $this->formatAppointmentResponse($appointment),
         ], 201);
     }
 
@@ -98,9 +104,11 @@ class AppointmentController extends Controller
         $payload = $this->validateBookingPayload($request, true);
         $appointment = $this->appointmentService->createAppointment($payload);
 
+        $appointment->load('queue');
+
         return response()->json([
             'message' => 'Follow-up booking created successfully.',
-            'appointment' => $appointment,
+            'appointment' => $this->formatAppointmentResponse($appointment),
         ], 201);
     }
 
@@ -134,6 +142,7 @@ class AppointmentController extends Controller
             'service_id' => ['required', 'integer', 'between:1,6'],
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'time_slot' => ['required', 'string'],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ];
 
         if ($requirePatientId) {
@@ -162,6 +171,7 @@ class AppointmentController extends Controller
             'status' => ucfirst((string) $appointment->status),
             'queue_number' => $appointment->queue ? str_pad((string) $appointment->queue->queue_number, 2, '0', STR_PAD_LEFT) : null,
             'timestamp_created' => optional($appointment->created_at)?->toDateTimeString(),
+            'notes' => (string) $appointment->notes,
         ];
     }
 }
