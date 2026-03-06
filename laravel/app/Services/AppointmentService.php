@@ -46,46 +46,32 @@ class AppointmentService
     {
         $validatedBooking = $this->bookingRulesEngine->validate($data);
 
-        return DB::transaction(function () use ($data, $validatedBooking) {
-            $appointment = $this->createAppointmentRecord($data, $validatedBooking);
-            $this->assignQueueNumberOrFail(
-                appointmentId: (int) $appointment->id,
-                appointmentDate: (string) $validatedBooking['appointment_date'],
-            );
+        $existingAppointment = Appointment::where('patient_id', $data['patient_id'])
+            ->where('appointment_date', $validatedBooking['appointment_date'])
+            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+            ->exists();
 
-            return $appointment->load(['patient', 'queue']);
-        });
-    }
-
-    private function createAppointmentRecord(array $data, array $validatedBooking): Appointment
-    {
-        try {
-            return Appointment::create([
-                'patient_id' => $data['patient_id'],
-                'service_id' => $data['service_id'],
-                'appointment_date' => $validatedBooking['appointment_date'],
-                'time_slot' => $validatedBooking['time_slot'],
-                'status' => 'pending',
+        if ($existingAppointment) {
+            throw ValidationException::withMessages([
+                'appointment_date' => ['You already have a booking for this date.'],
             ]);
         }
-        catch (QueryException $exception) {
-            if ($this->isUniqueConstraintViolation($exception)) {
-                throw ValidationException::withMessages([
-                    'time_slot' => ['This patient already has a booking for the selected date and time.'],
+
+        return DB::transaction(function () use ($data, $validatedBooking) {
+            try {
+                $appointment = Appointment::create([
+                    'patient_id' => $data['patient_id'],
+                    'service_id' => $data['service_id'],
+                    'appointment_date' => $validatedBooking['appointment_date'],
+                    'time_slot' => $validatedBooking['time_slot'],
+                    'status' => 'pending',
+                    'notes' => $data['notes'] ?? null,
                 ]);
-            }
 
-            throw $exception;
-        }
-    }
-
-    private function assignQueueNumberOrFail(int $appointmentId, string $appointmentDate): void
-    {
-        for ($attempt = 0; $attempt < self::MAX_QUEUE_ASSIGNMENT_RETRIES; $attempt++) {
-            $lastQueue = Queue::where('queue_date', $appointmentDate)
-                ->lockForUpdate()
-                ->orderByDesc('queue_number')
-                ->first();
+                $lastQueue = Queue::where('queue_date', $validatedBooking['appointment_date'])
+                    ->lockForUpdate()
+                    ->orderByDesc('queue_number')
+                    ->first();
 
             $nextQueueNumber = $lastQueue ? ((int) $lastQueue->queue_number + 1) : 1;
             if ($nextQueueNumber > self::DAILY_QUEUE_LIMIT) {

@@ -12,6 +12,7 @@ class Appointment extends Model
         'appointment_date',
         'time_slot',
         'status',
+        'notes',
     ];
 
     public function patient()

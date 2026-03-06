@@ -6,6 +6,7 @@ import '../services/appointment_service.dart';
 
 import '../widgets/book_appointment_dialog.dart';
 import '../widgets/edit_profile_dialog.dart';
+import '../widgets/appointment_details_dialog.dart';
 
 class PatientDashboardView extends StatefulWidget {
   const PatientDashboardView({
@@ -630,26 +631,47 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   Widget _buildAppointmentCard(Map<String, dynamic> appt) {
     final serviceType = appt['service_type']?.toString() ?? 'Service';
     final date = appt['appointment_date']?.toString() ?? 'YYYY-MM-DD';
-    final time = appt['appointment_time']?.toString() ?? '--:--';
+    String formattedTime = '--:--';
+    final rawTime = appt['appointment_time']?.toString() ?? '--:--';
+    if (rawTime != '--:--') {
+      try {
+        final parts = rawTime.split(':');
+        final hour = int.parse(parts[0]);
+        final minute = parts.length > 1 ? parts[1] : '00';
+        final amPm = hour >= 12 ? 'PM' : 'AM';
+        final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+        formattedTime = '$displayHour:$minute $amPm';
+      } catch (e) {
+        formattedTime = rawTime;
+      }
+    }
+    final time = formattedTime;
     final queue = appt['queue_number']?.toString() ?? '--';
     final initial = serviceType.isNotEmpty ? serviceType[0].toUpperCase() : 'S';
     final status = appt['status']?.toString().toLowerCase() ?? 'pending';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
+    return GestureDetector(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (context) => AppointmentDetailsDialog(appointment: appt),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -754,6 +776,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
             ),
         ],
       ),
-    );
+    ),
+  );
   }
 }
