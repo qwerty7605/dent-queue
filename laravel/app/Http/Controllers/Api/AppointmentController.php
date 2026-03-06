@@ -20,8 +20,10 @@ class AppointmentController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $appointments = $this->appointmentService->getPatientAppointments((int) $request->user()->id);
+        
         return response()->json([
-            'appointments' => $this->appointmentService->getPatientAppointments((int) $request->user()->id),
+            'appointments' => $appointments->map(fn ($appointment) => $this->formatAppointmentResponse($appointment)),
         ]);
     }
 
@@ -129,7 +131,7 @@ class AppointmentController extends Controller
     private function validateBookingPayload(Request $request, bool $requirePatientId): array
     {
         $rules = [
-            'service_id' => ['required', 'integer', 'exists:services,id'],
+            'service_id' => ['required', 'integer', 'between:1,6'],
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'time_slot' => ['required', 'string'],
         ];
@@ -146,10 +148,19 @@ class AppointmentController extends Controller
         return [
             'id' => (int) $appointment->id,
             'patient_id' => (int) $appointment->patient_id,
-            'service_type' => (string) optional($appointment->service)->name,
+            'service_type' => match ((int) $appointment->service_id) {
+                1 => 'Dental Check-up',
+                2 => 'Dental Panoramic X-ray',
+                3 => 'Root Canal',
+                4 => 'Teeth Cleaning',
+                5 => 'Teeth Whitening',
+                6 => 'Tooth Extraction',
+                default => 'Unknown Service',
+            },
             'appointment_date' => (string) $appointment->appointment_date,
             'appointment_time' => (string) $appointment->time_slot,
             'status' => ucfirst((string) $appointment->status),
+            'queue_number' => $appointment->queue ? str_pad((string) $appointment->queue->queue_number, 2, '0', STR_PAD_LEFT) : null,
             'timestamp_created' => optional($appointment->created_at)?->toDateTimeString(),
         ];
     }

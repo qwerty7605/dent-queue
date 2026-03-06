@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../core/api_client.dart';
+import '../core/token_storage.dart';
+import '../services/base_service.dart';
+import '../services/appointment_service.dart';
+
 class BookAppointmentDialog extends StatefulWidget {
   const BookAppointmentDialog({super.key});
 
@@ -10,19 +15,30 @@ class BookAppointmentDialog extends StatefulWidget {
 class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   final _formKey = GlobalKey<FormState>();
 
+  late final AppointmentService _appointmentService;
+  bool _isLoading = false;
+
   String? _selectedService;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   final TextEditingController _notesController = TextEditingController();
 
-  final List<String> _services = [
-    'Dental Check-up',
-    'Dental Panoramic X-ray',
-    'Root Canal',
-    'Teeth Cleaning',
-    'Teeth Whitening',
-    'Tooth Extraction',
+  final List<Map<String, dynamic>> _services = [
+    {'id': 1, 'name': 'Dental Check-up'},
+    {'id': 2, 'name': 'Dental Panoramic X-ray'},
+    {'id': 3, 'name': 'Root Canal'},
+    {'id': 4, 'name': 'Teeth Cleaning'},
+    {'id': 5, 'name': 'Teeth Whitening'},
+    {'id': 6, 'name': 'Tooth Extraction'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _appointmentService = AppointmentService(
+      BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
+    );
+  }
 
   @override
   void dispose() {
@@ -30,10 +46,63 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
-      // Close dialog successfully, here we would normally pass the data back or call an API
-      Navigator.of(context).pop();
+      setState(() => _isLoading = true);
+      try {
+        final payload = {
+          'service_id': int.parse(_selectedService!),
+          'appointment_date': '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
+          'time_slot': '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+        };
+        final response = await _appointmentService.createAppointment(payload);
+        
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        
+        final appointment = response['appointment'] as Map<String, dynamic>?;
+        final queueNumber = appointment?['queue_number']?.toString() ?? '--';
+
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Booking Confirmed', style: TextStyle(color: Color(0xFF679B6A), fontWeight: FontWeight.bold)),
+            content: Text('Your appointment has been successfully booked.\n\nYour Queue Number is: #$queueNumber', style: const TextStyle(fontSize: 16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); 
+                  Navigator.of(context).pop(true);
+                },
+                child: const Text('OK', style: TextStyle(color: Color(0xFF679B6A), fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        String errorMessage = 'Failed to book appointment.';
+        if (e.toString().contains('already has a booking')) {
+          errorMessage = 'You already have a booking for this time slot.';
+        } else if (e.toString().contains('daily limit')) {
+          errorMessage = 'The daily limit of 50 patients has been reached for this date.';
+        } else if (e.toString().contains('Sunday')) {
+          errorMessage = 'Sunday bookings are not allowed.';
+        } else if (e.toString().contains('past')) {
+          errorMessage = 'Cannot book an appointment in the past.';
+        } else {
+          errorMessage = e.toString().replaceAll('ApiException: ', '');
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
@@ -116,10 +185,10 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   isExpanded: true,
                   value: _selectedService,
                   items: _services.map((service) {
-                    return DropdownMenuItem(
-                      value: service,
+                    return DropdownMenuItem<String>(
+                      value: service['id'].toString(),
                       child: Text(
-                        service,
+                        service['name'].toString(),
                         style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
                       ),
                     );
@@ -190,7 +259,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _submit,
+                    onPressed: _isLoading ? null : _submit,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF679B6A),
                       shape: RoundedRectangleBorder(
@@ -198,14 +267,16 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'Confirm Booking',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text(
+                            'Confirm Booking',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ],

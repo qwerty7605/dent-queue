@@ -1,0 +1,40 @@
+import '../core/endpoints.dart';
+import 'base_service.dart';
+
+class AppointmentService {
+  AppointmentService(this._baseService);
+  final BaseService _baseService;
+
+  Future<List<Map<String, dynamic>>> getServices() async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.services,
+      (data) => data,
+    );
+    if (response is Map<String, dynamic> && response.containsKey('services')) {
+      final servicesList = response['services'] as List<dynamic>;
+      return servicesList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> createAppointment(Map<String, dynamic> payload) async {
+    final response = await _baseService.postJson<dynamic>(
+      Endpoints.appointments,
+      payload,
+      (data) => data,
+    );
+    return response as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> getPatientAppointments() async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.appointments,
+      (data) => data,
+    );
+    if (response is Map<String, dynamic> && response.containsKey('appointments')) {
+      final appointmentsList = response['appointments'] as List<dynamic>;
+      return appointmentsList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+}
