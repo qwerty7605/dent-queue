@@ -12,6 +12,23 @@ class AppointmentService
 {
     private const DAILY_QUEUE_LIMIT = 50;
     private const MAX_QUEUE_ASSIGNMENT_RETRIES = 5;
+    private const STATUS_PENDING = 'pending';
+    private const STATUS_CONFIRMED = 'confirmed';
+    private const STATUS_CANCELLED = 'cancelled';
+    private const STATUS_COMPLETED = 'completed';
+    private const STATUS_ALIASES = [
+        self::STATUS_PENDING => self::STATUS_PENDING,
+        'approved' => self::STATUS_CONFIRMED,
+        self::STATUS_CONFIRMED => self::STATUS_CONFIRMED,
+        self::STATUS_CANCELLED => self::STATUS_CANCELLED,
+        self::STATUS_COMPLETED => self::STATUS_COMPLETED,
+    ];
+    private const STATUS_TRANSITIONS = [
+        self::STATUS_PENDING => [self::STATUS_CONFIRMED, self::STATUS_CANCELLED],
+        self::STATUS_CONFIRMED => [self::STATUS_COMPLETED, self::STATUS_CANCELLED],
+        self::STATUS_COMPLETED => [],
+        self::STATUS_CANCELLED => [],
+    ];
 
     public function __construct(protected BookingRulesEngine $bookingRulesEngine)
     {
@@ -117,16 +134,53 @@ class AppointmentService
 
     public function updateStatus(Appointment $appointment, string $status)
     {
-        $allowedStatuses = ['pending', 'confirmed', 'cancelled', 'completed'];
-        if (!in_array($status, $allowedStatuses, true)) {
+        $targetStatus = $this->normalizeStatus($status);
+        if ($targetStatus === null) {
             throw ValidationException::withMessages([
-                'status' => ['Status must be one of: pending, confirmed, cancelled, completed.'],
+                'status' => ['Status must be one of: pending, approved, cancelled, completed.'],
             ]);
         }
 
-        $appointment->update(['status' => $status]);
+        $currentStatus = $this->normalizeStatus((string) $appointment->status);
+        if ($currentStatus === null) {
+            throw ValidationException::withMessages([
+                'status' => ['Current appointment status is invalid and cannot be transitioned.'],
+            ]);
+        }
+
+        if ($currentStatus !== $targetStatus) {
+            $allowedTransitions = self::STATUS_TRANSITIONS[$currentStatus] ?? [];
+            if (!in_array($targetStatus, $allowedTransitions, true)) {
+                throw ValidationException::withMessages([
+                    'status' => [
+                        sprintf(
+                            'Invalid status transition: %s -> %s.',
+                            $this->displayStatusLabel($currentStatus),
+                            $this->displayStatusLabel($targetStatus),
+                        ),
+                    ],
+                ]);
+            }
+
+            $appointment->update(['status' => $targetStatus]);
+        }
 
         return $appointment->fresh(['patient', 'queue']);
+    }
+
+    private function normalizeStatus(string $status): ?string
+    {
+        $normalized = mb_strtolower(trim($status));
+
+        return self::STATUS_ALIASES[$normalized] ?? null;
+    }
+
+    private function displayStatusLabel(string $status): string
+    {
+        return match ($status) {
+            self::STATUS_CONFIRMED => 'approved',
+            default => $status,
+        };
     }
 
     public function getPatientAppointments(int $patientId)

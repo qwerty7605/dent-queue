@@ -104,6 +104,23 @@ class AppointmentController extends Controller
         ], 201);
     }
 
+    public function updateStatus(Request $request, Appointment $appointment): JsonResponse
+    {
+        $payload = $request->validate([
+            'status' => ['required', 'string'],
+        ]);
+
+        $updatedAppointment = $this->appointmentService->updateStatus(
+            $appointment,
+            (string) $payload['status'],
+        );
+
+        return response()->json([
+            'message' => 'Appointment status updated successfully.',
+            'appointment' => $this->formatAppointmentResponse($updatedAppointment),
+        ]);
+    }
+
     /**
      * Display the specified resource.
      */
