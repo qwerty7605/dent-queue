@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import '../core/api_client.dart';
+import '../core/token_storage.dart';
+import '../services/base_service.dart';
+import '../services/appointment_service.dart';
+
 import '../widgets/book_appointment_dialog.dart';
 import '../widgets/edit_profile_dialog.dart';
 
@@ -20,6 +25,34 @@ class PatientDashboardView extends StatefulWidget {
 
 class _PatientDashboardViewState extends State<PatientDashboardView> {
   int _selectedIndex = 0; // 0 for Appointments, 1 for Profile
+
+  late final AppointmentService _appointmentService;
+  List<Map<String, dynamic>> _appointments = [];
+  bool _isLoadingAppointments = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _appointmentService = AppointmentService(
+      BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
+    );
+    _loadAppointments();
+  }
+
+  Future<void> _loadAppointments() async {
+    setState(() => _isLoadingAppointments = true);
+    try {
+      final list = await _appointmentService.getPatientAppointments();
+      if (!mounted) return;
+      setState(() {
+        _appointments = list;
+        _isLoadingAppointments = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingAppointments = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,11 +86,14 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       ),
       body: _selectedIndex == 0 ? _buildBody() : _buildProfileView(),
       floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
-        onPressed: () {
-          showDialog(
+        onPressed: () async {
+          final result = await showDialog(
             context: context,
             builder: (context) => const BookAppointmentDialog(),
           );
+          if (result == true) {
+            _loadAppointments();
+          }
         },
         backgroundColor: const Color(0xFF679B6A),
         shape: const CircleBorder(),
@@ -186,46 +222,55 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
         const SizedBox(height: 24),
         
         // Status Cards Grid
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 1.35,
-            children: [
-              _buildStatusCard(
-                title: 'PENDING',
-                count: '0',
-                icon: Icons.access_time_filled,
-                color: Colors.orange,
-                backgroundColor: const Color(0xFFFFF7EF),
+        Builder(
+          builder: (context) {
+            final pendingCount = _appointments.where((a) => a['status']?.toString().toLowerCase() == 'pending').length;
+            final approvedCount = _appointments.where((a) => a['status']?.toString().toLowerCase() == 'confirmed').length;
+            final completedCount = _appointments.where((a) => a['status']?.toString().toLowerCase() == 'completed').length;
+            final cancelledCount = _appointments.where((a) => a['status']?.toString().toLowerCase() == 'cancelled').length;
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 1.35,
+                children: [
+                  _buildStatusCard(
+                    title: 'PENDING',
+                    count: pendingCount.toString(),
+                    icon: Icons.access_time_filled,
+                    color: Colors.orange,
+                    backgroundColor: const Color(0xFFFFF7EF),
+                  ),
+                  _buildStatusCard(
+                    title: 'APPROVED',
+                    count: approvedCount.toString(),
+                    icon: Icons.check_circle_outline,
+                    color: Colors.blue,
+                    backgroundColor: const Color(0xFFF1F7FF),
+                  ),
+                  _buildStatusCard(
+                    title: 'COMPLETED',
+                    count: completedCount.toString(),
+                    icon: Icons.medical_services_outlined, 
+                    color: Colors.green,
+                    backgroundColor: const Color(0xFFF1FFF7),
+                  ),
+                  _buildStatusCard(
+                    title: 'CANCELLED',
+                    count: cancelledCount.toString(),
+                    icon: Icons.cancel_outlined,
+                    color: Colors.redAccent,
+                    backgroundColor: const Color(0xFFFFF1F1),
+                  ),
+                ],
               ),
-              _buildStatusCard(
-                title: 'APPROVED',
-                count: '0',
-                icon: Icons.check_circle_outline,
-                color: Colors.blue,
-                backgroundColor: const Color(0xFFF1F7FF),
-              ),
-              _buildStatusCard(
-                title: 'COMPLETED',
-                count: '0',
-                icon: Icons.medical_services_outlined, // Stethoscope like icon
-                color: Colors.green,
-                backgroundColor: const Color(0xFFF1FFF7),
-              ),
-              _buildStatusCard(
-                title: 'CANCELLED',
-                count: '0',
-                icon: Icons.cancel_outlined,
-                color: Colors.redAccent,
-                backgroundColor: const Color(0xFFFFF1F1),
-              ),
-            ],
-          ),
+            );
+          }
         ),
         
         const SizedBox(height: 24),
@@ -249,21 +294,34 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
           ),
         ),
         
-        const Spacer(),
+        const SizedBox(height: 16),
         
-        // Empty State
-        const Center(
-          child: Text(
-            'No Appointment Yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
+        // The list or empty state
+        if (_isLoadingAppointments)
+          const Expanded(child: Center(child: CircularProgressIndicator()))
+        else if (_appointments.isEmpty)
+          const Expanded(
+            child: Center(
+              child: Text(
+                'No Appointment Yet',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+              itemCount: _appointments.length,
+              itemBuilder: (context, index) {
+                return _buildAppointmentCard(_appointments[index]);
+              },
             ),
           ),
-        ),
-        
-        const Spacer(flex: 2),
       ],
     );
   }
@@ -565,6 +623,136 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAppointmentCard(Map<String, dynamic> appt) {
+    final serviceType = appt['service_type']?.toString() ?? 'Service';
+    final date = appt['appointment_date']?.toString() ?? 'YYYY-MM-DD';
+    final time = appt['appointment_time']?.toString() ?? '--:--';
+    final queue = appt['queue_number']?.toString() ?? '--';
+    final initial = serviceType.isNotEmpty ? serviceType[0].toUpperCase() : 'S';
+    final status = appt['status']?.toString().toLowerCase() ?? 'pending';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                // Icon wrapper
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F7FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(
+                      initial,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        serviceType,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF94A3B8)),
+                          const SizedBox(width: 4),
+                          Text(date, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                          const SizedBox(width: 12),
+                          const Icon(Icons.access_time_outlined, size: 14, color: Color(0xFF94A3B8)),
+                          const SizedBox(width: 4),
+                          Text(time, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Queue Num
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      'QUEUE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF7E8CA0),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Text(
+                      '#$queue',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF679B6A),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (status == 'pending')
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFF1F1),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+                border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+              ),
+              child: const Center(
+                child: Text(
+                  'CANCEL APPOINTMENT',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

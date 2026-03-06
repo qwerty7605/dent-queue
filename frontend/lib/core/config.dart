@@ -6,8 +6,8 @@ class AppConfig {
 
   // use port 8080 since nginx/docker expose that
   static const androidEmulatorBaseUrl = 'http://80:8080';
-  // replace 192.168.0.42 with your PC's actual LAN IP
-  static const physicalDeviceBaseUrl = 'http://192.168.1.18:8080';
+  // replace 192.168.1.20 with your PC's actual LAN IP
+  static const physicalDeviceBaseUrl = 'http://192.168.1.11:8080';
   static const productionBaseUrl = 'https://example.com'; // TODO
 
   static String get baseUrl {

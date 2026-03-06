@@ -18,9 +18,7 @@ return new class extends Migration
                 ->constrained('users')
                 ->cascadeOnDelete();
 
-            $table->foreignId('service_id')
-                ->constrained('services')
-                ->restrictOnDelete();
+            $table->unsignedBigInteger('service_id');
 
             $table->date('appointment_date');
             $table->string('time_slot');
