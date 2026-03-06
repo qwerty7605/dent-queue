@@ -41,6 +41,19 @@ class BaseService {
     }
   }
 
+  Future<T> patchJson<T>(
+    String path,
+    Object? body,
+    T Function(dynamic json) mapper,
+  ) async {
+    try {
+      final json = await _apiClient.patch(path, body: body);
+      return mapper(json);
+    } on ApiException {
+      rethrow;
+    }
+  }
+
   Future<T> deleteJson<T>(String path, T Function(dynamic json) mapper) async {
     try {
       final json = await _apiClient.delete(path);

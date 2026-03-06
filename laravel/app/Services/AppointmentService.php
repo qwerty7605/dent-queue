@@ -64,44 +64,54 @@ class AppointmentService
                     'service_id' => $data['service_id'],
                     'appointment_date' => $validatedBooking['appointment_date'],
                     'time_slot' => $validatedBooking['time_slot'],
-                    'status' => 'pending',
+                    'status' => self::STATUS_PENDING,
                     'notes' => $data['notes'] ?? null,
                 ]);
+            } catch (QueryException $exception) {
+                if ($this->isUniqueConstraintViolation($exception)) {
+                    throw ValidationException::withMessages([
+                        'time_slot' => ['This patient already has a booking for the selected date and time.'],
+                    ]);
+                }
+                throw $exception;
+            }
 
+            for ($attempt = 0; $attempt < self::MAX_QUEUE_ASSIGNMENT_RETRIES; $attempt++) {
                 $lastQueue = Queue::where('queue_date', $validatedBooking['appointment_date'])
                     ->lockForUpdate()
                     ->orderByDesc('queue_number')
                     ->first();
 
-            $nextQueueNumber = $lastQueue ? ((int) $lastQueue->queue_number + 1) : 1;
-            if ($nextQueueNumber > self::DAILY_QUEUE_LIMIT) {
-                throw ValidationException::withMessages([
-                    'appointment_date' => ['The daily limit of 50 patients has been reached for this date.'],
-                ]);
-            }
+                $nextQueueNumber = $lastQueue ? ((int) $lastQueue->queue_number + 1) : 1;
 
-            try {
-                Queue::create([
-                    'appointment_id' => $appointmentId,
-                    'queue_date' => $appointmentDate,
-                    'queue_number' => $nextQueueNumber,
-                    'is_called' => false,
-                ]);
-
-                return;
-            }
-            catch (QueryException $exception) {
-                if (!$this->isUniqueConstraintViolation($exception)) {
-                    throw $exception;
-                }
-
-                if ($attempt === self::MAX_QUEUE_ASSIGNMENT_RETRIES - 1) {
+                if ($nextQueueNumber > self::DAILY_QUEUE_LIMIT) {
                     throw ValidationException::withMessages([
-                        'appointment_date' => ['Unable to assign a queue number right now. Please retry.'],
+                        'appointment_date' => ['The daily limit of ' . self::DAILY_QUEUE_LIMIT . ' patients has been reached for this date.'],
                     ]);
                 }
+
+                try {
+                    Queue::create([
+                        'appointment_id' => $appointment->id,
+                        'queue_date' => $validatedBooking['appointment_date'],
+                        'queue_number' => $nextQueueNumber,
+                        'is_called' => false,
+                    ]);
+
+                    return $appointment->load(['patient', 'queue']);
+                } catch (QueryException $exception) {
+                    if (!$this->isUniqueConstraintViolation($exception)) {
+                        throw $exception;
+                    }
+
+                    if ($attempt === self::MAX_QUEUE_ASSIGNMENT_RETRIES - 1) {
+                        throw ValidationException::withMessages([
+                            'appointment_date' => ['Unable to assign a queue number right now. Please retry.'],
+                        ]);
+                    }
+                }
             }
-        }
+        });
     }
 
     private function isUniqueConstraintViolation(QueryException $exception): bool

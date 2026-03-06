@@ -27,6 +27,10 @@ class ApiClient {
     return _send('POST', path, body: body);
   }
 
+  Future<dynamic> patch(String path, {Object? body}) async {
+    return _send('PATCH', path, body: body);
+  }
+
   Future<dynamic> put(String path, {Object? body}) async {
     return _send('PUT', path, body: body);
   }
@@ -73,6 +77,11 @@ class ApiClient {
         case 'PUT':
           response = await _client
               .put(uri, headers: headers, body: jsonEncode(body))
+              .timeout(_timeout);
+          break;
+        case 'PATCH':
+          response = await _client
+              .patch(uri, headers: headers, body: jsonEncode(body))
               .timeout(_timeout);
           break;
         case 'DELETE':
