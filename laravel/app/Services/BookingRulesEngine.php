@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Appointment;
+use App\Models\Queue;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -48,8 +48,7 @@ class BookingRulesEngine
                         $validator->errors()->add('appointment_date', 'Sunday bookings are not allowed.');
                     }
 
-                    $appointmentCount = Appointment::where('appointment_date', $appointmentDate->toDateString())
-                        ->whereIn('status', ['pending', 'confirmed', 'completed'])
+                    $appointmentCount = Queue::where('queue_date', $appointmentDate->toDateString())
                         ->count();
 
                     if ($appointmentCount >= 50) {

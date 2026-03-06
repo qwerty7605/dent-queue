@@ -10,6 +10,9 @@ use Illuminate\Validation\ValidationException;
 
 class AppointmentService
 {
+    private const DAILY_QUEUE_LIMIT = 50;
+    private const MAX_QUEUE_ASSIGNMENT_RETRIES = 5;
+
     public function __construct(protected BookingRulesEngine $bookingRulesEngine)
     {
     }
@@ -53,27 +56,49 @@ class AppointmentService
                     ->orderByDesc('queue_number')
                     ->first();
 
-                $nextQueueNumber = $lastQueue ? $lastQueue->queue_number + 1 : 1;
+            $nextQueueNumber = $lastQueue ? ((int) $lastQueue->queue_number + 1) : 1;
+            if ($nextQueueNumber > self::DAILY_QUEUE_LIMIT) {
+                throw ValidationException::withMessages([
+                    'appointment_date' => ['The daily limit of 50 patients has been reached for this date.'],
+                ]);
+            }
 
+            try {
                 Queue::create([
-                    'appointment_id' => $appointment->id,
-                    'queue_date' => $validatedBooking['appointment_date'],
+                    'appointment_id' => $appointmentId,
+                    'queue_date' => $appointmentDate,
                     'queue_number' => $nextQueueNumber,
                     'is_called' => false,
                 ]);
 
-                return $appointment->load(['patient', 'queue']);
+                return;
             }
             catch (QueryException $exception) {
-                if ((string) $exception->getCode() === '23000') {
-                    throw ValidationException::withMessages([
-                        'time_slot' => ['This patient already has a booking for the selected date and time.'],
-                    ]);
+                if (!$this->isUniqueConstraintViolation($exception)) {
+                    throw $exception;
                 }
 
-                throw $exception;
+                if ($attempt === self::MAX_QUEUE_ASSIGNMENT_RETRIES - 1) {
+                    throw ValidationException::withMessages([
+                        'appointment_date' => ['Unable to assign a queue number right now. Please retry.'],
+                    ]);
+                }
             }
-        });
+        }
+    }
+
+    private function isUniqueConstraintViolation(QueryException $exception): bool
+    {
+        $sqlState = (string) ($exception->errorInfo[0] ?? $exception->getCode());
+        if ($sqlState === '23000' || $sqlState === '23505') {
+            return true;
+        }
+
+        $message = mb_strtolower($exception->getMessage());
+
+        return str_contains($message, 'unique constraint')
+            || str_contains($message, 'duplicate entry')
+            || str_contains($message, 'is not unique');
     }
 
     public function updateStatus(Appointment $appointment, string $status)
