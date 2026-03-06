@@ -27,6 +27,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/appointments', [AppointmentController::class, 'storeAdmin']);
             Route::post('/appointments/walk-in', [AppointmentController::class, 'storeWalkIn']);
             Route::post('/appointments/follow-up', [AppointmentController::class, 'storeFollowUp']);
+            Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus']);
             Route::post('/queues/call-next', [QueueController::class, 'callNext']);
             Route::apiResource('reports', ReportController::class);
         });
