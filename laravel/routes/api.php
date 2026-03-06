@@ -36,6 +36,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('patient')->middleware('role:patient')->group(function () {
             Route::get('/services', [ServiceController::class, 'index']);
             Route::apiResource('appointments', AppointmentController::class);
+            Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel']);
             Route::get('/queues/today', [QueueController::class, 'index']);
             Route::post('/queues/join', [QueueController::class, 'store']);
             Route::match(['put', 'patch'], '/profile/{id}', [PatientProfileController::class, 'update'])

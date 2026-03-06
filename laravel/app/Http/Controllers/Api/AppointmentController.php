@@ -129,6 +129,25 @@ class AppointmentController extends Controller
         ]);
     }
 
+    public function cancel(Request $request, Appointment $appointment): JsonResponse
+    {
+        if ((int) $appointment->patient_id !== (int) $request->user()->id) {
+            return response()->json([
+                'message' => 'Unauthorized. You can only cancel your own appointments.',
+            ], 403);
+        }
+
+        $updatedAppointment = $this->appointmentService->updateStatus(
+            $appointment,
+            'cancelled',
+        );
+
+        return response()->json([
+            'message' => 'Appointment cancelled successfully.',
+            'appointment' => $this->formatAppointmentResponse($updatedAppointment),
+        ]);
+    }
+
     /**
      * Display the specified resource.
      */

@@ -11,4 +11,5 @@ class Endpoints {
 
   static const services = '$_base/patient/services';
   static const appointments = '$_base/patient/appointments';
+  static String cancelAppointment(int id) => '$_base/patient/appointments/$id/cancel';
 }

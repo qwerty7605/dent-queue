@@ -30,6 +30,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   late final AppointmentService _appointmentService;
   List<Map<String, dynamic>> _appointments = [];
   bool _isLoadingAppointments = true;
+  String? _successMessage;
 
   @override
   void initState() {
@@ -205,6 +206,23 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   Widget _buildBody() {
     return Column(
       children: [
+        if (_successMessage != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFCCCC), // Light red/pink background
+            ),
+            child: Text(
+              _successMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFD32F2F), // Darker red text
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
         const SizedBox(height: 24),
         // Title
         Center(
@@ -619,7 +637,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                       ),
                     ],
                   ),
-                ),
+                 ),
               ),
             ),
           ],
@@ -751,25 +769,28 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
               ],
             ),
           ),
-          if (status == 'pending')
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFF1F1),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(12),
+          if (status == 'pending' || status == 'confirmed')
+            InkWell(
+              onTap: () => _showCancelConfirmationDialog((appt['id'] as num).toInt()),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFF1F1),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                  border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                 ),
-                border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-              ),
-              child: const Center(
-                child: Text(
-                  'CANCEL APPOINTMENT',
-                  style: TextStyle(
-                    color: Colors.redAccent,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                child: const Center(
+                  child: Text(
+                    'CANCEL APPOINTMENT',
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ),
@@ -778,5 +799,121 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       ),
     ),
   );
+  }
+
+  void _showCancelConfirmationDialog(int id) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF1F1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, color: Color(0xFFD32F2F), size: 40),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Cancel Appointment?',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Are you sure you want to cancel this\nappointment? This action cannot be\nundone.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF64748B),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text(
+                        'No, Keep it',
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () async {
+                        Navigator.pop(context); // Close dialog
+                        await _cancelAppointment(id);
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: const Color(0xFFFF4949),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text(
+                        'Yes, Cancel',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _cancelAppointment(int id) async {
+    try {
+      await _appointmentService.cancelAppointment(id);
+      if (!mounted) return;
+      
+      setState(() {
+        _successMessage = 'Appointment Cancelled Successfully!!';
+      });
+      
+      // Load appointments to update UI
+      await _loadAppointments();
+      
+      // Auto-hide success message after 3 seconds
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _successMessage = null;
+          });
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to cancel appointment: $e')),
+      );
+    }
   }
 }

@@ -37,4 +37,13 @@ class AppointmentService {
     }
     return [];
   }
+
+  Future<Map<String, dynamic>> cancelAppointment(int id) async {
+    final response = await _baseService.patchJson<dynamic>(
+      Endpoints.cancelAppointment(id),
+      {},
+      (data) => data,
+    );
+    return response as Map<String, dynamic>;
+  }
 }
