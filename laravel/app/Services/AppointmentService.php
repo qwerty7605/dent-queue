@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\Queue;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AppointmentService
@@ -160,6 +161,29 @@ class AppointmentService
 
             $appointment->update(['status' => $targetStatus]);
         }
+
+        return $appointment->fresh(['patient', 'queue']);
+    }
+
+    public function cancelByPatient(Appointment $appointment, int $patientId): Appointment
+    {
+        $currentStatus = $this->normalizeStatus((string) $appointment->status);
+
+        if (!in_array($currentStatus, [self::STATUS_PENDING, self::STATUS_CONFIRMED], true)) {
+            throw ValidationException::withMessages([
+                'status' => ['Only pending or approved appointments can be cancelled.'],
+            ]);
+        }
+
+        $appointment->update(['status' => self::STATUS_CANCELLED]);
+
+        Log::info('appointment.cancelled.by_patient', [
+            'appointment_id' => (int) $appointment->id,
+            'patient_id' => $patientId,
+            'previous_status' => $currentStatus,
+            'new_status' => self::STATUS_CANCELLED,
+            'occurred_at' => now()->toISOString(),
+        ]);
 
         return $appointment->fresh(['patient', 'queue']);
     }

@@ -137,9 +137,9 @@ class AppointmentController extends Controller
             ], 403);
         }
 
-        $updatedAppointment = $this->appointmentService->updateStatus(
+        $updatedAppointment = $this->appointmentService->cancelByPatient(
             $appointment,
-            'cancelled',
+            (int) $request->user()->id,
         );
 
         return response()->json([
