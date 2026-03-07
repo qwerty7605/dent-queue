@@ -211,4 +211,14 @@ class AppointmentService
             ->orderBy('time_slot')
             ->get();
     }
+
+    public function getPatientCompletedAppointments(int $patientId)
+    {
+        return Appointment::with(['patient', 'queue'])
+            ->where('patient_id', $patientId)
+            ->where('status', self::STATUS_COMPLETED)
+            ->orderByDesc('appointment_date')
+            ->orderByDesc('time_slot')
+            ->get();
+    }
 }
