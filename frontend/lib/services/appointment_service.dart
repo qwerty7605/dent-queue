@@ -12,12 +12,16 @@ class AppointmentService {
     );
     if (response is Map<String, dynamic> && response.containsKey('services')) {
       final servicesList = response['services'] as List<dynamic>;
-      return servicesList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      return servicesList
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
     }
     return [];
   }
 
-  Future<Map<String, dynamic>> createAppointment(Map<String, dynamic> payload) async {
+  Future<Map<String, dynamic>> createAppointment(
+    Map<String, dynamic> payload,
+  ) async {
     final response = await _baseService.postJson<dynamic>(
       Endpoints.appointments,
       payload,
@@ -31,9 +35,12 @@ class AppointmentService {
       Endpoints.appointments,
       (data) => data,
     );
-    if (response is Map<String, dynamic> && response.containsKey('appointments')) {
+    if (response is Map<String, dynamic> &&
+        response.containsKey('appointments')) {
       final appointmentsList = response['appointments'] as List<dynamic>;
-      return appointmentsList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      return appointmentsList
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
     }
     return [];
   }
@@ -43,9 +50,12 @@ class AppointmentService {
       Endpoints.medicalHistory,
       (data) => data,
     );
-    if (response is Map<String, dynamic> && response.containsKey('appointments')) {
+    if (response is Map<String, dynamic> &&
+        response.containsKey('appointments')) {
       final appointmentsList = response['appointments'] as List<dynamic>;
-      return appointmentsList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      return appointmentsList
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
     }
     return [];
   }
@@ -56,6 +66,38 @@ class AppointmentService {
       {},
       (data) => data,
     );
+    return response as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> getAdminAppointmentsByDate(
+    String date,
+  ) async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.adminAppointmentsByDate(date),
+      (data) => data,
+    );
+
+    if (response is Map<String, dynamic> &&
+        response.containsKey('appointments')) {
+      final appointmentsList = response['appointments'] as List<dynamic>;
+      return appointmentsList
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    }
+
+    return [];
+  }
+
+  Future<Map<String, dynamic>> updateAdminAppointmentStatus(
+    int id,
+    String status,
+  ) async {
+    final response = await _baseService.patchJson<dynamic>(
+      Endpoints.adminUpdateAppointmentStatus(id),
+      {'status': status},
+      (data) => data,
+    );
+
     return response as Map<String, dynamic>;
   }
 }

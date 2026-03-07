@@ -4,6 +4,7 @@ import '../core/api_exception.dart';
 import '../core/token_storage.dart';
 import '../services/auth_service.dart';
 import 'patient_dashboard_view.dart';
+import 'staff_dashboard_view.dart';
 
 class DashboardView extends StatefulWidget {
   const DashboardView({
@@ -49,9 +50,9 @@ class _DashboardViewState extends State<DashboardView> {
       widget.onLoggedOut?.call();
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) {
         setState(() {
@@ -64,9 +65,7 @@ class _DashboardViewState extends State<DashboardView> {
   @override
   Widget build(BuildContext context) {
     if (_userInfo == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final name = _userInfo?['name']?.toString() ?? 'User';
@@ -76,6 +75,15 @@ class _DashboardViewState extends State<DashboardView> {
     if (role == 'patient') {
       return PatientDashboardView(
         userInfo: _userInfo,
+        onLogout: () => _logout(),
+        loggingOut: _loggingOut,
+      );
+    }
+
+    if (role == 'staff' || role == 'admin') {
+      return StaffDashboardView(
+        userInfo: _userInfo,
+        tokenStorage: widget.tokenStorage,
         onLogout: () => _logout(),
         loggingOut: _loggingOut,
       );
