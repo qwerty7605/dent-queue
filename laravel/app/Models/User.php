@@ -29,6 +29,7 @@ class User extends Authenticatable
         'birthdate',
         'location',
         'gender',
+        'profile_picture',
         'role_id',
         'is_active',
     ];
