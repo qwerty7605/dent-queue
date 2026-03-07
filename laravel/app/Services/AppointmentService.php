@@ -44,6 +44,45 @@ class AppointmentService
             ->get();
     }
 
+    public function getAppointmentsByDateOrderedQueue(string $date)
+    {
+        return Appointment::query()
+            ->join('queues', 'queues.appointment_id', '=', 'appointments.id')
+            ->join('users', 'users.id', '=', 'appointments.patient_id')
+            ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+            ->where('appointments.appointment_date', $date)
+            ->orderBy('queues.queue_number')
+            ->select([
+                'appointments.id',
+                'appointments.patient_id',
+                'appointments.service_id',
+                'appointments.appointment_date',
+                'appointments.time_slot',
+                'appointments.status',
+                'queues.queue_number',
+                'users.first_name',
+                'users.last_name',
+                'services.name as service_name',
+            ])
+            ->get()
+            ->map(function (Appointment $appointment): array {
+                return [
+                    'id' => (int) $appointment->id,
+                    'patient_name' => trim(
+                        sprintf('%s %s', (string) $appointment->first_name, (string) $appointment->last_name),
+                    ),
+                    'service_type' => $this->resolveServiceType(
+                        $appointment->service_name !== null ? (string) $appointment->service_name : null,
+                        (int) $appointment->service_id,
+                    ),
+                    'time' => (string) $appointment->time_slot,
+                    'status' => ucfirst((string) $appointment->status),
+                    'queue_number' => (int) $appointment->queue_number,
+                    'appointment_date' => (string) $appointment->appointment_date,
+                ];
+            });
+    }
+
     public function createAppointment(array $data)
     {
         $validatedBooking = $this->bookingRulesEngine->validate($data);
@@ -224,6 +263,23 @@ class AppointmentService
             ->orderByDesc('appointment_date')
             ->orderByDesc('time_slot')
             ->get();
+    }
+
+    private function resolveServiceType(?string $serviceName, int $serviceId): string
+    {
+        if ($serviceName !== null && $serviceName !== '') {
+            return $serviceName;
+        }
+
+        return match ($serviceId) {
+            1 => 'Dental Check-up',
+            2 => 'Dental Panoramic X-ray',
+            3 => 'Root Canal',
+            4 => 'Teeth Cleaning',
+            5 => 'Teeth Whitening',
+            6 => 'Tooth Extraction',
+            default => 'Unknown Service',
+        };
     }
 
     private function createBookingNotification(Appointment $appointment): void

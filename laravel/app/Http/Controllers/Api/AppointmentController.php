@@ -36,6 +36,22 @@ class AppointmentController extends Controller
         ]);
     }
 
+    public function indexAdmin(Request $request): JsonResponse
+    {
+        $payload = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $appointments = $this->appointmentService->getAppointmentsByDateOrderedQueue(
+            (string) $payload['date'],
+        );
+
+        return response()->json([
+            'date' => (string) $payload['date'],
+            'appointments' => $appointments,
+        ]);
+    }
+
     /**
      * Store a newly created appointment in storage.
      */
