@@ -71,19 +71,83 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
         await showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            title: const Text('Booking Confirmed', style: TextStyle(color: Color(0xFF679B6A), fontWeight: FontWeight.bold)),
-            content: Text('Your appointment has been successfully booked.\n\nYour Queue Number is: #$queueNumber', style: const TextStyle(fontSize: 16)),
+          builder: (context) => Dialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop(); 
-                  Navigator.of(context).pop(true);
-                },
-                child: const Text('OK', style: TextStyle(color: Color(0xFF679B6A), fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9), // Light green background
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.check_circle_outline,
+                      color: Color(0xFF2E7D32), // Dark green icon
+                      size: 40,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Title
+                  const Text(
+                    'Request Sent!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Description
+                  const Text(
+                    'Your appointment request has been\nsubmitted for review.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF64748B),
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // Great Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(); 
+                        Navigator.of(context).pop(true);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF679B6A),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Great!',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       } catch (e) {

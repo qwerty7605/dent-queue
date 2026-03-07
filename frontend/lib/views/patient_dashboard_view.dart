@@ -33,6 +33,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   List<Map<String, dynamic>> _appointments = [];
   bool _isLoadingAppointments = true;
   String? _successMessage;
+  String _messageType = 'success'; // 'success' or 'error'
   late Map<String, dynamic> _localUserInfo;
 
   @override
@@ -156,7 +157,19 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
             builder: (context) => const BookAppointmentDialog(),
           );
           if (result == true) {
+            setState(() {
+              _successMessage = 'Appointment booked successfully.';
+              _messageType = 'success';
+            });
             _loadAppointments();
+            
+            Future.delayed(const Duration(seconds: 3), () {
+              if (mounted) {
+                setState(() {
+                  _successMessage = null;
+                });
+              }
+            });
           }
         },
         backgroundColor: const Color(0xFF679B6A),
@@ -284,17 +297,37 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFCCCC), // Light red/pink background
+            decoration: BoxDecoration(
+              color: _messageType == 'success' ? const Color(0xFFE8F5E9) : const Color(0xFFFFCCCC),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Text(
-              _successMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFFD32F2F), // Darker red text
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _messageType == 'success' ? Icons.check_circle_outline : Icons.error_outline,
+                  color: _messageType == 'success' ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _successMessage!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _messageType == 'success' ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         const SizedBox(height: 24),
@@ -648,6 +681,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                           setState(() {
                             _localUserInfo = result;
                             _successMessage = 'Profile updated successfully.';
+                            _messageType = 'success';
                           });
                           
                           // Clear the success message after 3 seconds
@@ -1109,6 +1143,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       
       setState(() {
         _successMessage = 'Appointment Cancelled Successfully!!';
+        _messageType = 'error';
       });
       
       // Load appointments to update UI
