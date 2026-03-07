@@ -47,8 +47,11 @@ class PatientProfileController extends Controller
             'gender' => ['sometimes', 'nullable', 'string', 'in:male,female,other'],
             'phone_number' => ['sometimes', 'nullable', 'string', 'max:25'],
             'contact_number' => ['sometimes', 'nullable', 'string', 'max:25'],
+            'profile_picture' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
         ], [
             'birthdate.before_or_equal' => 'Birthdate cannot be in the future.',
+            'profile_picture.image' => 'The profile picture must be an image file.',
+            'profile_picture.max' => 'The profile picture must not be greater than 2MB.',
         ]);
     }
 

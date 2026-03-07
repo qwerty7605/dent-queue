@@ -3,6 +3,8 @@ import '../core/api_client.dart';
 import '../core/token_storage.dart';
 import '../services/base_service.dart';
 import '../services/appointment_service.dart';
+import '../services/http_auth_service.dart';
+import '../core/config.dart';
 
 import '../widgets/book_appointment_dialog.dart';
 import '../widgets/edit_profile_dialog.dart';
@@ -31,10 +33,13 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   List<Map<String, dynamic>> _appointments = [];
   bool _isLoadingAppointments = true;
   String? _successMessage;
+  String _messageType = 'success'; // 'success' or 'error'
+  late Map<String, dynamic> _localUserInfo;
 
   @override
   void initState() {
     super.initState();
+    _localUserInfo = widget.userInfo ?? {};
     _appointmentService = AppointmentService(
       BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
     );
@@ -58,43 +63,113 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
 
   @override
   Widget build(BuildContext context) {
-    final name = widget.userInfo?['name']?.toString() ?? 'User';
+    final Map<String, dynamic> userInfo = _localUserInfo;
+    final name = userInfo['name']?.toString() ?? 'User';
+    final profilePicture = userInfo['profile_picture']?.toString();
+    final String paddedId = userInfo['id']?.toString().padLeft(4, '0') ?? '0002';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5ED), // Faint greyish green for the background
-      appBar: _buildAppBar(name),
+      appBar: _buildAppBar(name, profilePicture),
       drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Color(0xFF679B6A),
+        backgroundColor: Colors.white,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: const Color(0xFF679B6A),
+                      backgroundImage: profilePicture != null 
+                          ? NetworkImage('${AppConfig.baseUrl}$profilePicture') 
+                          : null,
+                      child: profilePicture == null 
+                          ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))
+                          : null,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
+                          Text('ID: SDQ-$paddedId', style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Text(
-                'Menu',
-                style: TextStyle(color: Colors.white, fontSize: 24),
+              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 32),
+                leading: const Icon(Icons.person_outline, color: Color(0xFF679B6A)),
+                title: const Text('Profile', style: TextStyle(color: Color(0xFF679B6A), fontWeight: FontWeight.w600)),
+                onTap: () {
+                  setState(() => _selectedIndex = 1);
+                  Navigator.pop(context);
+                },
               ),
-            ),
-            ListTile(
-              leading: widget.loggingOut 
-                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.logout),
-              title: const Text('Logout'),
-              onTap: widget.loggingOut ? null : widget.onLogout,
-            ),
-          ],
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 32),
+                leading: const Icon(Icons.calendar_today_outlined, color: Color(0xFF679B6A)),
+                title: const Text('My Appointments', style: TextStyle(color: Color(0xFF679B6A), fontWeight: FontWeight.w600)),
+                onTap: () {
+                  setState(() => _selectedIndex = 0);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 32),
+                leading: const Icon(Icons.access_time_outlined, color: Color(0xFF679B6A)),
+                title: const Text('Medical History', style: TextStyle(color: Color(0xFF679B6A), fontWeight: FontWeight.w600)),
+                onTap: () {
+                  setState(() => _selectedIndex = 2);
+                  Navigator.pop(context);
+                },
+              ),
+              const Spacer(),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                leading: widget.loggingOut 
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.logout, color: Colors.red),
+                title: const Text('Logout', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                onTap: widget.loggingOut ? null : widget.onLogout,
+              ),
+            ],
+          ),
         ),
       ),
-      body: _selectedIndex == 0 ? _buildBody() : _buildProfileView(),
-      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
+      body: _selectedIndex == 0 
+          ? _buildBody() 
+          : _selectedIndex == 1 
+              ? _buildProfileView() 
+              : _buildMedicalHistoryView(),
+      floatingActionButton: _selectedIndex != 1 ? FloatingActionButton(
         onPressed: () async {
           final result = await showDialog(
             context: context,
             builder: (context) => const BookAppointmentDialog(),
           );
           if (result == true) {
+            setState(() {
+              _successMessage = 'Appointment booked successfully.';
+              _messageType = 'success';
+            });
             _loadAppointments();
+            
+            Future.delayed(const Duration(seconds: 3), () {
+              if (mounted) {
+                setState(() {
+                  _successMessage = null;
+                });
+              }
+            });
           }
         },
         backgroundColor: const Color(0xFF679B6A),
@@ -106,7 +181,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(String name) {
+  PreferredSizeWidget _buildAppBar(String name, String? profilePicture) {
     return AppBar(
       backgroundColor: const Color(0xFF679B6A), // Green header
       elevation: 0,
@@ -158,44 +233,56 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
         // Profile chip placeholder
         Padding(
           padding: const EdgeInsets.only(right: 16.0),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Row(
-              children: [
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text(
-                      'PATIENT',
-                      style: TextStyle(
-                        color: Colors.orange,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedIndex = 1;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Row(
+                children: [
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'PATIENT',
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                    ),
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 8),
-                const CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.person, color: Colors.grey, size: 20),
-                ),
-              ],
+                    ],
+                  ),
+                  const SizedBox(width: 8),
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Colors.white,
+                    backgroundImage: profilePicture != null 
+                        ? NetworkImage('${AppConfig.baseUrl}$profilePicture') 
+                        : null,
+                    child: profilePicture == null 
+                        ? const Icon(Icons.person, color: Colors.grey, size: 20)
+                        : null,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -210,17 +297,37 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFCCCC), // Light red/pink background
+            decoration: BoxDecoration(
+              color: _messageType == 'success' ? const Color(0xFFE8F5E9) : const Color(0xFFFFCCCC),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Text(
-              _successMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFFD32F2F), // Darker red text
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _messageType == 'success' ? Icons.check_circle_outline : Icons.error_outline,
+                  color: _messageType == 'success' ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _successMessage!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _messageType == 'success' ? const Color(0xFF2E7D32) : const Color(0xFFD32F2F),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         const SizedBox(height: 24),
@@ -345,8 +452,121 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     );
   }
 
+  Widget _buildMedicalHistoryView() {
+    final completedAppts = _appointments
+        .where((a) => a['status']?.toString().toLowerCase() == 'completed')
+        .toList();
+    
+    // Sort by date descending
+    completedAppts.sort((a, b) {
+      final dateA = a['appointment_date']?.toString() ?? '';
+      final dateB = b['appointment_date']?.toString() ?? '';
+      return dateB.compareTo(dateA); // descending
+    });
+
+    return Column(
+      children: [
+        const SizedBox(height: 32),
+        const Text(
+          'Medical History',
+          style: TextStyle(
+            fontSize: 24, 
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF1E293B),
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Your past dental procedure',
+          style: TextStyle(
+            color: Color(0xFF7E8CA0),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 24),
+        if (completedAppts.isEmpty)
+          const Expanded(
+            child: Center(
+              child: Text(
+                'No completed appointments found.',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              itemCount: completedAppts.length,
+              itemBuilder: (context, index) {
+                final appt = completedAppts[index];
+                final serviceType = appt['service_type']?.toString() ?? 'Service';
+                final date = appt['appointment_date']?.toString() ?? 'YYYY-MM-DD';
+                final note = appt['notes']?.toString() ?? appt['reason']?.toString() ?? 'Routine checkup completed.';
+                
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: const Border(left: BorderSide(color: Color(0xFF679B6A), width: 6)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                           Expanded(
+                             child: Text(
+                              serviceType,
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF1E293B)),
+                              overflow: TextOverflow.ellipsis,
+                             ),
+                           ),
+                          const Icon(Icons.check_circle_outline, color: Color(0xFF679B6A), size: 20),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        date,
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '"$note"',
+                          style: const TextStyle(color: Color(0xFF94A3B8), fontStyle: FontStyle.italic, fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildProfileView() {
-    final Map<String, dynamic> userInfo = widget.userInfo ?? {};
+    final Map<String, dynamic> userInfo = _localUserInfo;
     
     // First try "name", if missing then try assembling from first_name, middle_name, last_name
     String fullName = userInfo['name']?.toString() ?? '';
@@ -357,8 +577,16 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
 
     final String address = (userInfo['location'] ?? userInfo['address'])?.toString() ?? 'N/A';
     final String gender = userInfo['gender']?.toString() ?? 'N/A';
-    final String birthdate = userInfo['birthdate']?.toString() ?? 'N/A';
+    
+    String birthdate = userInfo['birthdate']?.toString() ?? 'N/A';
+    // Remove the trailing time like T00:00:00.000000Z
+    if (birthdate.contains('T')) {
+      birthdate = birthdate.split('T')[0];
+    }
+    
     final String contactNumber = (userInfo['phone_number'] ?? userInfo['contact_number'])?.toString() ?? 'N/A';
+    final String? profilePicture = userInfo['profile_picture']?.toString();
+    final String paddedId = userInfo['id']?.toString().padLeft(4, '0') ?? '0002';
 
     return SingleChildScrollView(
       child: Padding(
@@ -375,12 +603,14 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFF679B6A), width: 3),
                   color: const Color(0xFFF8FAFC),
-                  image: const DecorationImage(
-                    image: AssetImage('assets/images/placeholder_baby.png'), // Using a placeholder concept, since no real image is provided. But we can use an Icon
-                    fit: BoxFit.cover,
-                  ),
+                  image: profilePicture != null 
+                    ? DecorationImage(
+                        image: NetworkImage('${AppConfig.baseUrl}$profilePicture'),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
                 ),
-                child: const Icon(Icons.person, size: 80, color: Colors.grey),
+                child: profilePicture == null ? const Icon(Icons.person, size: 80, color: Colors.grey) : null,
               ),
             ),
             const SizedBox(height: 16),
@@ -396,10 +626,10 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Patient Account\nID: SDQ-2',
+            Text(
+              'Patient Account\nID: SDQ-$paddedId',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: Colors.grey,
@@ -440,12 +670,29 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         // Show Edit Profile Dialog
-                        showDialog(
+                        final result = await showDialog(
                           context: context,
-                          builder: (context) => EditProfileDialog(userInfo: widget.userInfo ?? {}),
+                          builder: (context) => EditProfileDialog(userInfo: _localUserInfo),
                         );
+                        // If result is a Map, it means profile was updated
+                        if (result is Map<String, dynamic>) {
+                          setState(() {
+                            _localUserInfo = result;
+                            _successMessage = 'Profile updated successfully.';
+                            _messageType = 'success';
+                          });
+                          
+                          // Clear the success message after 3 seconds
+                          Future.delayed(const Duration(seconds: 3), () {
+                            if (mounted) {
+                              setState(() {
+                                _successMessage = null;
+                              });
+                            }
+                          });
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF679B6A), // Green brand color
@@ -896,6 +1143,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       
       setState(() {
         _successMessage = 'Appointment Cancelled Successfully!!';
+        _messageType = 'error';
       });
       
       // Load appointments to update UI

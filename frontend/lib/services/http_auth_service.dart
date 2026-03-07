@@ -145,6 +145,7 @@ class HttpAuthService implements AuthService {
       'location': user['location'],
       'gender': user['gender'],
       'phone_number': user['phone_number'],
+      'profile_picture': user['profile_picture'],
     };
   }
 }

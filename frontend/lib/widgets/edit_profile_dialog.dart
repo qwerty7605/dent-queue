@@ -1,4 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import '../core/api_client.dart';
+import '../core/config.dart';
+import '../core/token_storage.dart';
+import '../services/base_service.dart';
+import '../services/profile_service.dart';
 
 class EditProfileDialog extends StatefulWidget {
   final Map<String, dynamic> userInfo;
@@ -20,6 +27,9 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   late TextEditingController _genderController;
 
   DateTime? _selectedBirthdate;
+  File? _selectedImage;
+  bool _isLoading = false;
+  late final ProfileService _profileService;
 
   @override
   void initState() {
@@ -59,6 +69,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
         // Handle parsing error
       }
     }
+
+    _profileService = ProfileService(BaseService(ApiClient(tokenStorage: SecureTokenStorage())));
   }
 
   @override
@@ -72,11 +84,79 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     super.dispose();
   }
 
-  void _saveChanges() {
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> _saveChanges() async {
     if (_formKey.currentState!.validate()) {
-      // Logic to save the updated profile info would go here (e.g. API call).
-      // Since API integration is in another ticket, we just pop.
-      Navigator.of(context).pop();
+      setState(() => _isLoading = true);
+      try {
+        final userId = widget.userInfo['id'] as int;
+        
+        // Assemble fields
+        final Map<String, String> fields = {
+          'first_name': _firstNameController.text.trim(),
+          'last_name': _lastNameController.text.trim(),
+        };
+
+        if (_middleNameController.text.trim().isNotEmpty) {
+          fields['middle_name'] = _middleNameController.text.trim();
+        }
+        if (_addressController.text.trim().isNotEmpty) {
+          fields['address'] = _addressController.text.trim();
+        }
+        if (_contactNumberController.text.trim().isNotEmpty) {
+          fields['contact_number'] = _contactNumberController.text.trim();
+        }
+        if (_genderController.text.trim().isNotEmpty) {
+          fields['gender'] = _genderController.text.trim();
+        }
+        if (_selectedBirthdate != null) {
+          fields['birthdate'] = '${_selectedBirthdate!.year}-${_selectedBirthdate!.month.toString().padLeft(2, '0')}-${_selectedBirthdate!.day.toString().padLeft(2, '0')}';
+        }
+
+        final response = await _profileService.updateProfile(
+          userId,
+          fields: fields,
+          profilePicture: _selectedImage,
+        );
+
+        // Update token storage with new user info
+        final tokenStorage = SecureTokenStorage();
+        if (response['user'] != null) {
+          await tokenStorage.writeUserInfo(response['user']);
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile updated successfully.'),
+              backgroundColor: Color(0xFF679B6A),
+            ),
+          );
+          Navigator.of(context).pop(response['user']); // Return the updated user info
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to update profile: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 
@@ -149,16 +229,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                       child: Column(
                         children: [
                           InkWell(
-                            onTap: () {
-                              // ScaffoldMessenger helps inform the user they tapped the upload button
-                              // In the API integration phase, this will trigger the image_picker package
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Profile picture upload functionality will be implemented with the backend API.'),
-                                  backgroundColor: Color(0xFF679B6A),
-                                ),
-                              );
-                            },
+                            onTap: _pickImage,
                             child: Stack(
                               children: [
                                 Container(
@@ -169,7 +240,21 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                                     border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
                                     color: const Color(0xFFF8FAFC),
                                   ),
-                                  child: const Icon(Icons.person, size: 50, color: Colors.grey),
+                                  child: _selectedImage != null
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                                        )
+                                      : widget.userInfo['profile_picture'] != null
+                                          ? ClipRRect(
+                                              borderRadius: BorderRadius.circular(10),
+                                              child: Image.network(
+                                                '${AppConfig.baseUrl}${widget.userInfo['profile_picture']}',
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 50, color: Colors.grey),
+                                              ),
+                                            )
+                                          : const Icon(Icons.person, size: 50, color: Colors.grey),
                                 ),
                                 Positioned(
                                   bottom: -5,
@@ -302,15 +387,21 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
-                            child: const Text(
-                              'Save\nChanges',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
+                            child: _isLoading 
+                                ? const SizedBox(
+                                    width: 24, 
+                                    height: 24, 
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                                  )
+                                : const Text(
+                                    'Save\nChanges',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -346,7 +437,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
             right: 16,
             top: 16,
             child: InkWell(
-              onTap: () => Navigator.of(context).pop(),
+              onTap: _isLoading ? null : () => Navigator.of(context).pop(),
               child: const Icon(Icons.close, color: Color(0xFF7E8CA0)),
             ),
           ),
