@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Appointment;
+use App\Models\PatientNotification;
 use App\Models\Queue;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -99,7 +100,10 @@ class AppointmentService
                         'is_called' => false,
                     ]);
 
-                    return $appointment->load(['patient', 'queue']);
+                    $appointment->load(['patient', 'queue']);
+                    $this->createBookingNotification($appointment);
+
+                    return $appointment;
                 } catch (QueryException $exception) {
                     if (!$this->isUniqueConstraintViolation($exception)) {
                         throw $exception;
@@ -220,5 +224,20 @@ class AppointmentService
             ->orderByDesc('appointment_date')
             ->orderByDesc('time_slot')
             ->get();
+    }
+
+    private function createBookingNotification(Appointment $appointment): void
+    {
+        PatientNotification::create([
+            'patient_id' => (int) $appointment->patient_id,
+            'appointment_id' => (int) $appointment->id,
+            'type' => 'appointment_created',
+            'title' => 'Appointment booked',
+            'message' => sprintf(
+                'Your appointment on %s at %s has been booked successfully.',
+                (string) $appointment->appointment_date,
+                (string) $appointment->time_slot,
+            ),
+        ]);
     }
 }

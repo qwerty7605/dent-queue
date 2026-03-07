@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\AppointmentController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\QueueController;
 use App\Http\Controllers\Api\PatientProfileController;
 use App\Http\Controllers\Api\ReportController;
@@ -38,6 +39,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/appointments/history', [AppointmentController::class, 'medicalHistory']);
             Route::apiResource('appointments', AppointmentController::class);
             Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel']);
+            Route::get('/notifications', [NotificationController::class, 'index']);
+            Route::get('/notifications/{notification}', [NotificationController::class, 'show']);
             Route::get('/queues/today', [QueueController::class, 'index']);
             Route::post('/queues/join', [QueueController::class, 'store']);
             Route::match(['put', 'patch'], '/profile/{id}', [PatientProfileController::class, 'update'])
