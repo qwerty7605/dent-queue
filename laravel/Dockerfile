@@ -29,7 +29,9 @@ RUN set -eux; \
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # 5) Optional: use development php.ini (good for local dev)
-RUN mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
+RUN mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini" \
+ && echo "upload_max_filesize = 10M" >> "$PHP_INI_DIR/php.ini" \
+ && echo "post_max_size = 10M" >> "$PHP_INI_DIR/php.ini"
 
 WORKDIR /var/www
 
