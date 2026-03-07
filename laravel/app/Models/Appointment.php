@@ -34,4 +34,9 @@ class Appointment extends Model
     {
         return $this->hasMany(Report::class);
     }
+
+    public function patientNotifications()
+    {
+        return $this->hasMany(PatientNotification::class, 'appointment_id');
+    }
 }
