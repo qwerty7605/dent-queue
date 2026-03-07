@@ -38,6 +38,18 @@ class AppointmentService {
     return [];
   }
 
+  Future<List<Map<String, dynamic>>> getMedicalHistory() async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.medicalHistory,
+      (data) => data,
+    );
+    if (response is Map<String, dynamic> && response.containsKey('appointments')) {
+      final appointmentsList = response['appointments'] as List<dynamic>;
+      return appointmentsList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+
   Future<Map<String, dynamic>> cancelAppointment(int id) async {
     final response = await _baseService.patchJson<dynamic>(
       Endpoints.cancelAppointment(id),

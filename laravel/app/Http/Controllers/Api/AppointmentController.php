@@ -27,6 +27,15 @@ class AppointmentController extends Controller
         ]);
     }
 
+    public function medicalHistory(Request $request): JsonResponse
+    {
+        $appointments = $this->appointmentService->getPatientCompletedAppointments((int) $request->user()->id);
+
+        return response()->json([
+            'appointments' => $appointments->map(fn ($appointment) => $this->formatAppointmentResponse($appointment)),
+        ]);
+    }
+
     /**
      * Store a newly created appointment in storage.
      */

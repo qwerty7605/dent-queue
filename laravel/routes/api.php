@@ -35,6 +35,7 @@ Route::prefix('v1')->group(function () {
         // Patient routes
         Route::prefix('patient')->middleware('role:patient')->group(function () {
             Route::get('/services', [ServiceController::class, 'index']);
+            Route::get('/appointments/history', [AppointmentController::class, 'medicalHistory']);
             Route::apiResource('appointments', AppointmentController::class);
             Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel']);
             Route::get('/queues/today', [QueueController::class, 'index']);
