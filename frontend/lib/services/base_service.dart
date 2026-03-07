@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../core/api_client.dart';
 import '../core/api_exception.dart';
 
@@ -57,6 +59,20 @@ class BaseService {
   Future<T> deleteJson<T>(String path, T Function(dynamic json) mapper) async {
     try {
       final json = await _apiClient.delete(path);
+      return mapper(json);
+    } on ApiException {
+      rethrow;
+    }
+  }
+
+  Future<T> postMultipartJson<T>(
+    String path, {
+    required Map<String, String> fields,
+    Map<String, File>? files,
+    required T Function(dynamic json) mapper,
+  }) async {
+    try {
+      final json = await _apiClient.postMultipart(path, fields: fields, files: files);
       return mapper(json);
     } on ApiException {
       rethrow;
