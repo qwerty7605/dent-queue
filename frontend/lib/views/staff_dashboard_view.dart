@@ -102,6 +102,22 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     }
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+
+    setState(() {
+      _selectedDate = DateTime(picked.year, picked.month, picked.day);
+      _visibleMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
+    });
+    await _loadAppointmentsForSelectedDate();
+  }
+
   void _changeCalendarMonth(int delta) {
     setState(() {
       _visibleMonth = DateTime(
@@ -1134,6 +1150,13 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 fontWeight: FontWeight.w800,
               ),
             ),
+          ),
+          IconButton(
+            onPressed: _pickDate,
+            icon: const Icon(Icons.calendar_month_outlined, size: 18),
+            color: const Color(0xFF679B6A),
+            tooltip: 'Select date',
+            visualDensity: VisualDensity.compact,
           ),
           IconButton(
             onPressed: _isLoadingAppointments
