@@ -32,7 +32,19 @@ class AppointmentController extends Controller
         $appointments = $this->appointmentService->getPatientCompletedAppointments((int) $request->user()->id);
 
         return response()->json([
-            'appointments' => $appointments->map(fn ($appointment) => $this->formatAppointmentResponse($appointment)),
+            'appointments' => $appointments->map(fn ($appointment) => [
+                'date' => (string) $appointment->appointment_date,
+                'service_type' => match ((int) $appointment->service_id) {
+                    1 => 'Dental Check-up',
+                    2 => 'Dental Panoramic X-ray',
+                    3 => 'Root Canal',
+                    4 => 'Teeth Cleaning',
+                    5 => 'Teeth Whitening',
+                    6 => 'Tooth Extraction',
+                    default => 'Unknown Service',
+                },
+                'status' => ucfirst((string) $appointment->status),
+            ]),
         ]);
     }
 

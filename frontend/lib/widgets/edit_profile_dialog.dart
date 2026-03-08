@@ -244,8 +244,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                                       ? ClipRRect(
                                           borderRadius: BorderRadius.circular(10),
                                           child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                                        )
-                                      : widget.userInfo['profile_picture'] != null
+                                          )
+                                      : (widget.userInfo['profile_picture'] != null && widget.userInfo['profile_picture'].toString().trim().isNotEmpty && widget.userInfo['profile_picture'].toString() != 'null' && widget.userInfo['profile_picture'].toString() != '/storage/')
                                           ? ClipRRect(
                                               borderRadius: BorderRadius.circular(10),
                                               child: Image.network(
