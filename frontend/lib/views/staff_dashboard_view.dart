@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../core/api_client.dart';
-import '../core/api_exception.dart';
 import '../core/config.dart';
 import '../core/token_storage.dart';
-import '../services/appointment_service.dart';
-import '../services/base_service.dart';
 
 enum _StaffTab { appointments, walkIn, records, calendar }
 
@@ -31,10 +27,10 @@ class StaffDashboardView extends StatefulWidget {
 
 class _StaffDashboardViewState extends State<StaffDashboardView> {
   final TextEditingController _searchController = TextEditingController();
-  late final AppointmentService _appointmentService;
 
   late DateTime _selectedDate;
   late DateTime _visibleMonth;
+  late final List<Map<String, dynamic>> _mockAppointments;
   _StaffTab _selectedTab = _StaffTab.appointments;
   _StaffFilter _selectedFilter = _StaffFilter.all;
 
@@ -48,16 +44,79 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     super.initState();
     _selectedDate = DateTime.now();
     _visibleMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
-    _appointmentService = AppointmentService(
-      BaseService(ApiClient(tokenStorage: widget.tokenStorage)),
-    );
-    _loadAppointmentsForSelectedDate();
+    _mockAppointments = _buildMockAppointments();
+    _loadAppointmentsForSelectedDate(showLoader: false);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  List<Map<String, dynamic>> _buildMockAppointments() {
+    final base = DateTime.now();
+    final today = DateTime(base.year, base.month, base.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final tomorrow = today.add(const Duration(days: 1));
+    final afterTomorrow = today.add(const Duration(days: 2));
+
+    return [
+      {
+        'id': 1,
+        'patient_name': 'Manika Lala',
+        'service_type': 'Teeth Whitening',
+        'appointment_date': _formatApiDate(today),
+        'time': '11:45:00',
+        'status': 'Pending',
+        'queue_number': 1,
+      },
+      {
+        'id': 2,
+        'patient_name': 'Rhea Cruz',
+        'service_type': 'Root Canal',
+        'appointment_date': _formatApiDate(today),
+        'time': '08:00:00',
+        'status': 'Approved',
+        'queue_number': 2,
+      },
+      {
+        'id': 3,
+        'patient_name': 'Ian Reyes',
+        'service_type': 'Dental Panoramic X-ray',
+        'appointment_date': _formatApiDate(today),
+        'time': '10:30:00',
+        'status': 'Cancelled',
+        'queue_number': 3,
+      },
+      {
+        'id': 4,
+        'patient_name': 'Aly Santos',
+        'service_type': 'Dental Check-up',
+        'appointment_date': _formatApiDate(tomorrow),
+        'time': '13:00:00',
+        'status': 'Approved',
+        'queue_number': 1,
+      },
+      {
+        'id': 5,
+        'patient_name': 'Vince Lim',
+        'service_type': 'Teeth Cleaning',
+        'appointment_date': _formatApiDate(yesterday),
+        'time': '14:15:00',
+        'status': 'Completed',
+        'queue_number': 1,
+      },
+      {
+        'id': 6,
+        'patient_name': 'Mika Dela Cruz',
+        'service_type': 'Tooth Extraction',
+        'appointment_date': _formatApiDate(afterTomorrow),
+        'time': '15:30:00',
+        'status': 'Pending',
+        'queue_number': 1,
+      },
+    ];
   }
 
   Future<void> _loadAppointmentsForSelectedDate({
@@ -76,29 +135,37 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       });
     }
 
-    try {
-      final list = await _appointmentService.getAdminAppointmentsByDate(date);
-      if (!mounted) return;
-      setState(() {
-        _appointments = list;
-        _isLoadingAppointments = false;
-      });
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _appointments = [];
-        _isLoadingAppointments = false;
-        _appointmentsLoadError = e.message;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _appointments = [];
-        _isLoadingAppointments = false;
-        _appointmentsLoadError =
-            'Unable to load daily queue for $date. Please try again.';
-      });
-    }
+    final list =
+        _mockAppointments
+            .where((appointment) => appointment['appointment_date'] == date)
+            .toList()
+          ..sort((a, b) {
+            final queueA = _parseQueueNumber(a['queue_number']);
+            final queueB = _parseQueueNumber(b['queue_number']);
+            return queueA.compareTo(queueB);
+          });
+
+    if (!mounted) return;
+    setState(() {
+      _appointments = list;
+      _isLoadingAppointments = false;
+    });
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+
+    setState(() {
+      _selectedDate = DateTime(picked.year, picked.month, picked.day);
+      _visibleMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
+    });
+    await _loadAppointmentsForSelectedDate();
   }
 
   void _changeCalendarMonth(int delta) {
@@ -1126,6 +1193,13 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 fontWeight: FontWeight.w800,
               ),
             ),
+          ),
+          IconButton(
+            onPressed: _pickDate,
+            icon: const Icon(Icons.calendar_month_outlined, size: 18),
+            color: const Color(0xFF679B6A),
+            tooltip: 'Select date',
+            visualDensity: VisualDensity.compact,
           ),
           IconButton(
             onPressed: _isLoadingAppointments
