@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'core/api_exception.dart';
@@ -15,14 +15,8 @@ import 'package:google_fonts/google_fonts.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // pick network base URL based on running environment
-  // default to emulator for development; adjust as needed for device or prod
-  if (AppConfig.env == AppEnvironment.mock) {
-    // avoid overriding if already set via --dart-define on build
-    if (Platform.isAndroid) {
-      AppConfig.env = AppEnvironment.androidEmulator;
-    }
-    // TODO: handle iOS simulator/provider if needed
+  if (!kReleaseMode) {
+    debugPrint('API env=${AppConfig.env.name} baseUrl=${AppConfig.baseUrl}');
   }
 
   final tokenStorage = SecureTokenStorage();
@@ -30,12 +24,7 @@ Future<void> main() async {
   final baseService = BaseService(apiClient);
   final authService = HttpAuthService(baseService, tokenStorage);
 
-  runApp(
-    MyApp(
-      authService: authService,
-      tokenStorage: tokenStorage,
-    ),
-  );
+  runApp(MyApp(authService: authService, tokenStorage: tokenStorage));
 }
 
 class MyApp extends StatelessWidget {
@@ -120,9 +109,7 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
   @override
   Widget build(BuildContext context) {
     if (_page == _AuthPage.loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_page == _AuthPage.dashboard) {

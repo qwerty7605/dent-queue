@@ -11,8 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('profile_picture')->nullable()->after('gender');
+        if (!Schema::hasTable('users') || Schema::hasColumn('users', 'profile_picture')) {
+            return;
+        }
+
+        $hasGender = Schema::hasColumn('users', 'gender');
+
+        Schema::table('users', function (Blueprint $table) use ($hasGender) {
+            $column = $table->string('profile_picture')->nullable();
+
+            if ($hasGender) {
+                $column->after('gender');
+            }
         });
     }
 
@@ -21,6 +31,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasTable('users') || !Schema::hasColumn('users', 'profile_picture')) {
+            return;
+        }
+
         Schema::table('users', function (Blueprint $table) {
             $table->dropColumn('profile_picture');
         });

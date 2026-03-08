@@ -2,26 +2,30 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
-import 'dart:io';
-
-import 'package:http/http.dart' as http;
 
 import 'api_exception.dart';
 import 'config.dart';
-import 'endpoints.dart';
 import 'token_storage.dart';
 
 class ApiClient {
   ApiClient({http.Client? client, required TokenStorage tokenStorage})
-      : _client = client ?? http.Client(),
-        _tokenStorage = tokenStorage;
+    : _client = client ?? http.Client(),
+      _tokenStorage = tokenStorage;
 
   final http.Client _client;
   final TokenStorage _tokenStorage;
 
   static const Duration _timeout = Duration(seconds: 10);
+
+  String _networkHint(String url) {
+    if (url.contains('10.0.2.2')) {
+      return '10.0.2.2 is Android emulator-only; use API_BASE_URL with your PC LAN IP on a physical phone';
+    }
+    return 'check backend and API_BASE_URL';
+  }
 
   Future<dynamic> get(String path) async {
     return _send('GET', path);
@@ -66,7 +70,7 @@ class ApiClient {
         for (final entry in files.entries) {
           final file = entry.value;
           final fileName = file.path.split('/').last;
-          
+
           // Determine mime type basic check, or default to generic image
           MediaType mediaType = MediaType('image', 'jpeg');
           if (fileName.toLowerCase().endsWith('.png')) {
@@ -85,10 +89,10 @@ class ApiClient {
         }
       }
 
-      print('API MULTIPART POST $url');
+      debugPrint('API MULTIPART POST $url');
       final streamedResponse = await _client.send(request).timeout(_timeout);
       final response = await http.Response.fromStream(streamedResponse);
-      print('API MULTIPART POST $url -> ${response.statusCode}');
+      debugPrint('API MULTIPART POST $url -> ${response.statusCode}');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (response.body.isEmpty) return null;
@@ -101,8 +105,12 @@ class ApiClient {
         try {
           final decoded = jsonDecode(response.body);
           if (decoded is Map<String, dynamic>) {
-            if (decoded['message'] is String) message = decoded['message'] as String;
-            if (decoded['errors'] is Map<String, dynamic>) errors = decoded['errors'] as Map<String, dynamic>;
+            if (decoded['message'] is String) {
+              message = decoded['message'] as String;
+            }
+            if (decoded['errors'] is Map<String, dynamic>) {
+              errors = decoded['errors'] as Map<String, dynamic>;
+            }
           }
         } on FormatException {
           message = response.body;
@@ -115,9 +123,13 @@ class ApiClient {
         errors: errors,
       );
     } on TimeoutException {
-      throw ApiException(message: 'Request timed out');
+      throw ApiException(
+        message: 'Request timed out: $url (${_networkHint(url)})',
+      );
     } on SocketException {
-      throw ApiException(message: 'No internet / cannot reach server');
+      throw ApiException(
+        message: 'Cannot reach server: $url (${_networkHint(url)})',
+      );
     } on FormatException {
       throw ApiException(message: 'Invalid server response');
     }
@@ -147,9 +159,7 @@ class ApiClient {
 
       switch (method) {
         case 'GET':
-          response = await _client
-              .get(uri, headers: headers)
-              .timeout(_timeout);
+          response = await _client.get(uri, headers: headers).timeout(_timeout);
           break;
         case 'POST':
           response = await _client
@@ -209,9 +219,13 @@ class ApiClient {
         errors: errors,
       );
     } on TimeoutException {
-      throw ApiException(message: 'Request timed out');
+      throw ApiException(
+        message: 'Request timed out: $url (${_networkHint(url)})',
+      );
     } on SocketException {
-      throw ApiException(message: 'No internet / cannot reach server');
+      throw ApiException(
+        message: 'Cannot reach server: $url (${_networkHint(url)})',
+      );
     } on FormatException {
       throw ApiException(message: 'Invalid server response');
     }
