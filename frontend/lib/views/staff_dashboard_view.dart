@@ -144,8 +144,53 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   void _openAppointmentDetails(Map<String, dynamic> appointment) {
     showDialog<void>(
       context: context,
-      builder: (_) => StaffAppointmentDetailsDialog(appointment: appointment),
+      builder: (_) => StaffAppointmentDetailsDialog(
+        appointment: appointment,
+        onStatusUpdate: (nextStatus) =>
+            _updateAppointmentStatus(appointment, nextStatus),
+      ),
     );
+  }
+
+  Future<bool> _updateAppointmentStatus(
+    Map<String, dynamic> appointment,
+    String nextStatus,
+  ) async {
+    final appointmentId = _parseAppointmentId(appointment['id']);
+    if (appointmentId == null) {
+      _showStatusMessage('Unable to update status: invalid appointment ID.');
+      return false;
+    }
+
+    try {
+      await _appointmentService.updateAdminAppointmentStatus(
+        appointmentId,
+        nextStatus,
+      );
+      if (!mounted) return false;
+
+      await _loadAppointmentsForSelectedDate(showLoader: false);
+      if (!mounted) return true;
+
+      final updatedLabel = _statusLabel(_normalizeStatus(nextStatus));
+      _showStatusMessage('Appointment updated to $updatedLabel.');
+      return true;
+    } on ApiException catch (e) {
+      if (!mounted) return false;
+      _showStatusMessage(e.message);
+      return false;
+    } catch (_) {
+      if (!mounted) return false;
+      _showStatusMessage('Unable to update appointment status right now.');
+      return false;
+    }
+  }
+
+  void _showStatusMessage(String message) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -1638,6 +1683,16 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       return 9999;
     }
     return int.tryParse(value.toString()) ?? 9999;
+  }
+
+  int? _parseAppointmentId(dynamic value) {
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value == null) {
+      return null;
+    }
+    return int.tryParse(value.toString());
   }
 
   int _timeToMinutes(String rawTime) {

@@ -1,24 +1,43 @@
 import 'package:flutter/material.dart';
 
-class StaffAppointmentDetailsDialog extends StatelessWidget {
-  const StaffAppointmentDetailsDialog({super.key, required this.appointment});
+typedef StaffAppointmentStatusUpdater =
+    Future<bool> Function(String nextStatus);
+
+class StaffAppointmentDetailsDialog extends StatefulWidget {
+  const StaffAppointmentDetailsDialog({
+    super.key,
+    required this.appointment,
+    required this.onStatusUpdate,
+  });
 
   final Map<String, dynamic> appointment;
+  final StaffAppointmentStatusUpdater onStatusUpdate;
+
+  @override
+  State<StaffAppointmentDetailsDialog> createState() =>
+      _StaffAppointmentDetailsDialogState();
+}
+
+class _StaffAppointmentDetailsDialogState
+    extends State<StaffAppointmentDetailsDialog> {
+  bool _isSubmitting = false;
 
   @override
   Widget build(BuildContext context) {
     final patientName = _readValue('patient_name', fallback: 'Patient');
     final serviceType = _readValue('service_type', fallback: 'Service');
     final formattedDate = _formatDate(
-      appointment['appointment_date']?.toString() ?? '',
+      widget.appointment['appointment_date']?.toString() ?? '',
     );
     final formattedTime = _formatTime(
-      appointment['time']?.toString() ??
-          appointment['appointment_time']?.toString() ??
+      widget.appointment['time']?.toString() ??
+          widget.appointment['appointment_time']?.toString() ??
           '',
     );
-    final status = _normalizeStatus(appointment['status']);
-    final queueNumber = _formatQueueNumber(appointment['queue_number']);
+    final notes = widget.appointment['notes']?.toString().trim() ?? '';
+    final status = _normalizeStatus(widget.appointment['status']);
+    final queueNumber = _formatQueueNumber(widget.appointment['queue_number']);
+    final actions = _allowedActionsForStatus(status);
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -44,7 +63,9 @@ class StaffAppointmentDetailsDialog extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close, size: 20),
                     color: const Color(0xFF64748B),
                     tooltip: 'Close',
@@ -88,6 +109,11 @@ class StaffAppointmentDetailsDialog extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
+              _DetailBlock(
+                label: 'NOTES',
+                value: notes.isEmpty ? 'No notes provided' : notes,
+              ),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
@@ -105,6 +131,31 @@ class StaffAppointmentDetailsDialog extends StatelessWidget {
                   ),
                 ],
               ),
+              if (_isSubmitting) ...[
+                const SizedBox(height: 18),
+                const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.4),
+                  ),
+                ),
+              ] else if (actions.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    for (var i = 0; i < actions.length; i++) ...[
+                      Expanded(
+                        child: _ActionButton(
+                          config: actions[i],
+                          onTap: () => _handleAction(actions[i]),
+                        ),
+                      ),
+                      if (i < actions.length - 1) const SizedBox(width: 12),
+                    ],
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -112,8 +163,94 @@ class StaffAppointmentDetailsDialog extends StatelessWidget {
     );
   }
 
+  Future<void> _handleAction(_AppointmentAction action) async {
+    final confirmed = await _showConfirmationDialog(action.label);
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final success = await widget.onStatusUpdate(action.nextStatus);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = false;
+    });
+
+    if (success) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
+  Future<bool> _showConfirmationDialog(String actionLabel) async {
+    final decision = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('$actionLabel Appointment'),
+          content: Text(
+            'Are you sure you want to mark this appointment as $actionLabel?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('No'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF679B6A),
+              ),
+              child: const Text('Yes'),
+            ),
+          ],
+        );
+      },
+    );
+    return decision ?? false;
+  }
+
+  List<_AppointmentAction> _allowedActionsForStatus(String status) {
+    return switch (status) {
+      'pending' => [
+        const _AppointmentAction(
+          label: 'Approve',
+          nextStatus: 'approved',
+          backgroundColor: Color(0xFFDCEBFF),
+          foregroundColor: Color(0xFF1D4ED8),
+        ),
+        const _AppointmentAction(
+          label: 'Cancel',
+          nextStatus: 'cancelled',
+          backgroundColor: Color(0xFFFFE1E1),
+          foregroundColor: Color(0xFFDC2626),
+        ),
+      ],
+      'approved' => [
+        const _AppointmentAction(
+          label: 'Complete',
+          nextStatus: 'completed',
+          backgroundColor: Color(0xFFDCF6E4),
+          foregroundColor: Color(0xFF15803D),
+        ),
+        const _AppointmentAction(
+          label: 'Cancel',
+          nextStatus: 'cancelled',
+          backgroundColor: Color(0xFFFFE1E1),
+          foregroundColor: Color(0xFFDC2626),
+        ),
+      ],
+      _ => const <_AppointmentAction>[],
+    };
+  }
+
   String _readValue(String key, {required String fallback}) {
-    final value = appointment[key]?.toString().trim() ?? '';
+    final value = widget.appointment[key]?.toString().trim() ?? '';
     return value.isEmpty ? fallback : value;
   }
 
@@ -225,6 +362,46 @@ class StaffAppointmentDetailsDialog extends StatelessWidget {
 
     return trimmed;
   }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({required this.config, required this.onTap});
+
+  final _AppointmentAction config;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          backgroundColor: config.backgroundColor,
+          foregroundColor: config.foregroundColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+        ),
+        child: Text(config.label.toUpperCase()),
+      ),
+    );
+  }
+}
+
+class _AppointmentAction {
+  const _AppointmentAction({
+    required this.label,
+    required this.nextStatus,
+    required this.backgroundColor,
+    required this.foregroundColor,
+  });
+
+  final String label;
+  final String nextStatus;
+  final Color backgroundColor;
+  final Color foregroundColor;
 }
 
 class _DetailBlock extends StatelessWidget {
