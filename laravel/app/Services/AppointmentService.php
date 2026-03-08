@@ -172,7 +172,7 @@ class AppointmentService
             || str_contains($message, 'is not unique');
     }
 
-    public function updateStatus(Appointment $appointment, string $status)
+    public function updateStatus(Appointment $appointment, string $status, int $changedByUserId)
     {
         $targetStatus = $this->normalizeStatus($status);
         if ($targetStatus === null) {
@@ -203,6 +203,13 @@ class AppointmentService
             }
 
             $appointment->update(['status' => $targetStatus]);
+
+            Log::channel('audit')->info('appointment.status_updated', [
+                'appointment_id' => (int) $appointment->id,
+                'changed_by_user_id' => $changedByUserId,
+                'action' => ucfirst($this->displayStatusLabel($targetStatus)),
+                'previous_status' => $this->displayStatusLabel($currentStatus),
+            ]);
         }
 
         return $appointment->fresh(['patient', 'queue']);

@@ -158,6 +158,7 @@ class AppointmentController extends Controller
         $updatedAppointment = $this->appointmentService->updateStatus(
             $appointment,
             (string) $payload['status'],
+            (int) $request->user()->id,
         );
 
         return response()->json([
