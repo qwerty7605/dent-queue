@@ -29,7 +29,7 @@ class AppConfig {
   // Android emulator maps host machine localhost through 10.0.2.2.
   static const androidEmulatorBaseUrl = 'http://10.0.2.2:8080';
   // Replace this if your LAN IP changes.
-  static const physicalDeviceBaseUrl = 'http://192.168.1.42:8080';
+  static const physicalDeviceBaseUrl = 'http://192.168.1.20:8080';
   static const productionBaseUrl = 'https://example.com'; // TODO
 
   static AppEnvironment _resolveDefaultEnv() {

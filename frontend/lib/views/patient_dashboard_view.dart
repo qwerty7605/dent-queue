@@ -64,8 +64,17 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   @override
   Widget build(BuildContext context) {
     final Map<String, dynamic> userInfo = _localUserInfo;
-    final name = userInfo['name']?.toString() ?? 'User';
-    final profilePicture = userInfo['profile_picture']?.toString();
+    String fullName = userInfo['name']?.toString() ?? '';
+    if (fullName.isEmpty) {
+      fullName = '${userInfo['first_name'] ?? ''} ${userInfo['middle_name'] ?? ''} ${userInfo['last_name'] ?? ''}'.trim();
+    }
+    if (fullName.isEmpty) fullName = 'User';
+    final name = fullName;
+    
+    String? profilePicture = userInfo['profile_picture']?.toString();
+    if (profilePicture != null && (profilePicture.isEmpty || profilePicture == 'null' || profilePicture == '/storage/')) {
+      profilePicture = null;
+    }
     final String paddedId = userInfo['id']?.toString().padLeft(4, '0') ?? '0002';
 
     return Scaffold(
@@ -585,7 +594,10 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     }
     
     final String contactNumber = (userInfo['phone_number'] ?? userInfo['contact_number'])?.toString() ?? 'N/A';
-    final String? profilePicture = userInfo['profile_picture']?.toString();
+    String? profilePicture = userInfo['profile_picture']?.toString();
+    if (profilePicture != null && (profilePicture.isEmpty || profilePicture == 'null' || profilePicture == '/storage/')) {
+      profilePicture = null;
+    }
     final String paddedId = userInfo['id']?.toString().padLeft(4, '0') ?? '0002';
 
     return SingleChildScrollView(

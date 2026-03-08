@@ -56,10 +56,10 @@ class PatientMedicalHistoryApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonCount(2, 'appointments')
-            ->assertJsonPath('appointments.0.id', $newerCompleted->id)
-            ->assertJsonPath('appointments.0.appointment_date', '2026-03-10')
-            ->assertJsonPath('appointments.1.id', $olderCompleted->id)
-            ->assertJsonPath('appointments.1.appointment_date', '2026-03-01');
+            ->assertJsonPath('appointments.0.date', '2026-03-10')
+            ->assertJsonPath('appointments.1.date', '2026-03-01')
+            ->assertJsonMissingPath('appointments.0.id')
+            ->assertJsonMissingPath('appointments.0.notes');
 
         $statuses = array_map(
             fn (array $appointment): string => (string) ($appointment['status'] ?? ''),
