@@ -10,38 +10,80 @@ enum AppEnvironment {
 }
 
 class AppConfig {
-  // Optional hard override at run/build time:
-  // flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
+  // Optional overrides at run/build time:
+  // 1) Full URL override:
+  // flutter run --dart-define=API_BASE_URL=http://192.168.x.x:8080
+  // 2) Host/port override:
+  // flutter run --dart-define=API_HOST=192.168.x.x --dart-define=API_PORT=8080
   static const String _baseUrlOverride = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: '',
+  );
+  static const String _hostOverride = String.fromEnvironment(
+    'API_HOST',
+    defaultValue: '',
+  );
+  static const String _portOverride = String.fromEnvironment(
+    'API_PORT',
+    defaultValue: '8080',
   );
   static const String _envOverride = String.fromEnvironment(
     'API_ENV',
     defaultValue: '',
   );
 
+  static const int defaultPort = 8080;
+
   // Auto mode chooses a sensible default per runtime target.
-  // Override with API_BASE_URL when needed.
+  // Override with API_BASE_URL/API_HOST when needed.
   static AppEnvironment env = _resolveDefaultEnv();
 
-  static const localhostBaseUrl = 'http://localhost:8080';
+  static String get localhostBaseUrl => 'http://localhost:$port';
   // Android emulator maps host machine localhost through 10.0.2.2.
-  static const androidEmulatorBaseUrl = 'http://10.0.2.2:8080';
-  // Replace this if your LAN IP changes.
-  static const physicalDeviceBaseUrl = 'http://192.168.1.20:8080';
+  static String get androidEmulatorBaseUrl => 'http://10.0.2.2:$port';
+  // Physical-device fallback prefers localhost, which works with adb reverse.
+  // For Wi-Fi device testing, pass API_BASE_URL/API_HOST at runtime.
+  static String get physicalDeviceBaseUrl => 'http://localhost:$port';
   static const productionBaseUrl = 'https://example.com'; // TODO
+
+  static int get port => int.tryParse(_portOverride) ?? defaultPort;
+
+  static bool get hasManualBaseUrl =>
+      _baseUrlOverride.trim().isNotEmpty || _hostOverride.trim().isNotEmpty;
+
+  static String? _normalizeUrl(String? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    return trimmed.endsWith('/') ? trimmed.substring(0, trimmed.length - 1) : trimmed;
+  }
+
+  static String? get manualBaseUrl {
+    final full = _normalizeUrl(_baseUrlOverride);
+    if (full != null) return full;
+
+    final host = _hostOverride.trim();
+    if (host.isEmpty) return null;
+
+    final hostUri = Uri.tryParse(host);
+    if (hostUri != null && hostUri.hasScheme) {
+      if (hostUri.hasPort) return _normalizeUrl(host);
+      final rebuilt = Uri(
+        scheme: hostUri.scheme,
+        host: hostUri.host,
+        port: port,
+        path: hostUri.path,
+      );
+      return _normalizeUrl(rebuilt.toString());
+    }
+
+    return _normalizeUrl('http://$host:$port');
+  }
 
   static AppEnvironment _resolveDefaultEnv() {
     final override = _parseEnvironment(_envOverride);
     if (override != null) {
       return override;
-    }
-
-    // Most local Android runs are on a physical phone; avoid emulator-only
-    // routing unless explicitly requested via API_ENV or API_BASE_URL.
-    if (kDebugMode && defaultTargetPlatform == TargetPlatform.android) {
-      return AppEnvironment.physicalDevice;
     }
 
     return AppEnvironment.auto;
@@ -70,8 +112,9 @@ class AppConfig {
   }
 
   static String get baseUrl {
-    if (_baseUrlOverride.isNotEmpty) {
-      return _baseUrlOverride;
+    final manual = manualBaseUrl;
+    if (manual != null) {
+      return manual;
     }
 
     switch (env) {

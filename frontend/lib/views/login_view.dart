@@ -81,7 +81,9 @@ class _LoginViewState extends State<LoginView> {
             final isLandscape = media.orientation == Orientation.landscape;
 
             final maxCardWidth = isTablet ? 620.0 : 500.0;
-            final outerHorizontalPadding = isTablet ? 28.0 : 14.0;
+            final outerHorizontalPadding = isTablet ? 28.0 : 0.0;
+            final outerVerticalPadding = isTablet ? (isLandscape ? 12.0 : 16.0) : 0.0;
+            final cardRadius = isTablet ? 30.0 : 0.0;
             final headerHeight = (screenHeight * (isLandscape ? 0.28 : 0.3))
                 .clamp(isSmallPhone ? 130.0 : 150.0, 250.0)
                 .toDouble();
@@ -108,9 +110,9 @@ class _LoginViewState extends State<LoginView> {
             return SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
                 outerHorizontalPadding,
-                isLandscape ? 12 : 16,
+                outerVerticalPadding,
                 outerHorizontalPadding,
-                20,
+                isTablet ? 20 : 0,
               ),
               child: Center(
                 child: ConstrainedBox(
@@ -118,7 +120,7 @@ class _LoginViewState extends State<LoginView> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFFEFF6E4),
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(cardRadius),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Column(
@@ -244,35 +246,35 @@ class _LoginViewState extends State<LoginView> {
                                   },
                                 ),
                                 SizedBox(height: isTablet ? 24 : 20),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        'Dont have an account?',
-                                        textAlign: TextAlign.end,
-                                        style: TextStyle(
-                                          color: const Color(0xFF929191),
-                                          fontSize: isSmallPhone ? 13 : 14,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: GestureDetector(
-                                        onTap: widget.onSwitchToRegister,
-                                        child: Text(
-                                          'Click here',
+                                Center(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Dont have an account?',
                                           style: TextStyle(
-                                            color: const Color(0xFFE1C158),
+                                            color: const Color(0xFF929191),
                                             fontSize: isSmallPhone ? 13 : 14,
                                             fontWeight: FontWeight.w700,
                                           ),
                                         ),
-                                      ),
+                                        const SizedBox(width: 4),
+                                        GestureDetector(
+                                          onTap: widget.onSwitchToRegister,
+                                          child: Text(
+                                            'Click here',
+                                            style: TextStyle(
+                                              color: const Color(0xFFE1C158),
+                                              fontSize: isSmallPhone ? 13 : 14,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
                                 SizedBox(height: isTablet ? 30 : 24),
                                 Row(
