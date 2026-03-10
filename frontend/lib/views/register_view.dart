@@ -98,41 +98,37 @@ class _RegisterViewState extends State<RegisterView> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
             child: SingleChildScrollView(
-              child: Column(
+              child: Stack(
                 children: [
                   SizedBox(
-                    height: 180,
+                    height: 220,
                     width: double.infinity,
                     child: Image.network(
                       _headerImageUrl,
                       fit: BoxFit.cover,
                     ),
                   ),
-                  Transform.translate(
-                    offset: const Offset(0, -30),
-                    child: Container(
-                      width: double.infinity,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF6F5F1),
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(30),
-                          topRight: Radius.circular(30),
-                        ),
+                  Container(
+                    margin: const EdgeInsets.only(top: 190),
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF6F5F1),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(30),
+                        topRight: Radius.circular(30),
                       ),
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          children: [
-                            Transform.translate(
-                              offset: const Offset(0, -60),
-                              child: SizedBox(
-                                width: 176,
-                                child: Image.network(_logoImageUrl),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            const Row(
+                    ),
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            width: 176,
+                            child: Image.network(_logoImageUrl),
+                          ),
+                          const SizedBox(height: 16),
+                          const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
@@ -360,9 +356,8 @@ class _RegisterViewState extends State<RegisterView> {
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ),
           ),
         ),

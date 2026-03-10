@@ -7,6 +7,7 @@ import '../core/token_storage.dart';
 import '../services/appointment_service.dart';
 import '../services/base_service.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
+import 'staff_walk_in_view.dart';
 
 enum _StaffTab { appointments, walkIn, records, calendar }
 
@@ -209,11 +210,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       body: SafeArea(
         child: switch (_selectedTab) {
           _StaffTab.appointments => _buildAppointmentsTab(),
-          _StaffTab.walkIn => _buildPlaceholderTab(
-            title: 'WALK-IN',
-            subtitle: 'Walk-in registration module goes here.',
-            icon: Icons.directions_walk,
-          ),
+          _StaffTab.walkIn => const StaffWalkInView(),
           _StaffTab.records => _buildPlaceholderTab(
             title: 'RECORDS',
             subtitle: 'Patient records module goes here.',

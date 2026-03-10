@@ -74,7 +74,7 @@ class _LoginViewState extends State<LoginView> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 480),
             child: SingleChildScrollView(
-              child: Column(
+              child: Stack(
                 children: [
                   SizedBox(
                     height: 220,
@@ -87,18 +87,17 @@ class _LoginViewState extends State<LoginView> {
                       ],
                     ),
                   ),
-                  Transform.translate(
-                    offset: const Offset(0, -24),
-                    child: Container(
-                      width: double.infinity,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEFF6E4),
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(30),
-                          topRight: Radius.circular(30),
-                        ),
+                  Container(
+                    margin: const EdgeInsets.only(top: 196),
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEFF6E4),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(30),
+                        topRight: Radius.circular(30),
                       ),
-                      padding: const EdgeInsets.fromLTRB(32, 24, 32, 36),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(32, 24, 32, 36),
                       child: Form(
                         key: _formKey,
                         child: Column(
@@ -252,9 +251,8 @@ class _LoginViewState extends State<LoginView> {
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ),
           ),
         ),
