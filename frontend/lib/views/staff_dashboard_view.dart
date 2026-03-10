@@ -36,7 +36,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   late final AppointmentService _appointmentService;
 
   late DateTime _selectedDate;
-  late DateTime _visibleMonth;
   _StaffTab _selectedTab = _StaffTab.appointments;
   _StaffFilter _selectedFilter = _StaffFilter.all;
 
@@ -49,7 +48,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
-    _visibleMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
     _appointmentService = AppointmentService(
       BaseService(ApiClient(tokenStorage: widget.tokenStorage)),
     );
@@ -114,32 +112,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
     setState(() {
       _selectedDate = DateTime(picked.year, picked.month, picked.day);
-      _visibleMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
     });
     await _loadAppointmentsForSelectedDate();
-  }
-
-  void _changeCalendarMonth(int delta) {
-    setState(() {
-      _visibleMonth = DateTime(
-        _visibleMonth.year,
-        _visibleMonth.month + delta,
-        1,
-      );
-      final maxDay = DateUtils.getDaysInMonth(
-        _visibleMonth.year,
-        _visibleMonth.month,
-      );
-      final clampedDay = _selectedDate.day > maxDay
-          ? maxDay
-          : _selectedDate.day;
-      _selectedDate = DateTime(
-        _visibleMonth.year,
-        _visibleMonth.month,
-        clampedDay,
-      );
-    });
-    _loadAppointmentsForSelectedDate();
   }
 
   void _openAppointmentDetails(Map<String, dynamic> appointment) {
@@ -550,393 +524,11 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Widget _buildCalendarTab() {
-    final selectedDateKey = _formatApiDate(_selectedDate);
-    final schedules =
-        _appointments
-            .where(
-              (appointment) =>
-                  appointment['appointment_date'] == selectedDateKey,
-            )
-            .toList()
-          ..sort(
-            (a, b) => _timeToMinutes(
-              a['time']?.toString() ?? '',
-            ).compareTo(_timeToMinutes(b['time']?.toString() ?? '')),
-          );
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final horizontalPadding = constraints.maxWidth < 440 ? 14.0 : 22.0;
-        final maxWidth = constraints.maxWidth > 1024 ? 920.0 : 560.0;
-
-        return SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            16,
-            horizontalPadding,
-            16,
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Center(
-                    child: Text(
-                      'CALENDAR',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '${_monthName(_visibleMonth.month)} ${_visibleMonth.year}',
-                                style: const TextStyle(
-                                  color: Color(0xFF1E293B),
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            _buildMonthArrow(Icons.chevron_left, () {
-                              _changeCalendarMonth(-1);
-                            }),
-                            const SizedBox(width: 8),
-                            _buildMonthArrow(Icons.chevron_right, () {
-                              _changeCalendarMonth(1);
-                            }),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        const Row(
-                          children: [
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  'S',
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  'M',
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  'T',
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  'W',
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  'T',
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  'F',
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  'S',
-                                  style: TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        _buildCalendarGrid(),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.access_time_outlined,
-                        size: 18,
-                        color: Color(0xFF7DA980),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Schedule for ${_formatLongDate(_selectedDate)}',
-                          style: const TextStyle(
-                            color: Color(0xFF1E293B),
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  if (schedules.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: const Text(
-                        'No schedule for selected date.',
-                        style: TextStyle(
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    )
-                  else
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: schedules.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        return _buildScheduleCard(schedules[index]);
-                      },
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMonthArrow(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, size: 18, color: const Color(0xFF64748B)),
-      ),
-    );
-  }
-
-  Widget _buildCalendarGrid() {
-    final firstDay = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
-    final firstWeekday = firstDay.weekday % 7;
-    final daysInMonth = DateUtils.getDaysInMonth(
-      _visibleMonth.year,
-      _visibleMonth.month,
-    );
-    final totalCells = ((firstWeekday + daysInMonth + 6) ~/ 7) * 7;
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: totalCells,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        mainAxisSpacing: 6,
-        crossAxisSpacing: 6,
-        childAspectRatio: 1.0,
-      ),
-      itemBuilder: (context, index) {
-        final dayNumber = index - firstWeekday + 1;
-        if (dayNumber < 1 || dayNumber > daysInMonth) {
-          return const SizedBox.shrink();
-        }
-
-        final date = DateTime(
-          _visibleMonth.year,
-          _visibleMonth.month,
-          dayNumber,
-        );
-        final isSelected = _isSameDate(date, _selectedDate);
-        final isToday = _isSameDate(date, DateTime.now());
-
-        return InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () {
-            setState(() {
-              _selectedDate = date;
-            });
-            _loadAppointmentsForSelectedDate();
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF679B6A) : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: isToday && !isSelected
-                  ? Border.all(color: const Color(0xFF679B6A), width: 1.2)
-                  : null,
-            ),
-            child: Center(
-              child: Text(
-                '$dayNumber',
-                style: TextStyle(
-                  color: isSelected ? Colors.white : const Color(0xFF334155),
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildScheduleCard(Map<String, dynamic> appointment) {
-    final patientName = appointment['patient_name']?.toString() ?? 'Patient';
-    final serviceType = appointment['service_type']?.toString() ?? 'Service';
-    final status = _normalizeStatus(appointment['status']);
-    final timeRaw = appointment['time']?.toString() ?? '--:--';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 66,
-            child: Text(
-              _formatAmPmTime(timeRaw),
-              style: const TextStyle(
-                color: Color(0xFF679B6A),
-                fontWeight: FontWeight.w900,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  patientName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF1E293B),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  serviceType.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: _scheduleBadgeBackground(status),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              _statusLabel(status),
-              style: TextStyle(
-                color: _scheduleBadgeForeground(status),
-                fontWeight: FontWeight.w900,
-                fontSize: 9,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return _buildPlaceholderTab(
+      title: 'CALENDAR',
+      subtitle:
+          'Calendar module is intentionally empty for this sprint. It will be implemented in the next sprint.',
+      icon: Icons.calendar_month_outlined,
     );
   }
 
@@ -1692,18 +1284,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     return int.tryParse(value.toString());
   }
 
-  int _timeToMinutes(String rawTime) {
-    final parts = rawTime.split(':');
-    if (parts.length < 2) return 0;
-    final hour = int.tryParse(parts[0]) ?? 0;
-    final minute = int.tryParse(parts[1]) ?? 0;
-    return (hour * 60) + minute;
-  }
-
-  bool _isSameDate(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
   String _normalizeStatus(dynamic value) {
     final raw = value?.toString().toLowerCase().trim() ?? '';
     if (raw == 'approved' || raw == 'confirmed') {
@@ -1724,24 +1304,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       'completed' => 'COMPLETED',
       'cancelled' => 'CANCELLED',
       _ => 'PENDING',
-    };
-  }
-
-  Color _scheduleBadgeBackground(String status) {
-    return switch (status) {
-      'approved' => const Color(0xFFE8F1FF),
-      'completed' => const Color(0xFFEAF8EE),
-      'cancelled' => const Color(0xFFFFE9E9),
-      _ => const Color(0xFFFFF7DF),
-    };
-  }
-
-  Color _scheduleBadgeForeground(String status) {
-    return switch (status) {
-      'approved' => const Color(0xFF1D4ED8),
-      'completed' => const Color(0xFF16A34A),
-      'cancelled' => const Color(0xFFDC2626),
-      _ => const Color(0xFFD0A100),
     };
   }
 
@@ -1826,19 +1388,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     final hour = parts[0].padLeft(2, '0');
     final minute = parts[1].padLeft(2, '0');
     return '$hour:$minute';
-  }
-
-  String _formatAmPmTime(String rawTime) {
-    final trimmed = rawTime.trim();
-    if (trimmed.isEmpty) return '--:--';
-    final parts = trimmed.split(':');
-    if (parts.length < 2) return trimmed;
-
-    final hour = int.tryParse(parts[0]) ?? 0;
-    final minute = parts[1].padLeft(2, '0');
-    final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final suffix = hour >= 12 ? 'PM' : 'AM';
-    return '$displayHour:$minute $suffix';
   }
 
   String _formatApiDate(DateTime date) {
