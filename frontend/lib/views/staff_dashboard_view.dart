@@ -9,7 +9,7 @@ import '../services/base_service.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 import 'staff_walk_in_view.dart';
 
-enum _StaffTab { appointments, walkIn, records, calendar }
+enum _StaffTab { appointments, walkIn, records }
 
 enum _StaffFilter { all, pending, approved, completed, cancelled }
 
@@ -184,13 +184,20 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       body: SafeArea(
         child: switch (_selectedTab) {
           _StaffTab.appointments => _buildAppointmentsTab(),
-          _StaffTab.walkIn => const StaffWalkInView(),
+          _StaffTab.walkIn => StaffWalkInView(
+            appointmentService: _appointmentService,
+            onWalkInSuccess: () {
+              setState(() {
+                _selectedTab = _StaffTab.appointments;
+              });
+              _loadAppointmentsForSelectedDate();
+            },
+          ),
           _StaffTab.records => _buildPlaceholderTab(
             title: 'RECORDS',
             subtitle: 'Patient records module goes here.',
             icon: Icons.search,
           ),
-          _StaffTab.calendar => _buildCalendarTab(),
         },
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
@@ -389,17 +396,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               onTap: () {
                 setState(() {
                   _selectedTab = _StaffTab.records;
-                });
-                Navigator.pop(context);
-              },
-            ),
-            _buildDrawerItem(
-              icon: Icons.calendar_month_outlined,
-              title: 'Calendar',
-              selected: _selectedTab == _StaffTab.calendar,
-              onTap: () {
-                setState(() {
-                  _selectedTab = _StaffTab.calendar;
                 });
                 Navigator.pop(context);
               },
@@ -1172,11 +1168,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               icon: Icons.search,
               label: 'Records',
               tab: _StaffTab.records,
-            ),
-            _buildNavItem(
-              icon: Icons.calendar_today_outlined,
-              label: 'Calendar',
-              tab: _StaffTab.calendar,
             ),
           ],
         ),
