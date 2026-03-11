@@ -36,7 +36,7 @@ class CreateAppointmentApiTest extends TestCase
     {
         $staff = $this->createUserWithRole('Staff');
         $patient = $this->createUserWithRole('Patient');
-        $service = $this->createService('General Consultation');
+        $service = $this->createService('Dental Check-up');
         Sanctum::actingAs($staff);
 
         $appointmentDate = now()->next('Monday')->format('Y-m-d');

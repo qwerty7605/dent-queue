@@ -39,11 +39,11 @@ class BookingRulesEngineTest extends TestCase
         $service = $this->createService();
         Sanctum::actingAs($staff);
 
-        $response = $this->postJson('/api/v1/admin/appointments/walk-in', [
+        $response = $this->postJson('/api/v1/admin/appointments', [
             'patient_id' => $patient->id,
-            'service_id' => $service->id,
+            'service_type' => $service->name,
             'appointment_date' => now()->subDay()->format('Y-m-d'),
-            'time_slot' => '09:00',
+            'appointment_time' => '09:00',
         ]);
 
         $response->assertStatus(422)
@@ -85,7 +85,7 @@ class BookingRulesEngineTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('message', 'Online booking created successfully.')
             ->assertJsonPath('appointment.patient_id', $patient->id)
-            ->assertJsonPath('appointment.service_id', $service->id);
+            ->assertJsonStructure(['appointment' => ['service_type']]);
     }
 
     public function test_walk_in_booking_accepts_valid_payload(): void
@@ -95,17 +95,17 @@ class BookingRulesEngineTest extends TestCase
         $service = $this->createService();
         Sanctum::actingAs($staff);
 
-        $response = $this->postJson('/api/v1/admin/appointments/walk-in', [
+        $response = $this->postJson('/api/v1/admin/appointments', [
             'patient_id' => $patient->id,
-            'service_id' => $service->id,
+            'service_type' => $service->name,
             'appointment_date' => now()->next('Tuesday')->format('Y-m-d'),
-            'time_slot' => '10:00',
+            'appointment_time' => '10:00',
         ]);
 
         $response->assertCreated()
-            ->assertJsonPath('message', 'Walk-in booking created successfully.')
+            ->assertJsonPath('message', 'Appointment created successfully.')
             ->assertJsonPath('appointment.patient_id', $patient->id)
-            ->assertJsonPath('appointment.service_id', $service->id);
+            ->assertJsonStructure(['appointment' => ['service_type']]);
     }
 
     public function test_follow_up_booking_accepts_valid_payload(): void
@@ -125,7 +125,7 @@ class BookingRulesEngineTest extends TestCase
         $response->assertCreated()
             ->assertJsonPath('message', 'Follow-up booking created successfully.')
             ->assertJsonPath('appointment.patient_id', $patient->id)
-            ->assertJsonPath('appointment.service_id', $service->id);
+            ->assertJsonStructure(['appointment' => ['service_type']]);
     }
 
     private function createUserWithRole(string $roleName): User

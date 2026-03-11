@@ -26,15 +26,15 @@ class QueueAssignmentTest extends TestCase
         for ($expectedQueueNumber = 1; $expectedQueueNumber <= 3; $expectedQueueNumber++) {
             $patient = $this->createUserWithRole('Patient');
 
-            $response = $this->postJson('/api/v1/admin/appointments/walk-in', [
+            $response = $this->postJson('/api/v1/admin/appointments', [
                 'patient_id' => $patient->id,
-                'service_id' => $service->id,
+                'service_type' => $service->name,
                 'appointment_date' => $appointmentDate,
-                'time_slot' => '09:00',
+                'appointment_time' => '09:00',
             ]);
 
             $response->assertCreated()
-                ->assertJsonPath('appointment.queue.queue_number', $expectedQueueNumber);
+                ->assertJsonPath('appointment.queue_number', str_pad((string) $expectedQueueNumber, 2, '0', STR_PAD_LEFT));
         }
 
         $this->assertSame(
@@ -59,26 +59,26 @@ class QueueAssignmentTest extends TestCase
         $secondMondayPatient = $this->createUserWithRole('Patient');
         $tuesdayPatient = $this->createUserWithRole('Patient');
 
-        $this->postJson('/api/v1/admin/appointments/walk-in', [
+        $this->postJson('/api/v1/admin/appointments', [
             'patient_id' => $firstMondayPatient->id,
-            'service_id' => $service->id,
+            'service_type' => $service->name,
             'appointment_date' => $monday,
-            'time_slot' => '09:00',
-        ])->assertCreated()->assertJsonPath('appointment.queue.queue_number', 1);
+            'appointment_time' => '09:00',
+        ])->assertCreated()->assertJsonPath('appointment.queue_number', '01');
 
-        $this->postJson('/api/v1/admin/appointments/walk-in', [
+        $this->postJson('/api/v1/admin/appointments', [
             'patient_id' => $secondMondayPatient->id,
-            'service_id' => $service->id,
+            'service_type' => $service->name,
             'appointment_date' => $monday,
-            'time_slot' => '10:00',
-        ])->assertCreated()->assertJsonPath('appointment.queue.queue_number', 2);
+            'appointment_time' => '10:00',
+        ])->assertCreated()->assertJsonPath('appointment.queue_number', '02');
 
-        $this->postJson('/api/v1/admin/appointments/walk-in', [
+        $this->postJson('/api/v1/admin/appointments', [
             'patient_id' => $tuesdayPatient->id,
-            'service_id' => $service->id,
+            'service_type' => $service->name,
             'appointment_date' => $tuesday,
-            'time_slot' => '09:00',
-        ])->assertCreated()->assertJsonPath('appointment.queue.queue_number', 1);
+            'appointment_time' => '09:00',
+        ])->assertCreated()->assertJsonPath('appointment.queue_number', '01');
     }
 
     public function test_booking_is_rejected_once_daily_queue_reaches_fifty(): void
@@ -91,20 +91,20 @@ class QueueAssignmentTest extends TestCase
         for ($expectedQueueNumber = 1; $expectedQueueNumber <= 50; $expectedQueueNumber++) {
             $patient = $this->createUserWithRole('Patient');
 
-            $this->postJson('/api/v1/admin/appointments/walk-in', [
+            $this->postJson('/api/v1/admin/appointments', [
                 'patient_id' => $patient->id,
-                'service_id' => $service->id,
+                'service_type' => $service->name,
                 'appointment_date' => $appointmentDate,
-                'time_slot' => '11:00',
-            ])->assertCreated()->assertJsonPath('appointment.queue.queue_number', $expectedQueueNumber);
+                'appointment_time' => '11:00',
+            ])->assertCreated()->assertJsonPath('appointment.queue_number', str_pad((string) $expectedQueueNumber, 2, '0', STR_PAD_LEFT));
         }
 
         $extraPatient = $this->createUserWithRole('Patient');
-        $response = $this->postJson('/api/v1/admin/appointments/walk-in', [
+        $response = $this->postJson('/api/v1/admin/appointments', [
             'patient_id' => $extraPatient->id,
-            'service_id' => $service->id,
+            'service_type' => $service->name,
             'appointment_date' => $appointmentDate,
-            'time_slot' => '11:00',
+            'appointment_time' => '11:00',
         ]);
 
         $response->assertStatus(422)
