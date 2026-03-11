@@ -187,6 +187,9 @@ class AppointmentController extends Controller
                 'appointment' => $this->formatAppointmentResponse($appointment),
             ], 201);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
