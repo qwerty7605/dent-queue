@@ -43,7 +43,7 @@ class AppConfig {
   static String get androidEmulatorBaseUrl => 'http://10.0.2.2:$port';
   // Physical-device fallback prefers localhost, which works with adb reverse.
   // For Wi-Fi device testing, pass API_BASE_URL/API_HOST at runtime.
-  static String get physicalDeviceBaseUrl => 'http://localhost:$port';
+  static String get physicalDeviceBaseUrl => 'http://192.168.1.20:80';
   static const productionBaseUrl = 'https://example.com'; // TODO
 
   static int get port => int.tryParse(_portOverride) ?? defaultPort;

@@ -20,4 +20,5 @@ class Endpoints {
       '$_base/admin/appointments?date=$date';
   static String adminUpdateAppointmentStatus(int id) =>
       '$_base/admin/appointments/$id/status';
+  static const adminWalkInAppointment = '$_base/admin/appointments/walk-in';
 }

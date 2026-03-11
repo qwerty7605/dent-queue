@@ -5,9 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Service;
+use App\Models\Role;
+use App\Models\User;
 use App\Services\AppointmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AppointmentController extends Controller
 {
@@ -122,15 +127,73 @@ class AppointmentController extends Controller
      */
     public function storeWalkIn(Request $request): JsonResponse
     {
-        $payload = $this->validateBookingPayload($request, true);
-        $appointment = $this->appointmentService->createAppointment($payload);
+        $payload = $request->validate([
+            'first_name' => ['required', 'string', 'max:100'],
+            'middle_name' => ['nullable', 'string', 'max:100'],
+            'surname' => ['required', 'string', 'max:100'],
+            'address' => ['required', 'string', 'max:255'],
+            'gender' => ['required', 'string', 'in:Male,Female,Other'],
+            'contact_number' => ['required', 'string', 'max:20'],
+            'service_type' => ['required', 'string', 'exists:services,name'],
+            'appointment_date' => ['required', 'date_format:Y-m-d'],
+            'appointment_time' => ['required', 'string'],
+        ]);
 
-        $appointment->load('queue');
+        $service = Service::query()->where('name', (string) $payload['service_type'])->first();
 
-        return response()->json([
-            'message' => 'Walk-in booking created successfully.',
-            'appointment' => $this->formatAppointmentResponse($appointment),
-        ], 201);
+        if ($service === null) {
+            return response()->json([
+                'message' => 'The selected service type is invalid.',
+            ], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $patientRole = Role::where('name', 'Patient')->first();
+            $timestamp = now()->timestamp;
+            $randomString = Str::random(5);
+            $email = "walkin_{$timestamp}_{$randomString}@dentqueue.local";
+            $username = "walkin_{$timestamp}_{$randomString}";
+
+            $user = User::create([
+                'first_name' => $payload['first_name'],
+                'middle_name' => $payload['middle_name'] ?? null,
+                'last_name' => $payload['surname'],
+                'location' => $payload['address'],
+                'gender' => strtolower($payload['gender']),
+                'phone_number' => $payload['contact_number'],
+                'email' => $email,
+                'username' => $username,
+                'password' => Hash::make(Str::random(16)),
+                'role_id' => $patientRole->id,
+                'is_active' => true,
+            ]);
+
+            $appointment = $this->appointmentService->createAppointment([
+                'patient_id' => $user->id,
+                'service_id' => $service->id,
+                'appointment_date' => $payload['appointment_date'],
+                'time_slot' => $payload['appointment_time'],
+                'notes' => 'Walk-In Patient',
+            ]);
+
+            $appointment->load('queue');
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Walk-in booking created successfully.',
+                'appointment' => $this->formatAppointmentResponse($appointment),
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to create walk-in appointment.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

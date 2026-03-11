@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/api_exception.dart';
+import '../services/appointment_service.dart';
+
 class StaffWalkInView extends StatefulWidget {
-  const StaffWalkInView({super.key});
+  const StaffWalkInView({
+    super.key,
+    required this.appointmentService,
+    required this.onWalkInSuccess,
+  });
+
+  final AppointmentService appointmentService;
+  final VoidCallback onWalkInSuccess;
 
   @override
   State<StaffWalkInView> createState() => _StaffWalkInViewState();
@@ -45,16 +55,28 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
   }
 
   Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final bool isSunday = now.weekday == DateTime.sunday;
+    final initial = _selectedDate ?? (isSunday ? now.add(const Duration(days: 1)) : now);
+    
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2100),
+      initialDate: initial,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+      selectableDayPredicate: (DateTime val) => val.weekday != DateTime.sunday,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF679B6A),
+              primary: Color(0xFF679B6A), // header background color
+              onPrimary: Colors.white, // header text color
+              onSurface: Color(0xFF2C3E50), // body text color
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF679B6A), // button text color
+              ),
             ),
           ),
           child: child!,
@@ -68,10 +90,19 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
   }
 
   Future<void> _pickTime() async {
+    if (_selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a date first'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final picked = await showTimePicker(
       context: context,
-      initialTime: _selectedTime ?? TimeOfDay.now(),
-      initialEntryMode: TimePickerEntryMode.input,
+      initialTime: const TimeOfDay(hour: 8, minute: 0),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -107,22 +138,75 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
       },
     );
     if (picked != null) {
+      final double timeInDouble = picked.hour + picked.minute / 60.0;
+      
+      // Rule 1: Prevent time selection outside 7:30 AM (7.5) - 6:00 PM (18.0)
+      if (timeInDouble < 7.5 || timeInDouble > 18.0) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a time between 7:30 AM and 6:00 PM'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Rule 2: If selecting today, prevent selecting past time
+      final now = DateTime.now();
+      final isToday = _selectedDate!.year == now.year &&
+                      _selectedDate!.month == now.month &&
+                      _selectedDate!.day == now.day;
+                      
+      if (isToday) {
+        final double nowInDouble = now.hour + now.minute / 60.0;
+        if (timeInDouble <= nowInDouble) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot book an appointment in the past'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+
       setState(() => _selectedTime = picked);
       _formKey.currentState?.validate(); // Re-validate
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isSubmitting = true);
-      // Simulate API call for now (ticket says: "Do not yet implement final data-saving logic here.")
-      Future.delayed(const Duration(seconds: 1), () {
+
+      final dateStr = _selectedDate!.toIso8601String().split('T')[0];
+      final timeStr =
+          '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}';
+
+      final payload = {
+        'first_name': _firstNameController.text.trim(),
+        'surname': _surnameController.text.trim(),
+        'middle_name': _middleNameController.text.trim(),
+        'address': _addressController.text.trim(),
+        'gender': _gender,
+        'contact_number': _contactNumberController.text.trim(),
+        'service_type': _serviceType,
+        'appointment_date': dateStr,
+        'appointment_time': timeStr,
+      };
+
+      try {
+        await widget.appointmentService.createWalkInAppointment(payload);
+        
         if (!mounted) return;
         setState(() => _isSubmitting = false);
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Walk-in patient form ready for integration!')),
+          const SnackBar(content: Text('Walk-in patient appointment created successfully!')),
         );
-        // Clear form:
+
         _formKey.currentState!.reset();
         _firstNameController.clear();
         _surnameController.clear();
@@ -135,7 +219,33 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
           _selectedDate = null;
           _selectedTime = null;
         });
-      });
+
+        widget.onWalkInSuccess();
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        
+        String errorMessage = e.message;
+        if (e.errors != null && e.errors!.isNotEmpty) {
+          errorMessage = e.errors!.values.first.first;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('An unexpected error occurred: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

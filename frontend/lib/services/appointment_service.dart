@@ -100,4 +100,15 @@ class AppointmentService {
 
     return response as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> createWalkInAppointment(
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _baseService.postJson<dynamic>(
+      Endpoints.adminWalkInAppointment,
+      payload,
+      (data) => data,
+    );
+    return response as Map<String, dynamic>;
+  }
 }
