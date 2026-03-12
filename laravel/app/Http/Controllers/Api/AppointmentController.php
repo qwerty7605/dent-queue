@@ -4,15 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\PatientRecord;
 use App\Models\Service;
-use App\Models\Role;
-use App\Models\User;
 use App\Services\AppointmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class AppointmentController extends Controller
 {
@@ -75,7 +72,7 @@ class AppointmentController extends Controller
     public function storeAdmin(Request $request): JsonResponse
     {
         $payload = $request->validate([
-            'patient_id' => ['required', 'integer', 'exists:users,id'],
+            'patient_id' => ['required', 'integer', 'exists:patient_records,id'],
             'service_type' => ['required', 'string', 'exists:services,name'],
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'appointment_time' => ['required', 'string'],
@@ -127,13 +124,21 @@ class AppointmentController extends Controller
      */
     public function storeWalkIn(Request $request): JsonResponse
     {
+        if ($request->filled('surname') && !$request->filled('last_name')) {
+            $request->merge([
+                'last_name' => $request->input('surname'),
+            ]);
+        }
+
         $payload = $request->validate([
             'first_name' => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
-            'surname' => ['required', 'string', 'max:100'],
+            'last_name' => ['required', 'string', 'max:100'],
+            'surname' => ['sometimes', 'nullable', 'string', 'max:100'],
             'address' => ['required', 'string', 'max:255'],
             'gender' => ['required', 'string', 'in:Male,Female,Other'],
             'contact_number' => ['required', 'string', 'max:20'],
+            'birthdate' => ['nullable', 'date', 'before_or_equal:today'],
             'service_type' => ['required', 'string', 'exists:services,name'],
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'appointment_time' => ['required', 'string'],
@@ -150,28 +155,19 @@ class AppointmentController extends Controller
         try {
             DB::beginTransaction();
 
-            $patientRole = Role::where('name', 'Patient')->first();
-            $timestamp = now()->timestamp;
-            $randomString = Str::random(5);
-            $email = "walkin_{$timestamp}_{$randomString}@dentqueue.local";
-            $username = "walkin_{$timestamp}_{$randomString}";
-
-            $user = User::create([
+            $patientRecord = PatientRecord::create([
                 'first_name' => $payload['first_name'],
                 'middle_name' => $payload['middle_name'] ?? null,
-                'last_name' => $payload['surname'],
-                'location' => $payload['address'],
+                'last_name' => $payload['last_name'],
+                'address' => $payload['address'],
                 'gender' => strtolower($payload['gender']),
-                'phone_number' => $payload['contact_number'],
-                'email' => $email,
-                'username' => $username,
-                'password' => Hash::make(Str::random(16)),
-                'role_id' => $patientRole->id,
-                'is_active' => true,
+                'contact_number' => $payload['contact_number'],
+                'birthdate' => $payload['birthdate'] ?? null,
+                'user_id' => null,
             ]);
 
             $appointment = $this->appointmentService->createAppointment([
-                'patient_id' => $user->id,
+                'patient_id' => (int) $patientRecord->id,
                 'service_id' => $service->id,
                 'appointment_date' => $payload['appointment_date'],
                 'time_slot' => $payload['appointment_time'],
@@ -184,6 +180,18 @@ class AppointmentController extends Controller
 
             return response()->json([
                 'message' => 'Walk-in booking created successfully.',
+                'patient_record' => [
+                    'id' => (int) $patientRecord->id,
+                    'patient_id' => (string) $patientRecord->patient_id,
+                    'user_id' => $patientRecord->user_id,
+                    'first_name' => (string) $patientRecord->first_name,
+                    'middle_name' => $patientRecord->middle_name,
+                    'last_name' => (string) $patientRecord->last_name,
+                    'gender' => (string) $patientRecord->gender,
+                    'address' => (string) $patientRecord->address,
+                    'contact_number' => (string) $patientRecord->contact_number,
+                    'birthdate' => optional($patientRecord->birthdate)?->toDateString(),
+                ],
                 'appointment' => $this->formatAppointmentResponse($appointment),
             ], 201);
 
@@ -286,7 +294,7 @@ class AppointmentController extends Controller
         ];
 
         if ($requirePatientId) {
-            $rules['patient_id'] = ['required', 'integer', 'exists:users,id'];
+            $rules['patient_id'] = ['required', 'integer', 'exists:patient_records,id'];
         }
 
         return $request->validate($rules);

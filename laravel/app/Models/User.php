@@ -4,6 +4,8 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -12,6 +14,13 @@ class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasApiTokens;
+
+    protected static function booted(): void
+    {
+        static::saved(function (self $user): void {
+            $user->syncPatientRecord();
+        });
+    }
 
     /**
      * The attributes that are mass assignable.
@@ -42,19 +51,36 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
-
+    public function patientRecord(): HasOne
+    {
+        return $this->hasOne(PatientRecord::class);
+    }
 
     /**
      * Get the appointments for the user (as a patient).
      */
-    public function appointments()
+    public function appointments(): HasManyThrough
     {
-        return $this->hasMany(Appointment::class , 'patient_id');
+        return $this->hasManyThrough(
+            Appointment::class,
+            PatientRecord::class,
+            'user_id',
+            'patient_id',
+            'id',
+            'id',
+        );
     }
 
-    public function patientNotifications()
+    public function patientNotifications(): HasManyThrough
     {
-        return $this->hasMany(PatientNotification::class, 'patient_id');
+        return $this->hasManyThrough(
+            PatientNotification::class,
+            PatientRecord::class,
+            'user_id',
+            'patient_id',
+            'id',
+            'id',
+        );
     }
 
     /**
@@ -79,5 +105,25 @@ class User extends Authenticatable
             'birthdate' => 'date',
             'password' => 'hashed',
         ];
+    }
+
+    private function syncPatientRecord(): ?PatientRecord
+    {
+        if (!$this->shouldMaintainPatientRecord()) {
+            return null;
+        }
+
+        return PatientRecord::syncFromUser($this);
+    }
+
+    private function shouldMaintainPatientRecord(): bool
+    {
+        if ($this->role_id === null) {
+            return false;
+        }
+
+        return $this->role()
+            ->whereRaw('LOWER(name) = ?', ['patient'])
+            ->exists();
     }
 }

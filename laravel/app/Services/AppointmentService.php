@@ -48,7 +48,7 @@ class AppointmentService
     {
         return Appointment::query()
             ->join('queues', 'queues.appointment_id', '=', 'appointments.id')
-            ->join('users', 'users.id', '=', 'appointments.patient_id')
+            ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->where('appointments.appointment_date', $date)
             ->orderBy('queues.queue_number')
@@ -60,8 +60,8 @@ class AppointmentService
                 'appointments.time_slot',
                 'appointments.status',
                 'queues.queue_number',
-                'users.first_name',
-                'users.last_name',
+                'patient_records.first_name',
+                'patient_records.last_name',
                 'services.name as service_name',
             ])
             ->get()
@@ -291,6 +291,10 @@ class AppointmentService
 
     private function createBookingNotification(Appointment $appointment): void
     {
+        if ((int) ($appointment->patient?->user_id ?? 0) === 0) {
+            return;
+        }
+
         PatientNotification::create([
             'patient_id' => (int) $appointment->patient_id,
             'appointment_id' => (int) $appointment->id,
