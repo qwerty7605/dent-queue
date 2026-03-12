@@ -171,10 +171,13 @@ class AppointmentController extends Controller
                 'service_id' => $service->id,
                 'appointment_date' => $payload['appointment_date'],
                 'time_slot' => $payload['appointment_time'],
+                'status' => 'approved',
                 'notes' => 'Walk-In Patient',
             ]);
 
             $appointment->load('queue');
+            $appointmentResponse = $this->formatAppointmentResponse($appointment);
+            $appointmentResponse['status'] = 'Approved';
 
             DB::commit();
 
@@ -192,7 +195,7 @@ class AppointmentController extends Controller
                     'contact_number' => (string) $patientRecord->contact_number,
                     'birthdate' => optional($patientRecord->birthdate)?->toDateString(),
                 ],
-                'appointment' => $this->formatAppointmentResponse($appointment),
+                'appointment' => $appointmentResponse,
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
