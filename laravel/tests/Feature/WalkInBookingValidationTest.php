@@ -67,13 +67,17 @@ class WalkInBookingValidationTest extends TestCase
             ->assertJsonPath('patient_record.last_name', 'Doe')
             ->assertJsonPath('patient_record.birthdate', null)
             ->assertJsonPath('appointment.appointment_date', $appointmentDate)
-            ->assertJsonPath('appointment.appointment_time', '10:00');
+            ->assertJsonPath('appointment.appointment_time', '10:00')
+            ->assertJsonPath('appointment.service_type', $service->name)
+            ->assertJsonPath('appointment.status', 'Approved');
 
         $patientRecordId = (int) data_get($response->json(), 'patient_record.id');
         $generatedPatientId = data_get($response->json(), 'patient_record.patient_id');
+        $timestampCreated = data_get($response->json(), 'appointment.timestamp_created');
 
         $this->assertGreaterThan(0, $patientRecordId);
         $this->assertNotEmpty($generatedPatientId);
+        $this->assertNotNull($timestampCreated);
         $this->assertSame($usersBefore, User::count());
 
         $this->assertDatabaseHas('patient_records', [
@@ -94,11 +98,12 @@ class WalkInBookingValidationTest extends TestCase
             'service_id' => $service->id,
             'appointment_date' => $appointmentDate,
             'time_slot' => '10:00',
-            'status' => 'pending',
+            'status' => 'confirmed',
         ]);
 
         $appointment = Appointment::query()->where('patient_id', $patientRecordId)->first();
         $this->assertNotNull($appointment);
+        $this->assertNotNull($appointment?->created_at);
     }
 
     private function createUserWithRole(string $roleName): User

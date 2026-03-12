@@ -86,6 +86,7 @@ class AppointmentService
     public function createAppointment(array $data)
     {
         $validatedBooking = $this->bookingRulesEngine->validate($data);
+        $initialStatus = $this->resolveInitialStatus($data);
 
         $existingAppointment = Appointment::where('patient_id', $data['patient_id'])
             ->where('appointment_date', $validatedBooking['appointment_date'])
@@ -98,14 +99,14 @@ class AppointmentService
             ]);
         }
 
-        return DB::transaction(function () use ($data, $validatedBooking) {
+        return DB::transaction(function () use ($data, $validatedBooking, $initialStatus) {
             try {
                 $appointment = Appointment::create([
                     'patient_id' => $data['patient_id'],
                     'service_id' => $data['service_id'],
                     'appointment_date' => $validatedBooking['appointment_date'],
                     'time_slot' => $validatedBooking['time_slot'],
-                    'status' => self::STATUS_PENDING,
+                    'status' => $initialStatus,
                     'notes' => $data['notes'] ?? null,
                 ]);
             } catch (QueryException $exception) {
@@ -243,6 +244,23 @@ class AppointmentService
         $normalized = mb_strtolower(trim($status));
 
         return self::STATUS_ALIASES[$normalized] ?? null;
+    }
+
+    private function resolveInitialStatus(array $data): string
+    {
+        if (!array_key_exists('status', $data) || $data['status'] === null) {
+            return self::STATUS_PENDING;
+        }
+
+        $normalized = $this->normalizeStatus((string) $data['status']);
+
+        if ($normalized === null) {
+            throw ValidationException::withMessages([
+                'status' => ['Status must be one of: pending, approved, cancelled, completed.'],
+            ]);
+        }
+
+        return $normalized;
     }
 
     private function displayStatusLabel(string $status): string
