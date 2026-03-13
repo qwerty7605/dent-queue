@@ -8,6 +8,7 @@ import '../services/appointment_service.dart';
 import '../services/base_service.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 import 'staff_walk_in_view.dart';
+import 'staff_patient_records_view.dart';
 
 enum _StaffTab { appointments, walkIn, records }
 
@@ -193,11 +194,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               _loadAppointmentsForSelectedDate();
             },
           ),
-          _StaffTab.records => _buildPlaceholderTab(
-            title: 'RECORDS',
-            subtitle: 'Patient records module goes here.',
-            icon: Icons.search,
-          ),
+          _StaffTab.records => const StaffPatientRecordsView(),
         },
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
@@ -519,76 +516,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     );
   }
 
-  Widget _buildCalendarTab() {
-    return _buildPlaceholderTab(
-      title: 'CALENDAR',
-      subtitle:
-          'Calendar module is intentionally empty for this sprint. It will be implemented in the next sprint.',
-      icon: Icons.calendar_month_outlined,
-    );
-  }
 
-  Widget _buildPlaceholderTab({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-  }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: constraints.maxWidth > 900 ? 900 : double.infinity,
-              ),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 36,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Icon(icon, size: 36, color: const Color(0xFF679B6A)),
-                    const SizedBox(height: 10),
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   Widget _buildSummaryCards(double availableWidth) {
     final pendingCount = _countByStatus('pending');
