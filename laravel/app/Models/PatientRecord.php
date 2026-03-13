@@ -74,6 +74,13 @@ class PatientRecord extends Model
         return $patientRecord;
     }
 
+    public static function resolveForUser(User $user): self
+    {
+        $user->loadMissing('patientRecord');
+
+        return $user->patientRecord ?? static::syncFromUser($user);
+    }
+
     public static function formatPatientIdentifier(int $recordKey): string
     {
         return 'PAT-' . str_pad((string) $recordKey, 13, '0', STR_PAD_LEFT);

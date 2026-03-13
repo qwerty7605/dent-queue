@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Appointment;
+use App\Models\PatientRecord;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -74,6 +75,39 @@ class PatientCancelAppointmentTest extends TestCase
             });
     }
 
+    public function test_patient_can_cancel_appointment_when_patient_record_id_differs_from_user_id(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $patientRecord = $this->reassignPatientRecord($patient, 9000000004321);
+        $appointment = $this->createAppointment((int) $patientRecord->id, 'pending');
+        Log::spy();
+        Sanctum::actingAs($patient->fresh());
+
+        $response = $this->patchJson('/api/v1/patient/appointments/' . $appointment->id . '/cancel');
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Appointment cancelled successfully.')
+            ->assertJsonPath('appointment.patient_id', (int) $patientRecord->id)
+            ->assertJsonPath('appointment.status', 'Cancelled');
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $appointment->id,
+            'patient_id' => (int) $patientRecord->id,
+            'status' => 'cancelled',
+        ]);
+
+        Log::shouldHaveReceived('info')
+            ->once()
+            ->withArgs(function (string $message, array $context) use ($appointment, $patientRecord): bool {
+                return $message === 'appointment.cancelled.by_patient'
+                    && (int) ($context['appointment_id'] ?? 0) === (int) $appointment->id
+                    && (int) ($context['patient_id'] ?? 0) === (int) $patientRecord->id
+                    && ($context['previous_status'] ?? null) === 'pending'
+                    && ($context['new_status'] ?? null) === 'cancelled'
+                    && is_string($context['occurred_at'] ?? null);
+            });
+    }
+
     public function test_patient_cannot_cancel_completed_appointment(): void
     {
         $patient = $this->createUserWithRole('Patient');
@@ -136,6 +170,24 @@ class PatientCancelAppointmentTest extends TestCase
             'appointment_date' => now()->next('Monday')->format('Y-m-d'),
             'time_slot' => '09:00',
             'status' => $status,
+        ]);
+    }
+
+    private function reassignPatientRecord(User $patient, int $recordId): PatientRecord
+    {
+        $patient->patientRecord()->delete();
+        $patient->unsetRelation('patientRecord');
+
+        return PatientRecord::create([
+            'id' => $recordId,
+            'user_id' => (int) $patient->id,
+            'first_name' => (string) $patient->first_name,
+            'middle_name' => $patient->middle_name,
+            'last_name' => (string) $patient->last_name,
+            'gender' => $patient->gender,
+            'address' => $patient->location,
+            'contact_number' => $patient->phone_number,
+            'birthdate' => $patient->birthdate,
         ]);
     }
 
