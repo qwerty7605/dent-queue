@@ -21,7 +21,7 @@ class PatientNotification extends Model
 
     public function patient()
     {
-        return $this->belongsTo(User::class, 'patient_id');
+        return $this->belongsTo(PatientRecord::class, 'patient_id');
     }
 
     public function appointment()

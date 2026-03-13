@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Appointment;
 use App\Models\Role;
 use App\Models\Service;
 use App\Models\User;
@@ -18,7 +19,6 @@ class WalkInBookingValidationTest extends TestCase
     public function test_walk_in_booking_rejects_sunday(): void
     {
         $staff = $this->createUserWithRole('Staff');
-        $patientRole = Role::firstOrCreate(['name' => 'Patient']);
         $service = $this->createService();
         Sanctum::actingAs($staff);
 
@@ -36,6 +36,74 @@ class WalkInBookingValidationTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['appointment_date'])
             ->assertJsonPath('errors.appointment_date.0', 'Sunday bookings are not allowed.');
+    }
+
+    public function test_walk_in_booking_creates_patient_record_without_creating_a_user_account(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService();
+        Sanctum::actingAs($staff);
+
+        $usersBefore = User::count();
+        $appointmentDate = now()->next('Monday')->format('Y-m-d');
+
+        $response = $this->postJson('/api/v1/admin/appointments/walk-in', [
+            'first_name' => 'Jane',
+            'middle_name' => 'Quinn',
+            'surname' => 'Doe',
+            'address' => '123 Walkin St.',
+            'gender' => 'Female',
+            'contact_number' => '09123456789',
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '10:00',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('message', 'Walk-in booking created successfully.')
+            ->assertJsonPath('patient_record.user_id', null)
+            ->assertJsonPath('patient_record.first_name', 'Jane')
+            ->assertJsonPath('patient_record.middle_name', 'Quinn')
+            ->assertJsonPath('patient_record.last_name', 'Doe')
+            ->assertJsonPath('patient_record.birthdate', null)
+            ->assertJsonPath('appointment.appointment_date', $appointmentDate)
+            ->assertJsonPath('appointment.appointment_time', '10:00')
+            ->assertJsonPath('appointment.service_type', $service->name)
+            ->assertJsonPath('appointment.status', 'Approved');
+
+        $patientRecordId = (int) data_get($response->json(), 'patient_record.id');
+        $generatedPatientId = data_get($response->json(), 'patient_record.patient_id');
+        $timestampCreated = data_get($response->json(), 'appointment.timestamp_created');
+
+        $this->assertGreaterThan(0, $patientRecordId);
+        $this->assertNotEmpty($generatedPatientId);
+        $this->assertNotNull($timestampCreated);
+        $this->assertSame($usersBefore, User::count());
+
+        $this->assertDatabaseHas('patient_records', [
+            'id' => $patientRecordId,
+            'patient_id' => $generatedPatientId,
+            'user_id' => null,
+            'first_name' => 'Jane',
+            'middle_name' => 'Quinn',
+            'last_name' => 'Doe',
+            'gender' => 'female',
+            'address' => '123 Walkin St.',
+            'contact_number' => '09123456789',
+            'birthdate' => null,
+        ]);
+
+        $this->assertDatabaseHas('appointments', [
+            'patient_id' => $patientRecordId,
+            'service_id' => $service->id,
+            'appointment_date' => $appointmentDate,
+            'time_slot' => '10:00',
+            'status' => 'confirmed',
+        ]);
+
+        $appointment = Appointment::query()->where('patient_id', $patientRecordId)->first();
+        $this->assertNotNull($appointment);
+        $this->assertNotNull($appointment?->created_at);
     }
 
     private function createUserWithRole(string $roleName): User
