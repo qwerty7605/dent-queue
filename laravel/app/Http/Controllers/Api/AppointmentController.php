@@ -93,6 +93,7 @@ class AppointmentController extends Controller
             'service_id' => (int) $service->id,
             'appointment_date' => (string) $payload['appointment_date'],
             'time_slot' => (string) $payload['appointment_time'],
+            'status' => 'approved',
             'notes' => $payload['notes'] ?? null,
         ]);
 
@@ -312,7 +313,7 @@ class AppointmentController extends Controller
             },
             'appointment_date' => (string) $appointment->appointment_date,
             'appointment_time' => (string) $appointment->time_slot,
-            'status' => ucfirst((string) $appointment->status),
+            'status' => $appointment->status === 'confirmed' ? 'Approved' : ucfirst((string) $appointment->status),
             'queue_number' => $appointment->queue ? str_pad((string) $appointment->queue->queue_number, 2, '0', STR_PAD_LEFT) : null,
             'timestamp_created' => optional($appointment->created_at)?->toDateTimeString(),
             'notes' => (string) $appointment->notes,
