@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../core/api_exception.dart';
+import '../services/patient_record_service.dart';
+import '../widgets/staff_book_appointment_dialog.dart';
 import 'staff_patient_detail_view.dart';
 
 class StaffPatientRecordsView extends StatefulWidget {
-  const StaffPatientRecordsView({super.key});
+  const StaffPatientRecordsView({
+    super.key,
+    required this.patientRecordService,
+  });
+
+  final PatientRecordService patientRecordService;
 
   @override
   State<StaffPatientRecordsView> createState() =>
@@ -12,28 +20,18 @@ class StaffPatientRecordsView extends StatefulWidget {
 
 class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
   final TextEditingController _searchController = TextEditingController();
-  
-  // Dummy data for patients
-  final List<Map<String, String>> _allPatients = [
-    {
-      'id': '1',
-      'name': 'Aldridge Wayne',
-      'phone': '09169014483',
-    },
-    {
-      'id': '2',
-      'name': 'John Doe',
-      'phone': '09123456789',
-    },
-    {
-      'id': '3',
-      'name': 'Jane Smith',
-      'phone': '09987654321',
-    },
-  ];
 
-  List<Map<String, String>> _searchResults = [];
+  List<StaffPatientSearchResult> _searchResults =
+      const <StaffPatientSearchResult>[];
+  StaffPatientRecordData? _selectedPatient;
+  StaffPatientSearchResult? _selectedSearchResult;
+
   bool _hasSearched = false;
+  bool _isSearching = false;
+  bool _isLoadingDetail = false;
+
+  String? _searchError;
+  String? _detailError;
 
   @override
   void dispose() {
@@ -41,32 +39,115 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
     super.dispose();
   }
 
-  void _performSearch() {
-    final query = _searchController.text.trim().toLowerCase();
-    
+  Future<void> _performSearch() async {
+    final query = _searchController.text.trim();
+
     if (query.isEmpty) {
       setState(() {
         _hasSearched = false;
-        _searchResults = [];
+        _isSearching = false;
+        _isLoadingDetail = false;
+        _searchError = null;
+        _detailError = null;
+        _selectedSearchResult = null;
+        _selectedPatient = null;
+        _searchResults = const <StaffPatientSearchResult>[];
       });
       return;
     }
 
+    FocusScope.of(context).unfocus();
+
     setState(() {
       _hasSearched = true;
-      _searchResults = _allPatients.where((patient) {
-        final name = patient['name']!.toLowerCase();
-        final phone = patient['phone']!;
-        return name.contains(query) || phone.contains(query);
-      }).toList();
+      _isSearching = true;
+      _searchError = null;
+      _detailError = null;
+      _selectedSearchResult = null;
+      _selectedPatient = null;
+      _searchResults = const <StaffPatientSearchResult>[];
+    });
+
+    try {
+      final results = await widget.patientRecordService.searchPatients(query);
+      if (!mounted) return;
+
+      setState(() {
+        _isSearching = false;
+        _searchResults = results
+            .map(StaffPatientSearchResult.fromApi)
+            .where((item) => item.patientId.isNotEmpty)
+            .toList();
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isSearching = false;
+        _searchError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isSearching = false;
+        _searchError =
+            'Unable to search patient records right now. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _loadPatientDetail(StaffPatientSearchResult patient) async {
+    setState(() {
+      _selectedSearchResult = patient;
+      _selectedPatient = null;
+      _detailError = null;
+      _isLoadingDetail = true;
+    });
+
+    try {
+      final detail = await widget.patientRecordService.getPatientDetail(
+        patient.patientId,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _searchController.text = patient.fullName;
+        _selectedPatient = StaffPatientRecordData.fromDetailResponse(detail);
+        _isLoadingDetail = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingDetail = false;
+        _detailError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingDetail = false;
+        _detailError =
+            'Unable to load patient details right now. Please try again.';
+      });
+    }
+  }
+
+  void _clearSelection() {
+    setState(() {
+      _selectedPatient = null;
+      _selectedSearchResult = null;
+      _detailError = null;
+      _isLoadingDetail = false;
     });
   }
 
-  void _navigateToPatientDetail(Map<String, String> patient) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => StaffPatientDetailView(patient: patient),
-      ),
+  void _openBookAppointmentDialog(StaffPatientRecordData patient) {
+    showDialog<void>(
+      context: context,
+      builder: (_) =>
+          StaffBookAppointmentDialog(patient: patient.toDialogPatient()),
     );
   }
 
@@ -83,7 +164,7 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
             horizontalPadding,
             16,
             horizontalPadding,
-            16,
+            18,
           ),
           child: Center(
             child: ConstrainedBox(
@@ -113,8 +194,14 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
                   ),
                   const SizedBox(height: 24),
                   _buildSearchBar(),
-                  const SizedBox(height: 24),
-                  _buildSearchResults(),
+                  const SizedBox(height: 18),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: _buildBodyState(),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -122,6 +209,39 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
         );
       },
     );
+  }
+
+  Widget _buildBodyState() {
+    if (_isLoadingDetail) {
+      return _InfoPanel(
+        key: const ValueKey<String>('detail-loading'),
+        child: const _LoadingState(label: 'Loading patient details...'),
+      );
+    }
+
+    if (_detailError != null) {
+      return _InfoPanel(
+        key: const ValueKey<String>('detail-error'),
+        child: _ErrorState(
+          message: _detailError!,
+          actionLabel: 'Retry',
+          onRetry: _selectedSearchResult == null
+              ? null
+              : () => _loadPatientDetail(_selectedSearchResult!),
+        ),
+      );
+    }
+
+    if (_selectedPatient != null) {
+      return StaffPatientDetailView(
+        key: ValueKey<String>(_selectedPatient!.patientId),
+        patient: _selectedPatient!,
+        onBack: _clearSelection,
+        onBookAppointment: () => _openBookAppointmentDialog(_selectedPatient!),
+      );
+    }
+
+    return _buildSearchState();
   }
 
   Widget _buildSearchBar() {
@@ -144,7 +264,7 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
               controller: _searchController,
               onSubmitted: (_) => _performSearch(),
               decoration: InputDecoration(
-                hintText: 'Search by name or phone...',
+                hintText: 'Search by name, patient ID, or phone...',
                 hintStyle: const TextStyle(
                   color: Color(0xFF9CA3AF),
                   fontWeight: FontWeight.w500,
@@ -187,12 +307,8 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
               borderRadius: BorderRadius.circular(16),
               onTap: _performSearch,
               child: const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Icon(
-                  Icons.search,
-                  color: Colors.white,
-                  size: 26,
-                ),
+                padding: EdgeInsets.all(16),
+                child: Icon(Icons.search, color: Colors.white, size: 26),
               ),
             ),
           ),
@@ -201,45 +317,47 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
     );
   }
 
-  Widget _buildSearchResults() {
+  Widget _buildSearchState() {
     if (!_hasSearched) {
-      return const SizedBox.shrink(); // Empty state before search
+      return const _InfoPanel(
+        key: ValueKey<String>('search-empty'),
+        child: _MessageState(
+          icon: Icons.manage_search_rounded,
+          message: 'Search a patient record to view full details.',
+        ),
+      );
+    }
+
+    if (_isSearching) {
+      return const _InfoPanel(
+        key: ValueKey<String>('search-loading'),
+        child: _LoadingState(label: 'Searching patient records...'),
+      );
+    }
+
+    if (_searchError != null) {
+      return _InfoPanel(
+        key: const ValueKey<String>('search-error'),
+        child: _ErrorState(
+          message: _searchError!,
+          actionLabel: 'Retry Search',
+          onRetry: _performSearch,
+        ),
+      );
     }
 
     if (_searchResults.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(32),
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: const Column(
-          children: [
-            Icon(Icons.search_off, size: 48, color: Color(0xFFCBD5E1)),
-            SizedBox(height: 16),
-            Text(
-              'No patients found',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF475569),
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Try adjusting your search terms',
-              style: TextStyle(
-                color: Color(0xFF64748B),
-              ),
-            ),
-          ],
+      return const _InfoPanel(
+        key: ValueKey<String>('search-no-results'),
+        child: _MessageState(
+          icon: Icons.search_off_rounded,
+          message: 'No patient records matched your search.',
         ),
       );
     }
 
     return ListView.separated(
+      key: const ValueKey<String>('search-results'),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: _searchResults.length,
@@ -251,10 +369,7 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
     );
   }
 
-  Widget _buildPatientCard(Map<String, String> patient) {
-    final name = patient['name']!;
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-
+  Widget _buildPatientCard(StaffPatientSearchResult patient) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -271,9 +386,9 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _navigateToPatientDetail(patient),
+          onTap: () => _loadPatientDetail(patient),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Container(
@@ -285,10 +400,10 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
                   ),
                   child: Center(
                     child: Text(
-                      initial,
+                      patient.initial,
                       style: const TextStyle(
                         color: Color(0xFF679B6A),
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -300,11 +415,21 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        name,
+                        patient.fullName,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                           color: Color(0xFF1E293B),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        patient.patientId,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF8CA0AF),
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -317,7 +442,7 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            patient['phone']!,
+                            patient.contactNumber,
                             style: const TextStyle(
                               fontSize: 13,
                               color: Color(0xFF64748B),
@@ -339,6 +464,138 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _InfoPanel extends StatelessWidget {
+  const _InfoPanel({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE7EBEE)),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _MessageState extends StatelessWidget {
+  const _MessageState({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, size: 46, color: const Color(0xFFCBD5E1)),
+        const SizedBox(height: 14),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF475569),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LoadingState extends StatelessWidget {
+  const _LoadingState({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.8,
+            color: Color(0xFF679B6A),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF475569),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({
+    required this.message,
+    required this.actionLabel,
+    this.onRetry,
+  });
+
+  final String message;
+  final String actionLabel;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const Icon(
+          Icons.error_outline_rounded,
+          size: 44,
+          color: Color(0xFFD97706),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF475569),
+          ),
+        ),
+        if (onRetry != null) ...[
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onRetry,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF679B6A),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              actionLabel,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
