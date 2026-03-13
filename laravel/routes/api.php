@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\QueueController;
 use App\Http\Controllers\Api\PatientProfileController;
+use App\Http\Controllers\Api\PatientRecordController;
 use App\Http\Controllers\Api\ReportController;
 
 Route::prefix('v1')->group(function () {
@@ -24,6 +25,7 @@ Route::prefix('v1')->group(function () {
 
         // Admin/Staff routes
         Route::prefix('admin')->middleware('role:admin,staff')->group(function () {
+            Route::get('/patients/search', [PatientRecordController::class, 'search']);
             Route::apiResource('services', ServiceController::class);
             Route::get('/appointments', [AppointmentController::class, 'indexAdmin']);
             Route::post('/appointments', [AppointmentController::class, 'storeAdmin']);
