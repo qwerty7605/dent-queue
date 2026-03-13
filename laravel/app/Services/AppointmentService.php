@@ -7,6 +7,7 @@ use App\Models\PatientRecord;
 use App\Models\PatientNotification;
 use App\Models\Queue;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -290,8 +291,23 @@ class AppointmentService
 
     public function getPatientAppointments(int $patientId)
     {
-        return Appointment::with(['patient', 'queue'])
+        return Appointment::with(['patient', 'queue', 'service'])
             ->where('patient_id', $patientId)
+            ->orderBy('appointment_date')
+            ->orderBy('time_slot')
+            ->get();
+    }
+
+    public function getPatientUpcomingAppointments(int $patientId)
+    {
+        return Appointment::with(['patient', 'queue', 'service'])
+            ->where('patient_id', $patientId)
+            ->whereDate(
+                'appointment_date',
+                '>=',
+                Carbon::today((string) config('app.timezone', 'UTC'))->toDateString(),
+            )
+            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED])
             ->orderBy('appointment_date')
             ->orderBy('time_slot')
             ->get();
@@ -299,7 +315,7 @@ class AppointmentService
 
     public function getPatientCompletedAppointments(int $patientId)
     {
-        return Appointment::with(['patient', 'queue'])
+        return Appointment::with(['patient', 'queue', 'service'])
             ->where('patient_id', $patientId)
             ->where('status', self::STATUS_COMPLETED)
             ->orderByDesc('appointment_date')

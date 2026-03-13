@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../core/api_exception.dart';
+import '../services/patient_record_service.dart';
 import '../widgets/staff_book_appointment_dialog.dart';
 import 'staff_patient_detail_view.dart';
 
 class StaffPatientRecordsView extends StatefulWidget {
-  const StaffPatientRecordsView({super.key});
+  const StaffPatientRecordsView({
+    super.key,
+    required this.patientRecordService,
+  });
+
+  final PatientRecordService patientRecordService;
 
   @override
   State<StaffPatientRecordsView> createState() =>
@@ -14,240 +21,17 @@ class StaffPatientRecordsView extends StatefulWidget {
 class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
   final TextEditingController _searchController = TextEditingController();
 
-  final List<StaffPatientRecordData> _allPatients = const [
-    StaffPatientRecordData(
-      id: '1',
-      patientId: 'SDQ-0003',
-      name: 'kyle aldea',
-      gender: 'Male',
-      birthdate: '2026-03-05',
-      address: '111',
-      contactNumber: '09169014483',
-      upcomingAppointments: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Root Canal',
-          date: 'Mar 10, 2026',
-          time: '09:00',
-          status: 'Approved',
-        ),
-      ],
-      clinicalHistory: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Dental Check-up',
-          date: 'March 2, 2026',
-          status: 'Completed',
-        ),
-      ],
-    ),
-    StaffPatientRecordData(
-      id: '2',
-      patientId: 'SDQ-0004',
-      name: 'janine cruz',
-      gender: 'Female',
-      birthdate: '2000-11-16',
-      address: '24 Mahogany Street',
-      contactNumber: '09123456789',
-      upcomingAppointments: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Dental Panoramic X-ray',
-          date: 'Mar 14, 2026',
-          time: '08:30',
-          status: 'Approved',
-        ),
-        StaffPatientAppointmentItem(
-          serviceType: 'Teeth Cleaning',
-          date: 'Mar 28, 2026',
-          time: '10:00',
-          status: 'Pending',
-        ),
-      ],
-      clinicalHistory: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Tooth Extraction',
-          date: 'February 11, 2026',
-          status: 'Completed',
-        ),
-      ],
-    ),
-    StaffPatientRecordData(
-      id: '3',
-      patientId: 'SDQ-0005',
-      name: 'miguel ramos',
-      gender: 'Male',
-      birthdate: '1998-07-22',
-      address: '88 Rizal Avenue',
-      contactNumber: '09987654321',
-      upcomingAppointments: [],
-      clinicalHistory: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Dental Check-up',
-          date: 'January 20, 2026',
-          status: 'Completed',
-        ),
-        StaffPatientAppointmentItem(
-          serviceType: 'Teeth Whitening',
-          date: 'December 8, 2025',
-          status: 'Completed',
-        ),
-      ],
-    ),
-    StaffPatientRecordData(
-      id: '4',
-      patientId: 'SDQ-0006',
-      name: 'bianca soriano',
-      gender: 'Female',
-      birthdate: '1996-04-09',
-      address: '17 Sampaguita Street',
-      contactNumber: '09181234567',
-      upcomingAppointments: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Dental Check-up',
-          date: 'Mar 18, 2026',
-          time: '11:30',
-          status: 'Pending',
-        ),
-      ],
-      clinicalHistory: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Teeth Cleaning',
-          date: 'February 3, 2026',
-          status: 'Completed',
-        ),
-        StaffPatientAppointmentItem(
-          serviceType: 'Dental Panoramic X-ray',
-          date: 'December 15, 2025',
-          status: 'Completed',
-        ),
-      ],
-    ),
-    StaffPatientRecordData(
-      id: '5',
-      patientId: 'SDQ-0007',
-      name: 'carl dumagat',
-      gender: 'Male',
-      birthdate: '1989-09-27',
-      address: '45 Mabini Extension',
-      contactNumber: '09223334444',
-      upcomingAppointments: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Tooth Extraction',
-          date: 'Mar 19, 2026',
-          time: '08:00',
-          status: 'Approved',
-        ),
-        StaffPatientAppointmentItem(
-          serviceType: 'Follow-up Check-up',
-          date: 'Mar 26, 2026',
-          time: '09:30',
-          status: 'Pending',
-        ),
-      ],
-      clinicalHistory: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Root Canal',
-          date: 'January 9, 2026',
-          status: 'Completed',
-        ),
-      ],
-    ),
-    StaffPatientRecordData(
-      id: '6',
-      patientId: 'SDQ-0008',
-      name: 'diana flores',
-      gender: 'Female',
-      birthdate: '2002-06-14',
-      address: '211 P. Gomez Street',
-      contactNumber: '09335557777',
-      upcomingAppointments: [],
-      clinicalHistory: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Dental Check-up',
-          date: 'March 1, 2026',
-          status: 'Completed',
-        ),
-      ],
-    ),
-    StaffPatientRecordData(
-      id: '7',
-      patientId: 'SDQ-0009',
-      name: 'enzo valdez',
-      gender: 'Male',
-      birthdate: '1993-12-30',
-      address: '89 Del Rosario Avenue',
-      contactNumber: '09446668888',
-      upcomingAppointments: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Teeth Whitening',
-          date: 'Mar 22, 2026',
-          time: '01:30',
-          status: 'Approved',
-        ),
-      ],
-      clinicalHistory: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Dental Check-up',
-          date: 'January 12, 2026',
-          status: 'Completed',
-        ),
-        StaffPatientAppointmentItem(
-          serviceType: 'Teeth Cleaning',
-          date: 'November 20, 2025',
-          status: 'Completed',
-        ),
-      ],
-    ),
-    StaffPatientRecordData(
-      id: '8',
-      patientId: 'SDQ-0010',
-      name: 'francesca lim',
-      gender: 'Female',
-      birthdate: '1999-01-21',
-      address: '301 Orchid Homes',
-      contactNumber: '09557779999',
-      upcomingAppointments: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Dental Panoramic X-ray',
-          date: 'Mar 25, 2026',
-          time: '03:00',
-          status: 'Pending',
-        ),
-      ],
-      clinicalHistory: [],
-    ),
-    StaffPatientRecordData(
-      id: '9',
-      patientId: 'SDQ-0011',
-      name: 'gabriel mercado',
-      gender: 'Male',
-      birthdate: '1987-08-11',
-      address: '72 Laurel Compound',
-      contactNumber: '09668880000',
-      upcomingAppointments: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Root Canal',
-          date: 'Mar 24, 2026',
-          time: '10:30',
-          status: 'Approved',
-        ),
-      ],
-      clinicalHistory: [
-        StaffPatientAppointmentItem(
-          serviceType: 'Tooth Extraction',
-          date: 'February 8, 2026',
-          status: 'Completed',
-        ),
-        StaffPatientAppointmentItem(
-          serviceType: 'Dental Check-up',
-          date: 'September 6, 2025',
-          status: 'Completed',
-        ),
-      ],
-    ),
-  ];
-
-  List<StaffPatientRecordData> _searchResults = [];
+  List<StaffPatientSearchResult> _searchResults =
+      const <StaffPatientSearchResult>[];
   StaffPatientRecordData? _selectedPatient;
+  StaffPatientSearchResult? _selectedSearchResult;
+
   bool _hasSearched = false;
+  bool _isSearching = false;
+  bool _isLoadingDetail = false;
+
+  String? _searchError;
+  String? _detailError;
 
   @override
   void dispose() {
@@ -255,40 +39,107 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
     super.dispose();
   }
 
-  void _performSearch() {
-    final query = _searchController.text.trim().toLowerCase();
+  Future<void> _performSearch() async {
+    final query = _searchController.text.trim();
 
     if (query.isEmpty) {
       setState(() {
         _hasSearched = false;
+        _isSearching = false;
+        _isLoadingDetail = false;
+        _searchError = null;
+        _detailError = null;
+        _selectedSearchResult = null;
         _selectedPatient = null;
-        _searchResults = [];
+        _searchResults = const <StaffPatientSearchResult>[];
       });
       return;
     }
 
+    FocusScope.of(context).unfocus();
+
     setState(() {
       _hasSearched = true;
+      _isSearching = true;
+      _searchError = null;
+      _detailError = null;
+      _selectedSearchResult = null;
       _selectedPatient = null;
-      _searchResults = _allPatients.where((patient) {
-        return patient.name.toLowerCase().contains(query) ||
-            patient.contactNumber.contains(query) ||
-            patient.patientId.toLowerCase().contains(query);
-      }).toList();
+      _searchResults = const <StaffPatientSearchResult>[];
     });
+
+    try {
+      final results = await widget.patientRecordService.searchPatients(query);
+      if (!mounted) return;
+
+      setState(() {
+        _isSearching = false;
+        _searchResults = results
+            .map(StaffPatientSearchResult.fromApi)
+            .where((item) => item.patientId.isNotEmpty)
+            .toList();
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isSearching = false;
+        _searchError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isSearching = false;
+        _searchError =
+            'Unable to search patient records right now. Please try again.';
+      });
+    }
   }
 
-  void _selectPatient(StaffPatientRecordData patient) {
+  Future<void> _loadPatientDetail(StaffPatientSearchResult patient) async {
     setState(() {
-      _selectedPatient = patient;
-      _hasSearched = true;
-      _searchController.text = patient.name;
+      _selectedSearchResult = patient;
+      _selectedPatient = null;
+      _detailError = null;
+      _isLoadingDetail = true;
     });
+
+    try {
+      final detail = await widget.patientRecordService.getPatientDetail(
+        patient.patientId,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _searchController.text = patient.fullName;
+        _selectedPatient = StaffPatientRecordData.fromDetailResponse(detail);
+        _isLoadingDetail = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingDetail = false;
+        _detailError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingDetail = false;
+        _detailError =
+            'Unable to load patient details right now. Please try again.';
+      });
+    }
   }
 
   void _clearSelection() {
     setState(() {
       _selectedPatient = null;
+      _selectedSearchResult = null;
+      _detailError = null;
+      _isLoadingDetail = false;
     });
   }
 
@@ -348,15 +199,7 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
                     alignment: Alignment.centerLeft,
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 220),
-                      child: _selectedPatient != null
-                          ? StaffPatientDetailView(
-                              key: ValueKey<String>(_selectedPatient!.id),
-                              patient: _selectedPatient!,
-                              onBack: _clearSelection,
-                              onBookAppointment: () =>
-                                  _openBookAppointmentDialog(_selectedPatient!),
-                            )
-                          : _buildSearchState(),
+                      child: _buildBodyState(),
                     ),
                   ),
                 ],
@@ -366,6 +209,39 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
         );
       },
     );
+  }
+
+  Widget _buildBodyState() {
+    if (_isLoadingDetail) {
+      return _InfoPanel(
+        key: const ValueKey<String>('detail-loading'),
+        child: const _LoadingState(label: 'Loading patient details...'),
+      );
+    }
+
+    if (_detailError != null) {
+      return _InfoPanel(
+        key: const ValueKey<String>('detail-error'),
+        child: _ErrorState(
+          message: _detailError!,
+          actionLabel: 'Retry',
+          onRetry: _selectedSearchResult == null
+              ? null
+              : () => _loadPatientDetail(_selectedSearchResult!),
+        ),
+      );
+    }
+
+    if (_selectedPatient != null) {
+      return StaffPatientDetailView(
+        key: ValueKey<String>(_selectedPatient!.patientId),
+        patient: _selectedPatient!,
+        onBack: _clearSelection,
+        onBookAppointment: () => _openBookAppointmentDialog(_selectedPatient!),
+      );
+    }
+
+    return _buildSearchState();
   }
 
   Widget _buildSearchBar() {
@@ -443,61 +319,39 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
 
   Widget _buildSearchState() {
     if (!_hasSearched) {
-      return Container(
-        key: const ValueKey<String>('search-empty'),
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFE7EBEE)),
+      return const _InfoPanel(
+        key: ValueKey<String>('search-empty'),
+        child: _MessageState(
+          icon: Icons.manage_search_rounded,
+          message: 'Search a patient record to view full details.',
         ),
-        child: const Column(
-          children: [
-            Icon(
-              Icons.manage_search_rounded,
-              size: 46,
-              color: Color(0xFFCBD5E1),
-            ),
-            SizedBox(height: 14),
-            Text(
-              'Search a patient record to view full details.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF475569),
-              ),
-            ),
-          ],
+      );
+    }
+
+    if (_isSearching) {
+      return const _InfoPanel(
+        key: ValueKey<String>('search-loading'),
+        child: _LoadingState(label: 'Searching patient records...'),
+      );
+    }
+
+    if (_searchError != null) {
+      return _InfoPanel(
+        key: const ValueKey<String>('search-error'),
+        child: _ErrorState(
+          message: _searchError!,
+          actionLabel: 'Retry Search',
+          onRetry: _performSearch,
         ),
       );
     }
 
     if (_searchResults.isEmpty) {
-      return Container(
-        key: const ValueKey<String>('search-no-results'),
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: const Color(0xFFE7EBEE)),
-        ),
-        child: const Column(
-          children: [
-            Icon(Icons.search_off_rounded, size: 46, color: Color(0xFFCBD5E1)),
-            SizedBox(height: 14),
-            Text(
-              'No patient records matched your search.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF475569),
-              ),
-            ),
-          ],
+      return const _InfoPanel(
+        key: ValueKey<String>('search-no-results'),
+        child: _MessageState(
+          icon: Icons.search_off_rounded,
+          message: 'No patient records matched your search.',
         ),
       );
     }
@@ -515,7 +369,7 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
     );
   }
 
-  Widget _buildPatientCard(StaffPatientRecordData patient) {
+  Widget _buildPatientCard(StaffPatientSearchResult patient) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -532,7 +386,7 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => _selectPatient(patient),
+          onTap: () => _loadPatientDetail(patient),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -561,7 +415,7 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        patient.name,
+                        patient.fullName,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -610,6 +464,138 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _InfoPanel extends StatelessWidget {
+  const _InfoPanel({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE7EBEE)),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _MessageState extends StatelessWidget {
+  const _MessageState({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, size: 46, color: const Color(0xFFCBD5E1)),
+        const SizedBox(height: 14),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF475569),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LoadingState extends StatelessWidget {
+  const _LoadingState({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.8,
+            color: Color(0xFF679B6A),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF475569),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({
+    required this.message,
+    required this.actionLabel,
+    this.onRetry,
+  });
+
+  final String message;
+  final String actionLabel;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const Icon(
+          Icons.error_outline_rounded,
+          size: 44,
+          color: Color(0xFFD97706),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF475569),
+          ),
+        ),
+        if (onRetry != null) ...[
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onRetry,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF679B6A),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              actionLabel,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

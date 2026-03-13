@@ -6,6 +6,7 @@ import '../core/config.dart';
 import '../core/token_storage.dart';
 import '../services/appointment_service.dart';
 import '../services/base_service.dart';
+import '../services/patient_record_service.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 import 'staff_walk_in_view.dart';
 import 'staff_patient_records_view.dart';
@@ -34,7 +35,9 @@ class StaffDashboardView extends StatefulWidget {
 
 class _StaffDashboardViewState extends State<StaffDashboardView> {
   final TextEditingController _searchController = TextEditingController();
+  late final BaseService _baseService;
   late final AppointmentService _appointmentService;
+  late final PatientRecordService _patientRecordService;
 
   late DateTime _selectedDate;
   _StaffTab _selectedTab = _StaffTab.appointments;
@@ -49,9 +52,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
-    _appointmentService = AppointmentService(
-      BaseService(ApiClient(tokenStorage: widget.tokenStorage)),
-    );
+    _baseService = BaseService(ApiClient(tokenStorage: widget.tokenStorage));
+    _appointmentService = AppointmentService(_baseService);
+    _patientRecordService = PatientRecordService(_baseService);
     _loadAppointmentsForSelectedDate();
   }
 
@@ -194,7 +197,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               _loadAppointmentsForSelectedDate();
             },
           ),
-          _StaffTab.records => const StaffPatientRecordsView(),
+          _StaffTab.records => StaffPatientRecordsView(
+            patientRecordService: _patientRecordService,
+          ),
         },
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
@@ -515,8 +520,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       },
     );
   }
-
-
 
   Widget _buildSummaryCards(double availableWidth) {
     final pendingCount = _countByStatus('pending');

@@ -1,4 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+class StaffPatientSearchResult {
+  const StaffPatientSearchResult({
+    required this.patientId,
+    required this.fullName,
+    required this.contactNumber,
+  });
+
+  final String patientId;
+  final String fullName;
+  final String contactNumber;
+
+  String get initial => fullName.isEmpty ? '?' : fullName[0].toLowerCase();
+
+  factory StaffPatientSearchResult.fromApi(Map<String, dynamic> json) {
+    return StaffPatientSearchResult(
+      patientId: _readString(json['patient_id'], fallback: ''),
+      fullName: _readString(json['full_name'], fallback: 'Unknown Patient'),
+      contactNumber: _readString(
+        json['contact_number'],
+        fallback: 'Not provided',
+      ),
+    );
+  }
+}
 
 class StaffPatientRecordData {
   const StaffPatientRecordData({
@@ -33,6 +59,35 @@ class StaffPatientRecordData {
       'phone': contactNumber,
     };
   }
+
+  factory StaffPatientRecordData.fromDetailResponse(Map<String, dynamic> json) {
+    final patient = _readMap(json['patient']);
+
+    return StaffPatientRecordData(
+      id: _readString(patient['id'], fallback: ''),
+      patientId: _readString(patient['patient_id'], fallback: ''),
+      name: _readString(patient['full_name'], fallback: 'Unknown Patient'),
+      gender: _readString(patient['gender'], fallback: 'Not provided'),
+      birthdate: _formatBirthdate(patient['birthdate']),
+      address: _readString(patient['address'], fallback: 'Not provided'),
+      contactNumber: _readString(
+        patient['contact_number'],
+        fallback: 'Not provided',
+      ),
+      upcomingAppointments: _readList(json['upcoming_appointments'])
+          .map(
+            (item) =>
+                StaffPatientAppointmentItem.fromApi(item, longMonth: false),
+          )
+          .toList(),
+      clinicalHistory: _readList(json['clinical_history'])
+          .map(
+            (item) =>
+                StaffPatientAppointmentItem.fromApi(item, longMonth: true),
+          )
+          .toList(),
+    );
+  }
 }
 
 class StaffPatientAppointmentItem {
@@ -47,6 +102,23 @@ class StaffPatientAppointmentItem {
   final String date;
   final String? time;
   final String status;
+
+  factory StaffPatientAppointmentItem.fromApi(
+    Map<String, dynamic> json, {
+    required bool longMonth,
+  }) {
+    final rawTime = _readString(json['appointment_time'], fallback: '');
+
+    return StaffPatientAppointmentItem(
+      serviceType: _readString(json['service_type'], fallback: 'Service'),
+      date: _formatAppointmentDate(
+        json['appointment_date'],
+        longMonth: longMonth,
+      ),
+      time: rawTime.isEmpty ? null : _formatAppointmentTime(rawTime),
+      status: _readString(json['status'], fallback: 'Pending'),
+    );
+  }
 }
 
 class StaffPatientDetailView extends StatelessWidget {
@@ -207,7 +279,7 @@ class _PatientInfoCard extends StatelessWidget {
                 _DetailStat(
                   label: 'Address',
                   value: patient.address,
-                  width: 96,
+                  width: 124,
                 ),
                 _DetailStat(
                   label: 'Contact Number',
@@ -505,4 +577,76 @@ class _StatusStyle {
 
   final Color background;
   final Color foreground;
+}
+
+Map<String, dynamic> _readMap(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    return value;
+  }
+
+  if (value is Map) {
+    return value.map((key, data) => MapEntry(key.toString(), data));
+  }
+
+  return <String, dynamic>{};
+}
+
+List<Map<String, dynamic>> _readList(dynamic value) {
+  if (value is! List) {
+    return const <Map<String, dynamic>>[];
+  }
+
+  return value.map(_readMap).toList();
+}
+
+String _readString(dynamic value, {required String fallback}) {
+  if (value == null) {
+    return fallback;
+  }
+
+  final stringValue = value.toString().trim();
+  return stringValue.isEmpty ? fallback : stringValue;
+}
+
+String _formatBirthdate(dynamic raw) {
+  final value = _readString(raw, fallback: '');
+  if (value.isEmpty) {
+    return 'Not provided';
+  }
+
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) {
+    return value;
+  }
+
+  return DateFormat('yyyy-MM-dd').format(parsed);
+}
+
+String _formatAppointmentDate(dynamic raw, {required bool longMonth}) {
+  final value = _readString(raw, fallback: '');
+  if (value.isEmpty) {
+    return 'Not scheduled';
+  }
+
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) {
+    return value;
+  }
+
+  return DateFormat(longMonth ? 'MMMM d, yyyy' : 'MMM d, yyyy').format(parsed);
+}
+
+String _formatAppointmentTime(String raw) {
+  final formats = <String>['HH:mm', 'H:mm', 'HH:mm:ss'];
+
+  for (final format in formats) {
+    try {
+      final parsed = DateFormat(format).parseStrict(raw);
+      return DateFormat('HH:mm').format(parsed);
+    } catch (_) {
+      // Try next format.
+    }
+  }
+
+  return raw;
 }

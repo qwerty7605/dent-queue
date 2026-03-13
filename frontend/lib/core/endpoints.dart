@@ -21,4 +21,8 @@ class Endpoints {
   static String adminUpdateAppointmentStatus(int id) =>
       '$_base/admin/appointments/$id/status';
   static const adminWalkInAppointment = '$_base/admin/appointments/walk-in';
+  static String adminPatientSearch(String query) =>
+      '$_base/admin/patients/search?query=${Uri.encodeQueryComponent(query)}';
+  static String adminPatientDetail(String patientId) =>
+      '$_base/admin/patients/${Uri.encodeComponent(patientId)}';
 }

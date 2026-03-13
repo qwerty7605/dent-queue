@@ -26,6 +26,7 @@ Route::prefix('v1')->group(function () {
         // Admin/Staff routes
         Route::prefix('admin')->middleware('role:admin,staff')->group(function () {
             Route::get('/patients/search', [PatientRecordController::class, 'search']);
+            Route::get('/patients/{patientId}', [PatientRecordController::class, 'show']);
             Route::apiResource('services', ServiceController::class);
             Route::get('/appointments', [AppointmentController::class, 'indexAdmin']);
             Route::post('/appointments', [AppointmentController::class, 'storeAdmin']);

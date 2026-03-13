@@ -45,6 +45,7 @@ class PatientSearchTest extends TestCase
             'gender' => 'Male',
             'is_active' => true,
         ]);
+        $patientRecord = PatientRecord::resolveForUser($userPatient);
 
         $this->actingAs($staff);
 
@@ -60,6 +61,15 @@ class PatientSearchTest extends TestCase
         $response = $this->getJson('/api/v1/admin/patients/search?query=14483');
         $response->assertStatus(200);
         $response->assertJsonFragment([
+            'full_name' => 'Kyle Aldea',
+            'contact_number' => '09169014483'
+        ]);
+
+        // Test searching by patient ID
+        $response = $this->getJson('/api/v1/admin/patients/search?query=' . $patientRecord->patient_id);
+        $response->assertStatus(200);
+        $response->assertJsonFragment([
+            'patient_id' => $patientRecord->patient_id,
             'full_name' => 'Kyle Aldea',
             'contact_number' => '09169014483'
         ]);
