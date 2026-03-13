@@ -54,7 +54,7 @@ class CreateAppointmentApiTest extends TestCase
             ->assertJsonPath('appointment.service_type', $service->name)
             ->assertJsonPath('appointment.appointment_date', $appointmentDate)
             ->assertJsonPath('appointment.appointment_time', '09:30')
-            ->assertJsonPath('appointment.status', 'Pending')
+            ->assertJsonPath('appointment.status', 'Approved')
             ->assertJsonStructure([
                 'appointment' => ['timestamp_created'],
             ]);
@@ -66,7 +66,7 @@ class CreateAppointmentApiTest extends TestCase
             'service_id' => $service->id,
             'appointment_date' => $appointmentDate,
             'time_slot' => '09:30',
-            'status' => 'pending',
+            'status' => 'confirmed',
         ]);
 
         $appointment = Appointment::query()->first();
