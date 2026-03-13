@@ -120,44 +120,15 @@ class AppointmentService
                 throw $exception;
             }
 
-            for ($attempt = 0; $attempt < self::MAX_QUEUE_ASSIGNMENT_RETRIES; $attempt++) {
-                $lastQueue = Queue::where('queue_date', $validatedBooking['appointment_date'])
-                    ->lockForUpdate()
-                    ->orderByDesc('queue_number')
-                    ->first();
+            $this->assignQueueForDate(
+                $appointment,
+                (string) $validatedBooking['appointment_date'],
+            );
 
-                $nextQueueNumber = $lastQueue ? ((int) $lastQueue->queue_number + 1) : 1;
+            $appointment->load(['patient', 'queue']);
+            $this->createBookingNotification($appointment);
 
-                if ($nextQueueNumber > self::DAILY_QUEUE_LIMIT) {
-                    throw ValidationException::withMessages([
-                        'appointment_date' => ['The daily limit of ' . self::DAILY_QUEUE_LIMIT . ' patients has been reached for this date.'],
-                    ]);
-                }
-
-                try {
-                    Queue::create([
-                        'appointment_id' => $appointment->id,
-                        'queue_date' => $validatedBooking['appointment_date'],
-                        'queue_number' => $nextQueueNumber,
-                        'is_called' => false,
-                    ]);
-
-                    $appointment->load(['patient', 'queue']);
-                    $this->createBookingNotification($appointment);
-
-                    return $appointment;
-                } catch (QueryException $exception) {
-                    if (!$this->isUniqueConstraintViolation($exception)) {
-                        throw $exception;
-                    }
-
-                    if ($attempt === self::MAX_QUEUE_ASSIGNMENT_RETRIES - 1) {
-                        throw ValidationException::withMessages([
-                            'appointment_date' => ['Unable to assign a queue number right now. Please retry.'],
-                        ]);
-                    }
-                }
-            }
+            return $appointment;
         });
     }
 
@@ -189,6 +160,50 @@ class AppointmentService
         return str_contains($message, 'unique constraint')
             || str_contains($message, 'duplicate entry')
             || str_contains($message, 'is not unique');
+    }
+
+    private function assignQueueForDate(Appointment $appointment, string $appointmentDate): void
+    {
+        for ($attempt = 0; $attempt < self::MAX_QUEUE_ASSIGNMENT_RETRIES; $attempt++) {
+            $nextQueueNumber = $this->resolveNextQueueNumber($appointmentDate);
+
+            if ($nextQueueNumber > self::DAILY_QUEUE_LIMIT) {
+                throw ValidationException::withMessages([
+                    'appointment_date' => ['The daily limit of ' . self::DAILY_QUEUE_LIMIT . ' patients has been reached for this date.'],
+                ]);
+            }
+
+            try {
+                Queue::create([
+                    'appointment_id' => (int) $appointment->id,
+                    'queue_date' => $appointmentDate,
+                    'queue_number' => $nextQueueNumber,
+                    'is_called' => false,
+                ]);
+
+                return;
+            } catch (QueryException $exception) {
+                if (!$this->isUniqueConstraintViolation($exception)) {
+                    throw $exception;
+                }
+
+                if ($attempt === self::MAX_QUEUE_ASSIGNMENT_RETRIES - 1) {
+                    throw ValidationException::withMessages([
+                        'appointment_date' => ['Unable to assign a queue number right now. Please retry.'],
+                    ]);
+                }
+            }
+        }
+    }
+
+    private function resolveNextQueueNumber(string $appointmentDate): int
+    {
+        $lastQueue = Queue::where('queue_date', $appointmentDate)
+            ->lockForUpdate()
+            ->orderByDesc('queue_number')
+            ->first();
+
+        return $lastQueue ? ((int) $lastQueue->queue_number + 1) : 1;
     }
 
     public function updateStatus(Appointment $appointment, string $status, int $changedByUserId)

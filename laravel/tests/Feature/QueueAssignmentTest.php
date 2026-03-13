@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Queue;
 use App\Models\Role;
 use App\Models\Service;
+use App\Models\PatientRecord;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -79,6 +80,54 @@ class QueueAssignmentTest extends TestCase
             'appointment_date' => $tuesday,
             'appointment_time' => '09:00',
         ])->assertCreated()->assertJsonPath('appointment.queue_number', '01');
+    }
+
+    public function test_staff_bookings_share_the_same_daily_queue_sequence_as_other_booking_flows(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService();
+        $appointmentDate = now()->next('Thursday')->format('Y-m-d');
+
+        $onlinePatient = $this->createUserWithRole('Patient');
+        Sanctum::actingAs($onlinePatient);
+
+        $this->postJson('/api/v1/patient/appointments', [
+            'service_id' => $service->id,
+            'appointment_date' => $appointmentDate,
+            'time_slot' => '09:00',
+        ])->assertCreated()->assertJsonPath('appointment.queue_number', '01');
+
+        Sanctum::actingAs($staff);
+
+        $this->postJson('/api/v1/admin/appointments/walk-in', [
+            'first_name' => 'Queue',
+            'surname' => 'Walker',
+            'address' => '123 Queue Street',
+            'gender' => 'Male',
+            'contact_number' => '09170000001',
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '10:00',
+        ])->assertCreated()->assertJsonPath('appointment.queue_number', '02');
+
+        $staffBookedPatient = $this->createUserWithRole('Patient');
+        $staffBookedPatientRecord = PatientRecord::syncFromUser($staffBookedPatient);
+
+        $this->postJson('/api/v1/admin/appointments', [
+            'patient_id' => $staffBookedPatientRecord->id,
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '11:00',
+        ])->assertCreated()->assertJsonPath('appointment.queue_number', '03');
+
+        $this->assertSame(
+            [1, 2, 3],
+            Queue::query()
+                ->where('queue_date', $appointmentDate)
+                ->orderBy('queue_number')
+                ->pluck('queue_number')
+                ->all()
+        );
     }
 
     public function test_booking_is_rejected_once_daily_queue_reaches_fifty(): void
