@@ -9,7 +9,6 @@ use App\Models\Service;
 use App\Services\AppointmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class AppointmentController extends Controller
 {
@@ -22,7 +21,8 @@ class AppointmentController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $appointments = $this->appointmentService->getPatientAppointments((int) $request->user()->id);
+        $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
+        $appointments = $this->appointmentService->getPatientAppointments((int) $patientRecord->id);
         
         return response()->json([
             'appointments' => $appointments->map(fn ($appointment) => $this->formatAppointmentResponse($appointment)),
@@ -31,7 +31,8 @@ class AppointmentController extends Controller
 
     public function medicalHistory(Request $request): JsonResponse
     {
-        $appointments = $this->appointmentService->getPatientCompletedAppointments((int) $request->user()->id);
+        $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
+        $appointments = $this->appointmentService->getPatientCompletedAppointments((int) $patientRecord->id);
 
         return response()->json([
             'appointments' => $appointments->map(fn ($appointment) => [
@@ -107,7 +108,7 @@ class AppointmentController extends Controller
     public function store(Request $request): JsonResponse
     {
         $payload = $this->validateBookingPayload($request, false);
-        $payload['patient_id'] = (int) $request->user()->id;
+        $payload['patient_id'] = (int) $this->resolveAuthenticatedPatientRecord($request)->id;
 
         $appointment = $this->appointmentService->createAppointment($payload);
 
@@ -153,9 +154,7 @@ class AppointmentController extends Controller
         }
 
         try {
-            DB::beginTransaction();
-
-            $patientRecord = PatientRecord::create([
+            [$patientRecord, $appointment] = $this->appointmentService->createWalkInAppointment([
                 'first_name' => $payload['first_name'],
                 'middle_name' => $payload['middle_name'] ?? null,
                 'last_name' => $payload['last_name'],
@@ -164,10 +163,7 @@ class AppointmentController extends Controller
                 'contact_number' => $payload['contact_number'],
                 'birthdate' => $payload['birthdate'] ?? null,
                 'user_id' => null,
-            ]);
-
-            $appointment = $this->appointmentService->createAppointment([
-                'patient_id' => (int) $patientRecord->id,
+            ], [
                 'service_id' => $service->id,
                 'appointment_date' => $payload['appointment_date'],
                 'time_slot' => $payload['appointment_time'],
@@ -175,11 +171,8 @@ class AppointmentController extends Controller
                 'notes' => 'Walk-In Patient',
             ]);
 
-            $appointment->load('queue');
             $appointmentResponse = $this->formatAppointmentResponse($appointment);
             $appointmentResponse['status'] = 'Approved';
-
-            DB::commit();
 
             return response()->json([
                 'message' => 'Walk-in booking created successfully.',
@@ -199,10 +192,8 @@ class AppointmentController extends Controller
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            DB::rollBack();
             throw $e;
         } catch (\Exception $e) {
-            DB::rollBack();
             return response()->json([
                 'message' => 'Failed to create walk-in appointment.',
                 'error' => $e->getMessage()
@@ -246,7 +237,9 @@ class AppointmentController extends Controller
 
     public function cancel(Request $request, Appointment $appointment): JsonResponse
     {
-        if ((int) $appointment->patient_id !== (int) $request->user()->id) {
+        $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
+
+        if ((int) $appointment->patient_id !== (int) $patientRecord->id) {
             return response()->json([
                 'message' => 'Unauthorized. You can only cancel your own appointments.',
             ], 403);
@@ -254,7 +247,7 @@ class AppointmentController extends Controller
 
         $updatedAppointment = $this->appointmentService->cancelByPatient(
             $appointment,
-            (int) $request->user()->id,
+            (int) $patientRecord->id,
         );
 
         return response()->json([
@@ -324,5 +317,13 @@ class AppointmentController extends Controller
             'timestamp_created' => optional($appointment->created_at)?->toDateTimeString(),
             'notes' => (string) $appointment->notes,
         ];
+    }
+
+    private function resolveAuthenticatedPatientRecord(Request $request): PatientRecord
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        return PatientRecord::resolveForUser($user);
     }
 }

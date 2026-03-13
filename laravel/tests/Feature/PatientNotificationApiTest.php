@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Appointment;
+use App\Models\PatientRecord;
 use App\Models\PatientNotification;
 use App\Models\Role;
+use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -19,12 +21,13 @@ class PatientNotificationApiTest extends TestCase
     public function test_notification_is_created_after_booking_and_linked_to_patient_id(): void
     {
         $patient = $this->createUserWithRole('Patient');
+        $service = $this->createService();
         Sanctum::actingAs($patient);
 
         $appointmentDate = now()->next('Monday')->format('Y-m-d');
 
         $response = $this->postJson('/api/v1/patient/appointments', [
-            'service_id' => 1,
+            'service_id' => $service->id,
             'appointment_date' => $appointmentDate,
             'time_slot' => '09:00',
         ]);
@@ -33,14 +36,58 @@ class PatientNotificationApiTest extends TestCase
             ->assertJsonPath('message', 'Online booking created successfully.');
 
         $appointmentId = (int) data_get($response->json(), 'appointment.id');
+        $patientRecordId = (int) $patient->patientRecord()->firstOrFail()->id;
         $this->assertGreaterThan(0, $appointmentId);
 
         $this->assertDatabaseHas('patient_notifications', [
-            'patient_id' => $patient->id,
+            'patient_id' => $patientRecordId,
             'appointment_id' => $appointmentId,
             'type' => 'appointment_created',
             'title' => 'Appointment booked',
         ]);
+    }
+
+    public function test_online_booking_uses_resolved_patient_record_id_for_appointment_and_notifications(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $service = $this->createService();
+        $patientRecord = $this->reassignPatientRecord($patient, 9000000001234);
+        Sanctum::actingAs($patient->fresh());
+
+        $appointmentDate = now()->next('Tuesday')->format('Y-m-d');
+
+        $response = $this->postJson('/api/v1/patient/appointments', [
+            'service_id' => $service->id,
+            'appointment_date' => $appointmentDate,
+            'time_slot' => '10:00',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('message', 'Online booking created successfully.')
+            ->assertJsonPath('appointment.patient_id', (int) $patientRecord->id);
+
+        $appointmentId = (int) data_get($response->json(), 'appointment.id');
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $appointmentId,
+            'patient_id' => (int) $patientRecord->id,
+            'service_id' => $service->id,
+            'appointment_date' => $appointmentDate,
+            'time_slot' => '10:00',
+        ]);
+
+        $this->assertDatabaseHas('patient_notifications', [
+            'patient_id' => (int) $patientRecord->id,
+            'appointment_id' => $appointmentId,
+            'type' => 'appointment_created',
+            'title' => 'Appointment booked',
+        ]);
+
+        $listResponse = $this->getJson('/api/v1/patient/notifications');
+        $listResponse->assertOk()
+            ->assertJsonCount(1, 'notifications')
+            ->assertJsonPath('notifications.0.patient_id', (int) $patientRecord->id)
+            ->assertJsonPath('notifications.0.appointment_id', $appointmentId);
     }
 
     public function test_only_the_correct_patient_can_access_notification(): void
@@ -93,6 +140,33 @@ class PatientNotificationApiTest extends TestCase
             'appointment_date' => $date,
             'time_slot' => $timeSlot,
             'status' => 'pending',
+        ]);
+    }
+
+    private function createService(): Service
+    {
+        return Service::create([
+            'name' => 'Dental Check-up',
+            'description' => 'Notification test service.',
+            'is_active' => true,
+        ]);
+    }
+
+    private function reassignPatientRecord(User $patient, int $recordId): PatientRecord
+    {
+        $patient->patientRecord()->delete();
+        $patient->unsetRelation('patientRecord');
+
+        return PatientRecord::create([
+            'id' => $recordId,
+            'user_id' => (int) $patient->id,
+            'first_name' => (string) $patient->first_name,
+            'middle_name' => $patient->middle_name,
+            'last_name' => (string) $patient->last_name,
+            'gender' => $patient->gender,
+            'address' => $patient->location,
+            'contact_number' => $patient->phone_number,
+            'birthdate' => $patient->birthdate,
         ]);
     }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\PatientRecord;
 use App\Models\PatientNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,8 +12,10 @@ class NotificationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
+
         $notifications = PatientNotification::query()
-            ->where('patient_id', (int) $request->user()->id)
+            ->where('patient_id', (int) $patientRecord->id)
             ->orderByDesc('created_at')
             ->get();
 
@@ -23,7 +26,9 @@ class NotificationController extends Controller
 
     public function show(Request $request, PatientNotification $notification): JsonResponse
     {
-        if ((int) $notification->patient_id !== (int) $request->user()->id) {
+        $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
+
+        if ((int) $notification->patient_id !== (int) $patientRecord->id) {
             return response()->json([
                 'message' => 'Unauthorized. You can only view your own notifications.',
             ], 403);
@@ -46,5 +51,13 @@ class NotificationController extends Controller
             'read_at' => optional($notification->read_at)?->toDateTimeString(),
             'timestamp_created' => optional($notification->created_at)?->toDateTimeString(),
         ];
+    }
+
+    private function resolveAuthenticatedPatientRecord(Request $request): PatientRecord
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        return PatientRecord::resolveForUser($user);
     }
 }

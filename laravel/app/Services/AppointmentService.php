@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Appointment;
+use App\Models\PatientRecord;
 use App\Models\PatientNotification;
 use App\Models\Queue;
 use Illuminate\Database\QueryException;
@@ -156,6 +157,22 @@ class AppointmentService
                     }
                 }
             }
+        });
+    }
+
+    public function createWalkInAppointment(array $patientData, array $appointmentData): array
+    {
+        return DB::transaction(function () use ($patientData, $appointmentData) {
+            $patientRecord = PatientRecord::create($patientData);
+
+            $appointment = $this->createAppointment([
+                ...$appointmentData,
+                'patient_id' => (int) $patientRecord->id,
+            ]);
+
+            $appointment->load(['patient', 'queue']);
+
+            return [$patientRecord, $appointment];
         });
     }
 
