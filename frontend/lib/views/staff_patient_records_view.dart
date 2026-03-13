@@ -17,7 +17,7 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
   final List<Map<String, String>> _allPatients = [
     {
       'id': '1',
-      'name': 'kyle aldea',
+      'name': 'Aldridge Wayne',
       'phone': '09169014483',
     },
     {
