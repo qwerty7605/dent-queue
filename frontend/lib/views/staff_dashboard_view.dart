@@ -8,6 +8,7 @@ import '../services/appointment_service.dart';
 import '../services/base_service.dart';
 import '../services/patient_record_service.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
+import '../widgets/appointment_success_dialog.dart';
 import 'staff_walk_in_view.dart';
 import 'staff_patient_records_view.dart';
 
@@ -152,7 +153,20 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       if (!mounted) return true;
 
       final updatedLabel = _statusLabel(_normalizeStatus(nextStatus));
-      _showStatusMessage('Appointment updated to $updatedLabel.');
+
+      if (_normalizeStatus(nextStatus) == 'approved') {
+        await showAppointmentSuccessDialog(
+          context,
+          title: 'Appointment Booked\nSuccessfully!',
+          message:
+              'The appointment has been successfully scheduled for the patient.',
+          buttonLabel: 'DONE',
+        );
+        if (!mounted) return true;
+      } else {
+        _showStatusMessage('Appointment updated to $updatedLabel.');
+      }
+
       return true;
     } on ApiException catch (e) {
       if (!mounted) return false;
@@ -199,6 +213,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           ),
           _StaffTab.records => StaffPatientRecordsView(
             patientRecordService: _patientRecordService,
+            appointmentService: _appointmentService,
           ),
         },
       ),

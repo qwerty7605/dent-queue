@@ -1,35 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../core/api_exception.dart';
+import '../services/appointment_service.dart';
+import 'appointment_success_dialog.dart';
+
 class StaffBookAppointmentDialog extends StatefulWidget {
   const StaffBookAppointmentDialog({
     super.key,
     required this.patient,
+    required this.appointmentService,
   });
 
   final Map<String, String> patient;
+  final AppointmentService appointmentService;
 
   @override
-  State<StaffBookAppointmentDialog> createState() => _StaffBookAppointmentDialogState();
+  State<StaffBookAppointmentDialog> createState() =>
+      _StaffBookAppointmentDialogState();
 }
 
 class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog> {
   final _formKey = GlobalKey<FormState>();
-  
-  String? _selectedService = 'Dental Panoramic X-ray';
+
+  String? _selectedService = 'Dental Check-up';
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  
+
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
+  bool _isSubmitting = false;
+  String? _apiErrorMessage;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+
   final List<String> _services = [
+    'Dental Check-up',
     'Dental Panoramic X-ray',
+    'Root Canal',
     'Teeth Cleaning',
+    'Teeth Whitening',
     'Tooth Extraction',
-    'Consultation',
-    'Braces Adjustment',
   ];
 
   @override
@@ -47,7 +59,7 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
       firstDate: DateTime.now(),
       lastDate: DateTime(2100),
     );
-    
+
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
@@ -61,25 +73,92 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
       context: context,
       initialTime: _selectedTime ?? TimeOfDay.now(),
     );
-    
+
     if (picked != null) {
       setState(() {
         _selectedTime = picked;
         final format = DateFormat('hh:mm a');
-        final timeString = format.format(DateTime(2020, 1, 1, picked.hour, picked.minute));
+        final timeString = format.format(
+          DateTime(2020, 1, 1, picked.hour, picked.minute),
+        );
         _timeController.text = timeString;
       });
     }
   }
 
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
-      // Logic to actually book the appointment will go here
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Appointment booked successfully.')),
-      );
+  Future<void> _submit() async {
+    setState(() => _apiErrorMessage = null);
+
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _autoValidateMode = AutovalidateMode.always);
+      return;
     }
+
+    final patientId = int.tryParse(widget.patient['id'] ?? '');
+    if (patientId == null) {
+      setState(() {
+        _apiErrorMessage = 'Unable to book appointment for this patient.';
+      });
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    final payload = <String, dynamic>{
+      'patient_id': patientId,
+      'service_type': _selectedService,
+      'appointment_date':
+          '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
+      'appointment_time':
+          '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+      'notes': _notesController.text.trim(),
+    };
+
+    try {
+      await widget.appointmentService.createAdminAppointment(payload);
+      if (!mounted) return;
+
+      setState(() => _isSubmitting = false);
+
+      await showAppointmentSuccessDialog(
+        context,
+        title: 'Appointment Booked\nSuccessfully!',
+        message:
+            'The appointment has been successfully scheduled for the patient.',
+        buttonLabel: 'DONE',
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _apiErrorMessage = _resolveApiError(e);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _apiErrorMessage =
+            'Unable to book the appointment right now. Please try again.';
+      });
+    }
+  }
+
+  String _resolveApiError(ApiException exception) {
+    final errors = exception.errors;
+    if (errors != null && errors.isNotEmpty) {
+      final firstError = errors.values.first;
+      if (firstError is List && firstError.isNotEmpty) {
+        return firstError.first.toString();
+      }
+      if (firstError is String && firstError.isNotEmpty) {
+        return firstError;
+      }
+    }
+
+    return exception.message;
   }
 
   @override
@@ -96,12 +175,17 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
           padding: const EdgeInsets.all(24.0),
           child: Form(
             key: _formKey,
+            autovalidateMode: _autoValidateMode,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(),
                 const SizedBox(height: 24),
+                if (_apiErrorMessage != null) ...[
+                  _buildErrorBanner(),
+                  const SizedBox(height: 16),
+                ],
                 _buildServiceTypeDropdown(),
                 const SizedBox(height: 16),
                 Row(
@@ -198,6 +282,35 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
     );
   }
 
+  Widget _buildErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1F1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _apiErrorMessage!,
+              style: const TextStyle(
+                color: Colors.redAccent,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDateInput() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,14 +393,23 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        onPressed: _submit,
-        child: const Text(
-          'Confirm Booking',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
+        onPressed: _isSubmitting ? null : _submit,
+        child: _isSubmitting
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: Colors.white,
+                ),
+              )
+            : const Text(
+                'Confirm Booking',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
       ),
     );
   }
@@ -315,6 +437,14 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: Color(0xFF679B6A), width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.redAccent),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
       ),
       suffixIcon: suffixIcon != null
           ? Icon(

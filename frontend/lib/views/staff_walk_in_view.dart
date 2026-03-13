@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/api_exception.dart';
 import '../services/appointment_service.dart';
+import '../widgets/appointment_success_dialog.dart';
 
 class StaffWalkInView extends StatefulWidget {
   const StaffWalkInView({
@@ -199,13 +200,19 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
 
       try {
         await widget.appointmentService.createWalkInAppointment(payload);
-        
+
         if (!mounted) return;
         setState(() => _isSubmitting = false);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Walk-in patient appointment created successfully!')),
+
+        await showAppointmentSuccessDialog(
+          context,
+          title: 'Appointment Booked\nSuccessfully!',
+          message:
+              'The appointment has been successfully scheduled for the patient.',
+          buttonLabel: 'DONE',
         );
+
+        if (!mounted) return;
 
         _formKey.currentState!.reset();
         _firstNameController.clear();

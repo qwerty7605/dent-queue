@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_exception.dart';
+import '../services/appointment_service.dart';
 import '../services/patient_record_service.dart';
 import '../widgets/staff_book_appointment_dialog.dart';
 import 'staff_patient_detail_view.dart';
@@ -9,9 +10,11 @@ class StaffPatientRecordsView extends StatefulWidget {
   const StaffPatientRecordsView({
     super.key,
     required this.patientRecordService,
+    required this.appointmentService,
   });
 
   final PatientRecordService patientRecordService;
+  final AppointmentService appointmentService;
 
   @override
   State<StaffPatientRecordsView> createState() =>
@@ -143,12 +146,19 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
     });
   }
 
-  void _openBookAppointmentDialog(StaffPatientRecordData patient) {
-    showDialog<void>(
+  Future<void> _openBookAppointmentDialog(StaffPatientRecordData patient) async {
+    final booked = await showDialog<bool>(
       context: context,
       builder: (_) =>
-          StaffBookAppointmentDialog(patient: patient.toDialogPatient()),
+          StaffBookAppointmentDialog(
+            patient: patient.toDialogPatient(),
+            appointmentService: widget.appointmentService,
+          ),
     );
+
+    if (booked == true && _selectedSearchResult != null) {
+      await _loadPatientDetail(_selectedSearchResult!);
+    }
   }
 
   @override
@@ -237,7 +247,9 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
         key: ValueKey<String>(_selectedPatient!.patientId),
         patient: _selectedPatient!,
         onBack: _clearSelection,
-        onBookAppointment: () => _openBookAppointmentDialog(_selectedPatient!),
+        onBookAppointment: () {
+          _openBookAppointmentDialog(_selectedPatient!);
+        },
       );
     }
 
