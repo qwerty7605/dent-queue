@@ -14,6 +14,7 @@
         "http",
         "http_parser",
         "image_picker",
+        "intl",
         "network_info_plus"
       ],
       "devDependencies": [
@@ -44,6 +45,15 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "intl",
+      "version": "0.20.2",
+      "dependencies": [
+        "clock",
+        "meta",
+        "path"
       ]
     },
     {
