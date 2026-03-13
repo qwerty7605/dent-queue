@@ -30,6 +30,17 @@ class AppointmentService {
     return response as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> createAdminAppointment(
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _baseService.postJson<dynamic>(
+      Endpoints.adminAppointments,
+      payload,
+      (data) => data,
+    );
+    return response as Map<String, dynamic>;
+  }
+
   Future<List<Map<String, dynamic>>> getPatientAppointments() async {
     final response = await _baseService.getJson<dynamic>(
       Endpoints.appointments,
