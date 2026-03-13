@@ -4,6 +4,7 @@ import '../core/api_client.dart';
 import '../core/token_storage.dart';
 import '../services/base_service.dart';
 import '../services/appointment_service.dart';
+import 'appointment_success_dialog.dart';
 
 class BookAppointmentDialog extends StatefulWidget {
   const BookAppointmentDialog({super.key});
@@ -60,96 +61,19 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
           'time_slot': '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
           'notes': _notesController.text.trim(),
         };
-        final response = await _appointmentService.createAppointment(payload);
+        await _appointmentService.createAppointment(payload);
         
         if (!mounted) return;
         setState(() => _isLoading = false);
-        
-        final appointment = response['appointment'] as Map<String, dynamic>?;
-        final queueNumber = appointment?['queue_number']?.toString() ?? '--';
 
-        await showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            backgroundColor: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Icon
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8F5E9), // Light green background
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.check_circle_outline,
-                      color: Color(0xFF2E7D32), // Dark green icon
-                      size: 40,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Title
-                  const Text(
-                    'Request Sent!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  
-                  // Description
-                  const Text(
-                    'Your appointment request has been\nsubmitted for review.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF64748B),
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  // Great Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pop(); 
-                        Navigator.of(context).pop(true);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF679B6A),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Great!',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        await showAppointmentSuccessDialog(
+          context,
+          title: 'Appointment Booked\nSuccessfully!',
+          message: 'Your appointment request has been successfully submitted and scheduled.',
         );
+
+        if (!mounted) return;
+        Navigator.of(context).pop(true);
       } catch (e) {
         if (!mounted) return;
         setState(() => _isLoading = false);
@@ -281,7 +205,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   hint: const Text('Select Service', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16)),
                   icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF1E293B), size: 28),
                   isExpanded: true,
-                  value: _selectedService,
+                  initialValue: _selectedService,
                   items: _services.map((service) {
                     return DropdownMenuItem<String>(
                       value: service['id'].toString(),

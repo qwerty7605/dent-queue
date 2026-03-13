@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Appointment;
+use App\Models\PatientRecord;
+use App\Models\Queue;
 use App\Models\Role;
 use App\Models\Service;
 use App\Models\User;
@@ -104,6 +106,69 @@ class WalkInBookingValidationTest extends TestCase
         $appointment = Appointment::query()->where('patient_id', $patientRecordId)->first();
         $this->assertNotNull($appointment);
         $this->assertNotNull($appointment?->created_at);
+    }
+
+    public function test_walk_in_booking_rolls_back_patient_record_when_appointment_creation_fails(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService();
+        Sanctum::actingAs($staff);
+
+        $appointmentDate = now()->next('Tuesday')->format('Y-m-d');
+
+        for ($queueNumber = 1; $queueNumber <= 50; $queueNumber++) {
+            $patientRecord = PatientRecord::create([
+                'id' => 9000000000000 + $queueNumber,
+                'first_name' => 'Filled',
+                'middle_name' => null,
+                'last_name' => 'Slot' . $queueNumber,
+                'address' => 'Queue Street',
+                'gender' => 'other',
+                'contact_number' => '0900' . str_pad((string) $queueNumber, 7, '0', STR_PAD_LEFT),
+                'birthdate' => null,
+                'user_id' => null,
+            ]);
+
+            $appointment = Appointment::create([
+                'patient_id' => (int) $patientRecord->id,
+                'service_id' => $service->id,
+                'appointment_date' => $appointmentDate,
+                'time_slot' => '08:00',
+                'status' => 'confirmed',
+            ]);
+
+            Queue::create([
+                'appointment_id' => (int) $appointment->id,
+                'queue_date' => $appointmentDate,
+                'queue_number' => $queueNumber,
+                'is_called' => false,
+            ]);
+        }
+
+        $response = $this->postJson('/api/v1/admin/appointments/walk-in', [
+            'first_name' => 'Rollback',
+            'surname' => 'Patient',
+            'address' => '123 Rollback St.',
+            'gender' => 'Male',
+            'contact_number' => '09998887777',
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '10:00',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['appointment_date'])
+            ->assertJsonPath('errors.appointment_date.0', 'The daily limit of 50 patients has been reached for this date.');
+
+        $this->assertDatabaseMissing('patient_records', [
+            'first_name' => 'Rollback',
+            'last_name' => 'Patient',
+            'contact_number' => '09998887777',
+        ]);
+
+        $this->assertSame(50, PatientRecord::count());
+        $this->assertSame(50, Appointment::count());
+        $this->assertSame(50, Queue::count());
     }
 
     private function createUserWithRole(string $roleName): User
