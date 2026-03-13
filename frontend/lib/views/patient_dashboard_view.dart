@@ -3,7 +3,6 @@ import '../core/api_client.dart';
 import '../core/token_storage.dart';
 import '../services/base_service.dart';
 import '../services/appointment_service.dart';
-import '../services/http_auth_service.dart';
 import '../core/config.dart';
 
 import '../widgets/book_appointment_dialog.dart';
@@ -166,19 +165,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
             builder: (context) => const BookAppointmentDialog(),
           );
           if (result == true) {
-            setState(() {
-              _successMessage = 'Appointment booked successfully.';
-              _messageType = 'success';
-            });
             _loadAppointments();
-            
-            Future.delayed(const Duration(seconds: 3), () {
-              if (mounted) {
-                setState(() {
-                  _successMessage = null;
-                });
-              }
-            });
           }
         },
         backgroundColor: const Color(0xFF679B6A),
@@ -341,16 +328,14 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
           ),
         const SizedBox(height: 24),
         // Title
-        Center(
-          child: Container(
-            child: const Text(
-              'PATIENT DASHBOARD',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-                color: Colors.black87,
-              ),
+        const Center(
+          child: Text(
+            'PATIENT DASHBOARD',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+              color: Colors.black87,
             ),
           ),
         ),
