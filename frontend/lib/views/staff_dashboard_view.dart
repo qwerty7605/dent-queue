@@ -11,8 +11,9 @@ import '../widgets/staff_appointment_details_dialog.dart';
 import '../widgets/appointment_success_dialog.dart';
 import 'staff_walk_in_view.dart';
 import 'staff_patient_records_view.dart';
+import 'staff_calendar_view.dart';
 
-enum _StaffTab { appointments, walkIn, records }
+enum _StaffTab { appointments, walkIn, calendar, records }
 
 enum _StaffFilter { all, pending, approved, completed, cancelled }
 
@@ -211,6 +212,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               _loadAppointmentsForSelectedDate();
             },
           ),
+          _StaffTab.calendar => StaffCalendarView(
+            appointmentService: _appointmentService,
+          ),
           _StaffTab.records => StaffPatientRecordsView(
             patientRecordService: _patientRecordService,
             appointmentService: _appointmentService,
@@ -396,12 +400,12 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               },
             ),
             _buildDrawerItem(
-              icon: Icons.directions_walk,
-              title: 'Walk In',
-              selected: _selectedTab == _StaffTab.walkIn,
+              icon: Icons.calendar_month_outlined,
+              title: 'Calendar',
+              selected: _selectedTab == _StaffTab.calendar,
               onTap: () {
                 setState(() {
-                  _selectedTab = _StaffTab.walkIn;
+                  _selectedTab = _StaffTab.calendar;
                 });
                 Navigator.pop(context);
               },
@@ -1109,6 +1113,11 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               icon: Icons.directions_walk,
               label: 'Walk In',
               tab: _StaffTab.walkIn,
+            ),
+            _buildNavItem(
+              icon: Icons.calendar_month_outlined,
+              label: 'Calendar',
+              tab: _StaffTab.calendar,
             ),
             _buildNavItem(
               icon: Icons.search,
