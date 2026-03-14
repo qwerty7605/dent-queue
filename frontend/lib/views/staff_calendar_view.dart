@@ -38,7 +38,7 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
 
     try {
       final formattedDate = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-      final appointments = await widget.appointmentService.getAdminAppointmentsByDate(formattedDate);
+      final appointments = await widget.appointmentService.getAdminCalendarAppointments(formattedDate);
       if (mounted) {
         setState(() {
           _dayAppointments = appointments;
