@@ -46,6 +46,46 @@ class AppointmentService
             ->get();
     }
 
+    public function getApprovedAppointmentsByDate(string $date)
+    {
+        return Appointment::query()
+            ->join('queues', 'queues.appointment_id', '=', 'appointments.id')
+            ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
+            ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+            ->where('appointments.appointment_date', $date)
+            ->where('appointments.status', self::STATUS_CONFIRMED)
+            ->orderBy('queues.queue_number')
+            ->select([
+                'appointments.id',
+                'appointments.patient_id',
+                'appointments.service_id',
+                'appointments.appointment_date',
+                'appointments.time_slot',
+                'appointments.status',
+                'queues.queue_number',
+                'patient_records.first_name',
+                'patient_records.last_name',
+                'services.name as service_name',
+            ])
+            ->get()
+            ->map(function (Appointment $appointment): array {
+                return [
+                    'id' => (int) $appointment->id,
+                    'patient_name' => trim(
+                        sprintf('%s %s', (string) $appointment->first_name, (string) $appointment->last_name),
+                    ),
+                    'service_type' => $this->resolveServiceType(
+                        $appointment->service_name !== null ? (string) $appointment->service_name : null,
+                        (int) $appointment->service_id,
+                    ),
+                    'time' => (string) $appointment->time_slot,
+                    'status' => 'Approved',
+                    'queue_number' => (int) $appointment->queue_number,
+                    'appointment_date' => (string) $appointment->appointment_date,
+                ];
+            });
+    }
+
     public function getAppointmentsByDateOrderedQueue(string $date)
     {
         return Appointment::query()
