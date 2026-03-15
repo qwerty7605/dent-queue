@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
 import 'core/api_exception.dart';
 import 'core/api_client.dart';
 import 'core/config.dart';
