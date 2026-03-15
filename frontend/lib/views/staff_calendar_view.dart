@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/appointment_service.dart';
 import '../core/api_exception.dart';
+import '../widgets/staff_appointment_details_dialog.dart';
 
 class StaffCalendarView extends StatefulWidget {
   const StaffCalendarView({super.key, required this.appointmentService});
@@ -73,6 +74,16 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
     setState(() {
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1);
     });
+  }
+
+  void _openAppointmentDetails(Map<String, dynamic> appointment) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => StaffAppointmentDetailsDialog(
+        appointment: appointment,
+        showStatusActions: false,
+      ),
+    );
   }
 
   @override
@@ -334,61 +345,68 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
       appointment['status']?.toString() ?? 'pending',
     );
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 68,
-            child: Text(
-              time,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-                color: Color(0xFF7DA97F),
+        onTap: () => _openAppointmentDetails(appointment),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  patientName,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 68,
+                child: Text(
+                  time,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
-                    color: Color(0xFF243B53),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  serviceType.toString().toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF7B8794),
-                    letterSpacing: 0.4,
+                    fontSize: 14,
+                    color: Color(0xFF7DA97F),
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      patientName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: Color(0xFF243B53),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      serviceType.toString().toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF7B8794),
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 20),
+              _buildStatusBadge(status),
+            ],
           ),
-          const SizedBox(width: 20),
-          _buildStatusBadge(status),
-        ],
+        ),
       ),
     );
   }
