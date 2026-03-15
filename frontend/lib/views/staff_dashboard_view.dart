@@ -427,6 +427,17 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             const Divider(height: 1, color: Color(0xFFE2E8F0)),
             const SizedBox(height: 10),
             _buildDrawerItem(
+              icon: Icons.person_outline,
+              title: 'Profile',
+              selected: _selectedTab == _StaffTab.profile,
+              onTap: () {
+                setState(() {
+                  _selectedTab = _StaffTab.profile;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            _buildDrawerItem(
               icon: Icons.event_available_outlined,
               title: 'Appointments',
               selected: _selectedTab == _StaffTab.appointments,
@@ -438,12 +449,12 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               },
             ),
             _buildDrawerItem(
-              icon: Icons.calendar_month_outlined,
-              title: 'Calendar',
-              selected: _selectedTab == _StaffTab.calendar,
+              icon: Icons.directions_walk,
+              title: 'Walk-in',
+              selected: _selectedTab == _StaffTab.walkIn,
               onTap: () {
                 setState(() {
-                  _selectedTab = _StaffTab.calendar;
+                  _selectedTab = _StaffTab.walkIn;
                 });
                 Navigator.pop(context);
               },
@@ -460,12 +471,12 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               },
             ),
             _buildDrawerItem(
-              icon: Icons.person_outline,
-              title: 'Profile',
-              selected: _selectedTab == _StaffTab.profile,
+              icon: Icons.calendar_month_outlined,
+              title: 'Calendar',
+              selected: _selectedTab == _StaffTab.calendar,
               onTap: () {
                 setState(() {
-                  _selectedTab = _StaffTab.profile;
+                  _selectedTab = _StaffTab.calendar;
                 });
                 Navigator.pop(context);
               },
