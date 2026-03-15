@@ -14,7 +14,7 @@ import 'staff_walk_in_view.dart';
 import 'staff_patient_records_view.dart';
 import 'staff_calendar_view.dart';
 
-enum _StaffTab { appointments, walkIn, calendar, records }
+enum _StaffTab { appointments, walkIn, calendar, records, profile }
 
 enum _StaffFilter { all, pending, approved, completed, cancelled }
 
@@ -244,6 +244,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             patientRecordService: _patientRecordService,
             appointmentService: _appointmentService,
           ),
+          _StaffTab.profile => _buildProfileTab(profileImageUrl),
         },
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
@@ -295,55 +296,67 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
-          child: SizedBox(
-            width: chipWidth,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        const Text(
-                          'STAFF',
-                          style: TextStyle(
-                            color: Color(0xFFE8C355),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: () {
+              setState(() {
+                _selectedTab = _StaffTab.profile;
+              });
+            },
+            child: SizedBox(
+              width: chipWidth,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'STAFF',
+                            style: TextStyle(
+                              color: Color(0xFFE8C355),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
-                        Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: Colors.white,
-                    backgroundImage: profileImageUrl != null
-                        ? NetworkImage(profileImageUrl)
-                        : null,
-                    child: profileImageUrl == null
-                        ? const Icon(Icons.person, color: Colors.grey, size: 18)
-                        : null,
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Colors.white,
+                      backgroundImage: profileImageUrl != null
+                          ? NetworkImage(profileImageUrl)
+                          : null,
+                      child: profileImageUrl == null
+                          ? const Icon(
+                              Icons.person,
+                              color: Colors.grey,
+                              size: 18,
+                            )
+                          : null,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -448,13 +461,13 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             ),
             _buildDrawerItem(
               icon: Icons.person_outline,
-              title: 'Edit Profile',
-              selected: false,
+              title: 'Profile',
+              selected: _selectedTab == _StaffTab.profile,
               onTap: () {
-                Navigator.pop(context);
-                Future<void>.delayed(Duration.zero, () {
-                  _openEditProfileDialog();
+                setState(() {
+                  _selectedTab = _StaffTab.profile;
                 });
+                Navigator.pop(context);
               },
             ),
             const Spacer(),
@@ -505,6 +518,186 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         ),
       ),
       onTap: onTap,
+    );
+  }
+
+  Widget _buildProfileTab(String? profileImageUrl) {
+    final userInfo = _localUserInfo;
+    final displayName = _resolveDisplayName(userInfo).toUpperCase();
+    final fullName = _resolveFullName(userInfo).toUpperCase();
+    final birthdate = _formatProfileBirthdate(userInfo['birthdate']);
+    final address = _resolveProfileValue(
+      userInfo['location'] ?? userInfo['address'],
+    );
+    final gender = _resolveProfileValue(userInfo['gender']);
+    final contactNumber = _resolveProfileValue(
+      userInfo['phone_number'] ?? userInfo['contact_number'],
+    );
+    final accountId = _formatStaffAccountId(userInfo['id']);
+
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 40),
+        child: Column(
+          children: [
+            Container(
+              width: 144,
+              height: 144,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF679B6A), width: 3),
+                color: const Color(0xFFF8FAFC),
+                image: profileImageUrl != null
+                    ? DecorationImage(
+                        image: NetworkImage(profileImageUrl),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: profileImageUrl == null
+                  ? const Icon(Icons.person, size: 80, color: Colors.grey)
+                  : null,
+            ),
+            const SizedBox(height: 18),
+            Text(
+              displayName,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: Colors.black,
+                letterSpacing: 0.4,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Staff Account\nID: $accountId',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildProfileField(
+                    icon: Icons.person_outline,
+                    label: 'FULL NAME',
+                    value: fullName,
+                  ),
+                  const SizedBox(height: 18),
+                  _buildProfileField(
+                    icon: Icons.calendar_today_outlined,
+                    label: 'BIRTHDATE',
+                    value: birthdate,
+                  ),
+                  const SizedBox(height: 18),
+                  _buildProfileField(
+                    icon: Icons.location_on_outlined,
+                    label: 'ADDRESS',
+                    value: address,
+                  ),
+                  const SizedBox(height: 18),
+                  _buildProfileField(
+                    icon: Icons.people_outline,
+                    label: 'GENDER',
+                    value: gender,
+                  ),
+                  const SizedBox(height: 18),
+                  _buildProfileField(
+                    icon: Icons.phone_outlined,
+                    label: 'CONTACT NUMBER',
+                    value: contactNumber,
+                  ),
+                  const SizedBox(height: 28),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        await _openEditProfileDialog();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF679B6A),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Edit Profile',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileField({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF679B6A), size: 22),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF94A3B8),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1315,6 +1508,48 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
     if (parts.isEmpty) return 'Staff';
     return parts.join(' ');
+  }
+
+  String _resolveFullName(Map<String, dynamic>? userInfo) {
+    if (userInfo == null) {
+      return 'N/A';
+    }
+
+    final parts = [
+      userInfo['first_name']?.toString().trim() ?? '',
+      userInfo['middle_name']?.toString().trim() ?? '',
+      userInfo['last_name']?.toString().trim() ?? '',
+    ].where((part) => part.isNotEmpty).toList();
+
+    if (parts.isNotEmpty) {
+      return parts.join(' ');
+    }
+
+    final direct = userInfo['name']?.toString().trim() ?? '';
+    return direct.isNotEmpty ? direct : 'N/A';
+  }
+
+  String _resolveProfileValue(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isNotEmpty ? text : 'N/A';
+  }
+
+  String _formatProfileBirthdate(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) {
+      return 'N/A';
+    }
+
+    if (raw.contains('T')) {
+      return raw.split('T').first;
+    }
+
+    return raw;
+  }
+
+  String _formatStaffAccountId(dynamic value) {
+    final id = value?.toString().trim() ?? '';
+    return id.isNotEmpty ? 'SDQ-$id' : 'SDQ-';
   }
 
   String? _normalizeProfilePicture(dynamic value) {
