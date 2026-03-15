@@ -9,6 +9,7 @@ import '../services/base_service.dart';
 import '../services/patient_record_service.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 import '../widgets/appointment_success_dialog.dart';
+import '../widgets/edit_profile_dialog.dart';
 import 'staff_walk_in_view.dart';
 import 'staff_patient_records_view.dart';
 import 'staff_calendar_view.dart';
@@ -40,6 +41,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   late final BaseService _baseService;
   late final AppointmentService _appointmentService;
   late final PatientRecordService _patientRecordService;
+  late Map<String, dynamic> _localUserInfo;
 
   late DateTime _selectedDate;
   _StaffTab _selectedTab = _StaffTab.appointments;
@@ -57,6 +59,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     _baseService = BaseService(ApiClient(tokenStorage: widget.tokenStorage));
     _appointmentService = AppointmentService(_baseService);
     _patientRecordService = PatientRecordService(_baseService);
+    _localUserInfo = widget.userInfo != null
+        ? Map<String, dynamic>.from(widget.userInfo!)
+        : <String, dynamic>{};
     _loadAppointmentsForSelectedDate();
   }
 
@@ -187,12 +192,32 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _openEditProfileDialog() async {
+    if (_localUserInfo['id'] == null) {
+      _showStatusMessage('Unable to edit profile right now.');
+      return;
+    }
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => EditProfileDialog(userInfo: _localUserInfo),
+    );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    setState(() {
+      _localUserInfo = result;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final userInfo = widget.userInfo;
+    final userInfo = _localUserInfo;
     final name = _resolveDisplayName(userInfo);
     final profilePicture = _normalizeProfilePicture(
-      userInfo?['profile_picture'],
+      userInfo['profile_picture'],
     );
     final profileImageUrl = _buildProfileImageUrl(profilePicture);
 
@@ -419,6 +444,17 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   _selectedTab = _StaffTab.records;
                 });
                 Navigator.pop(context);
+              },
+            ),
+            _buildDrawerItem(
+              icon: Icons.person_outline,
+              title: 'Edit Profile',
+              selected: false,
+              onTap: () {
+                Navigator.pop(context);
+                Future<void>.delayed(Duration.zero, () {
+                  _openEditProfileDialog();
+                });
               },
             ),
             const Spacer(),
