@@ -14,7 +14,8 @@ class Endpoints {
   static const medicalHistory = '$_base/patient/appointments/history';
   static String cancelAppointment(int id) =>
       '$_base/patient/appointments/$id/cancel';
-  static String updateProfile(int id) => '$_base/patient/profile/$id';
+  static String updatePatientProfile(int id) => '$_base/patient/profile/$id';
+  static String updateStaffProfile(int id) => '$_base/staff/profile/$id';
 
   static String adminAppointmentsByDate(String date) =>
       '$_base/admin/appointments?date=$date';

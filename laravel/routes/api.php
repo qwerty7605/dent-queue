@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\QueueController;
 use App\Http\Controllers\Api\PatientProfileController;
+use App\Http\Controllers\Api\StaffProfileController;
 use App\Http\Controllers\Api\PatientRecordController;
 use App\Http\Controllers\Api\ReportController;
 
@@ -49,6 +50,11 @@ Route::prefix('v1')->group(function () {
             Route::get('/queues/today', [QueueController::class, 'index']);
             Route::post('/queues/join', [QueueController::class, 'store']);
             Route::match(['put', 'patch'], '/profile/{id}', [PatientProfileController::class, 'update'])
+                ->whereNumber('id');
+        });
+
+        Route::prefix('staff')->middleware('role:staff')->group(function () {
+            Route::match(['put', 'patch'], '/profile/{id}', [StaffProfileController::class, 'update'])
                 ->whereNumber('id');
         });
 

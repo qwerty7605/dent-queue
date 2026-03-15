@@ -11,6 +11,7 @@ class ProfileService {
   Future<Map<String, dynamic>> updateProfile(
     int userId, {
     required Map<String, String> fields,
+    required String role,
     File? profilePicture,
   }) async {
     final Map<String, File> files = {};
@@ -23,12 +24,22 @@ class ProfileService {
     fields['_method'] = 'PUT';
 
     final json = await _baseService.postMultipartJson<dynamic>(
-      Endpoints.updateProfile(userId),
+      _resolveUpdateEndpoint(userId, role),
       fields: fields,
       files: files.isNotEmpty ? files : null,
       mapper: (data) => data as Map<String, dynamic>,
     );
 
     return json;
+  }
+
+  String _resolveUpdateEndpoint(int userId, String role) {
+    switch (role.trim().toLowerCase()) {
+      case 'staff':
+      case 'admin':
+        return Endpoints.updateStaffProfile(userId);
+      default:
+        return Endpoints.updatePatientProfile(userId);
+    }
   }
 }

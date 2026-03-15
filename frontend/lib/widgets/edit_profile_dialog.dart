@@ -34,13 +34,15 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   @override
   void initState() {
     super.initState();
-    
+
     // Attempt to split 'name' if separate first/last aren't provided
     String firstName = widget.userInfo['first_name']?.toString() ?? '';
     String middleName = widget.userInfo['middle_name']?.toString() ?? '';
     String lastName = widget.userInfo['last_name']?.toString() ?? '';
-    
-    if (firstName.isEmpty && lastName.isEmpty && widget.userInfo['name'] != null) {
+
+    if (firstName.isEmpty &&
+        lastName.isEmpty &&
+        widget.userInfo['name'] != null) {
       List<String> parts = widget.userInfo['name'].toString().split(' ');
       if (parts.isNotEmpty) {
         firstName = parts.first;
@@ -56,21 +58,38 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     _firstNameController = TextEditingController(text: firstName);
     _middleNameController = TextEditingController(text: middleName);
     _lastNameController = TextEditingController(text: lastName);
-    
-    // Fallback to location if address isn't present
-    _addressController = TextEditingController(text: (widget.userInfo['address'] ?? widget.userInfo['location'])?.toString() ?? '');
-    _contactNumberController = TextEditingController(text: (widget.userInfo['contact_number'] ?? widget.userInfo['phone_number'])?.toString() ?? '');
-    _genderController = TextEditingController(text: widget.userInfo['gender']?.toString() ?? '');
 
-    if (widget.userInfo['birthdate'] != null && widget.userInfo['birthdate'].toString().isNotEmpty) {
+    // Fallback to location if address isn't present
+    _addressController = TextEditingController(
+      text:
+          (widget.userInfo['address'] ?? widget.userInfo['location'])
+              ?.toString() ??
+          '',
+    );
+    _contactNumberController = TextEditingController(
+      text:
+          (widget.userInfo['contact_number'] ?? widget.userInfo['phone_number'])
+              ?.toString() ??
+          '',
+    );
+    _genderController = TextEditingController(
+      text: widget.userInfo['gender']?.toString() ?? '',
+    );
+
+    if (widget.userInfo['birthdate'] != null &&
+        widget.userInfo['birthdate'].toString().isNotEmpty) {
       try {
-        _selectedBirthdate = DateTime.parse(widget.userInfo['birthdate'].toString());
+        _selectedBirthdate = DateTime.parse(
+          widget.userInfo['birthdate'].toString(),
+        );
       } catch (e) {
         // Handle parsing error
       }
     }
 
-    _profileService = ProfileService(BaseService(ApiClient(tokenStorage: SecureTokenStorage())));
+    _profileService = ProfileService(
+      BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
+    );
   }
 
   @override
@@ -99,7 +118,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
       setState(() => _isLoading = true);
       try {
         final userId = widget.userInfo['id'] as int;
-        
+        final role = _resolveRole(widget.userInfo['role']);
+
         // Assemble fields
         final Map<String, String> fields = {
           'first_name': _firstNameController.text.trim(),
@@ -119,19 +139,22 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
           fields['gender'] = _genderController.text.trim();
         }
         if (_selectedBirthdate != null) {
-          fields['birthdate'] = '${_selectedBirthdate!.year}-${_selectedBirthdate!.month.toString().padLeft(2, '0')}-${_selectedBirthdate!.day.toString().padLeft(2, '0')}';
+          fields['birthdate'] =
+              '${_selectedBirthdate!.year}-${_selectedBirthdate!.month.toString().padLeft(2, '0')}-${_selectedBirthdate!.day.toString().padLeft(2, '0')}';
         }
 
         final response = await _profileService.updateProfile(
           userId,
           fields: fields,
+          role: role,
           profilePicture: _selectedImage,
         );
 
         // Update token storage with new user info
         final tokenStorage = SecureTokenStorage();
+        final updatedUserInfo = _normalizeUserInfo(response['user']);
         if (response['user'] != null) {
-          await tokenStorage.writeUserInfo(response['user']);
+          await tokenStorage.writeUserInfo(updatedUserInfo);
         }
 
         if (mounted) {
@@ -141,7 +164,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
               backgroundColor: Color(0xFF679B6A),
             ),
           );
-          Navigator.of(context).pop(response['user']); // Return the updated user info
+          Navigator.of(context).pop(updatedUserInfo);
         }
       } catch (e) {
         if (mounted) {
@@ -158,6 +181,93 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
         }
       }
     }
+  }
+
+  String _resolveRole(dynamic value) {
+    if (value is String && value.trim().isNotEmpty) {
+      return value.trim().toLowerCase();
+    }
+
+    if (value is Map<String, dynamic>) {
+      final roleName = value['name']?.toString().trim().toLowerCase();
+      if (roleName != null && roleName.isNotEmpty) {
+        return roleName;
+      }
+    }
+
+    return 'patient';
+  }
+
+  String _roleLabel(String role) {
+    switch (role) {
+      case 'staff':
+        return 'STAFF';
+      case 'admin':
+        return 'ADMIN';
+      default:
+        return 'PATIENT';
+    }
+  }
+
+  Map<String, dynamic> _normalizeUserInfo(dynamic rawUser) {
+    final original = Map<String, dynamic>.from(widget.userInfo);
+    if (rawUser is! Map<String, dynamic>) {
+      return original;
+    }
+
+    final firstName =
+        rawUser['first_name']?.toString() ??
+        original['first_name']?.toString() ??
+        '';
+    final middleName =
+        rawUser['middle_name']?.toString() ??
+        original['middle_name']?.toString() ??
+        '';
+    final lastName =
+        rawUser['last_name']?.toString() ??
+        original['last_name']?.toString() ??
+        '';
+    final role = _resolveRole(rawUser['role'] ?? original['role']);
+    final name = [
+      firstName,
+      middleName,
+      lastName,
+    ].where((part) => part.trim().isNotEmpty).join(' ').trim();
+    final location =
+        rawUser['location']?.toString() ??
+        rawUser['address']?.toString() ??
+        original['location']?.toString() ??
+        original['address']?.toString() ??
+        '';
+    final phoneNumber =
+        rawUser['phone_number']?.toString() ??
+        rawUser['contact_number']?.toString() ??
+        original['phone_number']?.toString() ??
+        original['contact_number']?.toString() ??
+        '';
+
+    return {
+      ...original,
+      'id': rawUser['id'] ?? original['id'],
+      'name': name.isNotEmpty
+          ? name
+          : (rawUser['name']?.toString() ??
+                original['name']?.toString() ??
+                'User'),
+      'role': role,
+      'first_name': firstName,
+      'middle_name': middleName,
+      'last_name': lastName,
+      'birthdate': rawUser['birthdate'] ?? original['birthdate'],
+      'location': location,
+      'address': location,
+      'gender': rawUser['gender'] ?? original['gender'],
+      'phone_number': phoneNumber,
+      'contact_number': phoneNumber,
+      'profile_picture':
+          rawUser['profile_picture'] ?? original['profile_picture'],
+      'email': rawUser['email'] ?? original['email'],
+    };
   }
 
   Widget _buildLabel(String text) {
@@ -196,6 +306,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final role = _resolveRole(widget.userInfo['role']);
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       backgroundColor: Colors.white,
@@ -237,24 +349,55 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                                   height: 80,
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
+                                    border: Border.all(
+                                      color: const Color(0xFFE2E8F0),
+                                      width: 2,
+                                    ),
                                     color: const Color(0xFFF8FAFC),
                                   ),
                                   child: _selectedImage != null
                                       ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(10),
-                                          child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                                          )
-                                      : (widget.userInfo['profile_picture'] != null && widget.userInfo['profile_picture'].toString().trim().isNotEmpty && widget.userInfo['profile_picture'].toString() != 'null' && widget.userInfo['profile_picture'].toString() != '/storage/')
-                                          ? ClipRRect(
-                                              borderRadius: BorderRadius.circular(10),
-                                              child: Image.network(
-                                                '${AppConfig.baseUrl}${widget.userInfo['profile_picture']}',
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 50, color: Colors.grey),
-                                              ),
-                                            )
-                                          : const Icon(Icons.person, size: 50, color: Colors.grey),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          child: Image.file(
+                                            _selectedImage!,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                      : (widget.userInfo['profile_picture'] !=
+                                                null &&
+                                            widget.userInfo['profile_picture']
+                                                .toString()
+                                                .trim()
+                                                .isNotEmpty &&
+                                            widget.userInfo['profile_picture']
+                                                    .toString() !=
+                                                'null' &&
+                                            widget.userInfo['profile_picture']
+                                                    .toString() !=
+                                                '/storage/')
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          child: Image.network(
+                                            '${AppConfig.baseUrl}${widget.userInfo['profile_picture']}',
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) =>
+                                                    const Icon(
+                                                      Icons.person,
+                                                      size: 50,
+                                                      color: Colors.grey,
+                                                    ),
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.person,
+                                          size: 50,
+                                          color: Colors.grey,
+                                        ),
                                 ),
                                 Positioned(
                                   bottom: -5,
@@ -283,9 +426,9 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'PATIENT',
-                            style: TextStyle(
+                          Text(
+                            _roleLabel(role),
+                            style: const TextStyle(
                               color: Color(0xFF7E8CA0),
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
@@ -303,8 +446,12 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     TextFormField(
                       controller: _firstNameController,
                       decoration: _inputDecoration(),
-                      style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
-                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                      style: const TextStyle(
+                        color: Color(0xFF2C3E50),
+                        fontSize: 16,
+                      ),
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 16),
 
@@ -314,7 +461,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     TextFormField(
                       controller: _middleNameController,
                       decoration: _inputDecoration(),
-                      style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+                      style: const TextStyle(
+                        color: Color(0xFF2C3E50),
+                        fontSize: 16,
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -324,8 +474,12 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     TextFormField(
                       controller: _lastNameController,
                       decoration: _inputDecoration(),
-                      style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
-                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                      style: const TextStyle(
+                        color: Color(0xFF2C3E50),
+                        fontSize: 16,
+                      ),
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 16),
 
@@ -339,8 +493,12 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     TextFormField(
                       controller: _addressController,
                       decoration: _inputDecoration(),
-                      style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
-                      validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                      style: const TextStyle(
+                        color: Color(0xFF2C3E50),
+                        fontSize: 16,
+                      ),
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 16),
 
@@ -350,7 +508,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     TextFormField(
                       controller: _genderController,
                       decoration: _inputDecoration(),
-                      style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+                      style: const TextStyle(
+                        color: Color(0xFF2C3E50),
+                        fontSize: 16,
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -361,12 +522,14 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                       controller: _contactNumberController,
                       keyboardType: TextInputType.phone,
                       decoration: _inputDecoration(),
-                      style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+                      style: const TextStyle(
+                        color: Color(0xFF2C3E50),
+                        fontSize: 16,
+                      ),
                       validator: (value) {
                         if (value == null || value.isEmpty) return 'Required';
-                        // Validate contact number is numerical
-                        if (double.tryParse(value.replaceAll('+', '').replaceAll('-', '').replaceAll(' ', '')) == null) {
-                          return 'Must be a valid numerical contact number';
+                        if (!RegExp(r'^09\d{9}$').hasMatch(value.trim())) {
+                          return 'Must be a valid 11-digit mobile number';
                         }
                         return null;
                       },
@@ -387,11 +550,14 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 16),
                             ),
-                            child: _isLoading 
+                            child: _isLoading
                                 ? const SizedBox(
-                                    width: 24, 
-                                    height: 24, 
-                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : const Text(
                                     'Save\nChanges',
@@ -409,11 +575,15 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                           child: TextButton(
                             onPressed: () => Navigator.of(context).pop(),
                             style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFFF1F5F9), // light gray
+                              backgroundColor: const Color(
+                                0xFFF1F5F9,
+                              ), // light gray
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 24), // matching height
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 24,
+                              ), // matching height
                             ),
                             child: const Text(
                               'Cancel',
@@ -466,7 +636,11 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                 final now = DateTime.now();
                 final picked = await showDatePicker(
                   context: context,
-                  initialDate: _selectedBirthdate ?? now.subtract(const Duration(days: 365 * 20)), // default 20 years ago
+                  initialDate:
+                      _selectedBirthdate ??
+                      now.subtract(
+                        const Duration(days: 365 * 20),
+                      ), // default 20 years ago
                   firstDate: DateTime(1900),
                   lastDate: now, // cannot be more than now
                   builder: (context, child) {
@@ -497,7 +671,11 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
               child: InputDecorator(
                 decoration: _inputDecoration().copyWith(
                   errorText: state.errorText,
-                  suffixIcon: const Icon(Icons.calendar_today_outlined, color: Color(0xFF1E293B), size: 18),
+                  suffixIcon: const Icon(
+                    Icons.calendar_today_outlined,
+                    color: Color(0xFF1E293B),
+                    size: 18,
+                  ),
                 ),
                 isEmpty: _selectedBirthdate == null,
                 child: Text(
@@ -505,7 +683,9 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                       ? 'dd/mm/yyyy'
                       : '${_selectedBirthdate!.day.toString().padLeft(2, '0')}/${_selectedBirthdate!.month.toString().padLeft(2, '0')}/${_selectedBirthdate!.year}',
                   style: TextStyle(
-                    color: _selectedBirthdate == null ? const Color(0xFF94A3B8) : const Color(0xFF2C3E50),
+                    color: _selectedBirthdate == null
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF2C3E50),
                     fontSize: 16,
                   ),
                 ),
