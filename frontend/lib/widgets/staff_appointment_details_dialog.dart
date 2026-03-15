@@ -7,11 +7,13 @@ class StaffAppointmentDetailsDialog extends StatefulWidget {
   const StaffAppointmentDetailsDialog({
     super.key,
     required this.appointment,
-    required this.onStatusUpdate,
+    this.onStatusUpdate,
+    this.showStatusActions = true,
   });
 
   final Map<String, dynamic> appointment;
-  final StaffAppointmentStatusUpdater onStatusUpdate;
+  final StaffAppointmentStatusUpdater? onStatusUpdate;
+  final bool showStatusActions;
 
   @override
   State<StaffAppointmentDetailsDialog> createState() =>
@@ -37,7 +39,9 @@ class _StaffAppointmentDetailsDialogState
     final notes = widget.appointment['notes']?.toString().trim() ?? '';
     final status = _normalizeStatus(widget.appointment['status']);
     final queueNumber = _formatQueueNumber(widget.appointment['queue_number']);
-    final actions = _allowedActionsForStatus(status);
+    final actions = widget.showStatusActions && widget.onStatusUpdate != null
+        ? _allowedActionsForStatus(status)
+        : const <_AppointmentAction>[];
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -173,7 +177,17 @@ class _StaffAppointmentDetailsDialogState
       _isSubmitting = true;
     });
 
-    final success = await widget.onStatusUpdate(action.nextStatus);
+    final updater = widget.onStatusUpdate;
+    if (updater == null) {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+      return;
+    }
+
+    final success = await updater(action.nextStatus);
     if (!mounted) {
       return;
     }

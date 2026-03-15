@@ -61,6 +61,7 @@ class AppointmentService
                 'appointments.service_id',
                 'appointments.appointment_date',
                 'appointments.time_slot',
+                'appointments.notes',
                 'appointments.status',
                 'queues.queue_number',
                 'patient_records.first_name',
@@ -82,6 +83,7 @@ class AppointmentService
                     'status' => 'Approved',
                     'queue_number' => (int) $appointment->queue_number,
                     'appointment_date' => (string) $appointment->appointment_date,
+                    'notes' => (string) ($appointment->notes ?? ''),
                 ];
             });
     }
