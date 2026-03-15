@@ -16,6 +16,7 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
   late DateTime _currentMonth;
   late DateTime _selectedDate;
   bool _isLoading = false;
+  int? _loadingAppointmentId;
   List<Map<String, dynamic>> _dayAppointments = [];
   String? _error;
 
@@ -76,14 +77,42 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
     });
   }
 
-  void _openAppointmentDetails(Map<String, dynamic> appointment) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => StaffAppointmentDetailsDialog(
-        appointment: appointment,
-        showStatusActions: false,
-      ),
-    );
+  Future<void> _openAppointmentDetails(Map<String, dynamic> appointment) async {
+    final appointmentId = _parseAppointmentId(appointment['id']);
+    if (appointmentId == null) {
+      _showMessage('Unable to open appointment details.');
+      return;
+    }
+
+    setState(() {
+      _loadingAppointmentId = appointmentId;
+    });
+
+    try {
+      final details = await widget.appointmentService
+          .getAdminCalendarAppointmentDetails(appointmentId);
+      if (!mounted) return;
+
+      final payload = <String, dynamic>{...appointment, ...details};
+
+      await showDialog<void>(
+        context: context,
+        builder: (_) => StaffAppointmentDetailsDialog(
+          appointment: payload,
+          showStatusActions: false,
+        ),
+      );
+    } on ApiException catch (e) {
+      _showMessage(e.message);
+    } catch (_) {
+      _showMessage('Unable to load appointment details right now.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingAppointmentId = null;
+        });
+      }
+    }
   }
 
   @override
@@ -334,6 +363,9 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
   }
 
   Widget _buildAppointmentListItem(Map<String, dynamic> appointment) {
+    final appointmentId = _parseAppointmentId(appointment['id']);
+    final isOpening =
+        appointmentId != null && _loadingAppointmentId == appointmentId;
     final patientName = appointment['patient_name'] ?? 'Unknown Patient';
     final serviceType = appointment['service_type'] ?? 'General Service';
     final time = _formatAppointmentTime(
@@ -349,7 +381,7 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => _openAppointmentDetails(appointment),
+        onTap: isOpening ? null : () => _openAppointmentDetails(appointment),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
@@ -403,12 +435,38 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
                 ),
               ),
               const SizedBox(width: 20),
-              _buildStatusBadge(status),
+              if (isOpening)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                )
+              else
+                _buildStatusBadge(status),
             ],
           ),
         ),
       ),
     );
+  }
+
+  int? _parseAppointmentId(dynamic value) {
+    if (value is num) {
+      return value.toInt();
+    }
+
+    if (value == null) {
+      return null;
+    }
+
+    return int.tryParse(value.toString());
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   Color _getStatusColor(String status) {
