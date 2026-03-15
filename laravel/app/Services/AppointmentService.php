@@ -79,13 +79,57 @@ class AppointmentService
                         $appointment->service_name !== null ? (string) $appointment->service_name : null,
                         (int) $appointment->service_id,
                     ),
-                    'time' => (string) $appointment->time_slot,
+                    'appointment_time' => (string) $appointment->time_slot,
                     'status' => 'Approved',
                     'queue_number' => (int) $appointment->queue_number,
                     'appointment_date' => (string) $appointment->appointment_date,
                     'notes' => (string) ($appointment->notes ?? ''),
                 ];
             });
+    }
+
+    public function getApprovedAppointmentDetails(int $appointmentId): ?array
+    {
+        $appointment = Appointment::query()
+            ->join('queues', 'queues.appointment_id', '=', 'appointments.id')
+            ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
+            ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+            ->where('appointments.id', $appointmentId)
+            ->where('appointments.status', self::STATUS_CONFIRMED)
+            ->select([
+                'appointments.id',
+                'appointments.patient_id',
+                'appointments.service_id',
+                'appointments.appointment_date',
+                'appointments.time_slot',
+                'appointments.notes',
+                'appointments.status',
+                'queues.queue_number',
+                'patient_records.first_name',
+                'patient_records.last_name',
+                'services.name as service_name',
+            ])
+            ->first();
+
+        if ($appointment === null) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $appointment->id,
+            'patient_name' => trim(
+                sprintf('%s %s', (string) $appointment->first_name, (string) $appointment->last_name),
+            ),
+            'service_type' => $this->resolveServiceType(
+                $appointment->service_name !== null ? (string) $appointment->service_name : null,
+                (int) $appointment->service_id,
+            ),
+            'appointment_date' => (string) $appointment->appointment_date,
+            'appointment_time' => (string) $appointment->time_slot,
+            'queue_number' => (int) $appointment->queue_number,
+            'notes' => (string) ($appointment->notes ?? ''),
+            'status' => 'Approved',
+        ];
     }
 
     public function getAppointmentsByDateOrderedQueue(string $date)

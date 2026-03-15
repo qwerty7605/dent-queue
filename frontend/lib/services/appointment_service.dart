@@ -118,6 +118,21 @@ class AppointmentService {
     return [];
   }
 
+  Future<Map<String, dynamic>> getAdminCalendarAppointmentDetails(
+    int id,
+  ) async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.adminCalendarAppointmentDetails(id),
+      (data) => data,
+    );
+
+    if (response is Map<String, dynamic> && response['appointment'] is Map) {
+      return Map<String, dynamic>.from(response['appointment'] as Map);
+    }
+
+    return {};
+  }
+
   Future<Map<String, dynamic>> updateAdminAppointmentStatus(
     int id,
     String status,

@@ -83,6 +83,23 @@ class AppointmentController extends Controller
         ]);
     }
 
+    public function calendarAppointmentDetails(Appointment $appointment): JsonResponse
+    {
+        $details = $this->appointmentService->getApprovedAppointmentDetails(
+            (int) $appointment->id,
+        );
+
+        if ($details === null) {
+            return response()->json([
+                'message' => 'Appointment not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'appointment' => $details,
+        ]);
+    }
+
     /**
      * Store a newly created appointment in storage.
      */
