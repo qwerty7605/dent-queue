@@ -5,6 +5,7 @@ import '../core/token_storage.dart';
 import '../services/auth_service.dart';
 import 'patient_dashboard_view.dart';
 import 'staff_dashboard_view.dart';
+import 'admin_dashboard_view.dart';
 
 class DashboardView extends StatefulWidget {
   const DashboardView({
@@ -80,10 +81,18 @@ class _DashboardViewState extends State<DashboardView> {
       );
     }
 
-    if (role == 'staff' || role == 'admin') {
+    if (role == 'staff') {
       return StaffDashboardView(
         userInfo: _userInfo,
         tokenStorage: widget.tokenStorage,
+        onLogout: () => _logout(),
+        loggingOut: _loggingOut,
+      );
+    }
+
+    if (role == 'admin') {
+      return AdminDashboardView(
+        userInfo: _userInfo,
         onLogout: () => _logout(),
         loggingOut: _loggingOut,
       );

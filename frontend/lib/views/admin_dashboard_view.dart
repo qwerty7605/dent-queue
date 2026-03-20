@@ -1,0 +1,223 @@
+import 'package:flutter/material.dart';
+import '../widgets/admin_layout.dart';
+
+class AdminDashboardView extends StatefulWidget {
+  const AdminDashboardView({
+    super.key,
+    required this.userInfo,
+    required this.onLogout,
+    required this.loggingOut,
+  });
+
+  final Map<String, dynamic>? userInfo;
+  final VoidCallback onLogout;
+  final bool loggingOut;
+
+  @override
+  State<AdminDashboardView> createState() => _AdminDashboardViewState();
+}
+
+class _AdminDashboardViewState extends State<AdminDashboardView> {
+  String _activeRoute = 'Dashboard';
+
+  @override
+  Widget build(BuildContext context) {
+    return AdminLayout(
+      activeRoute: _activeRoute,
+      userInfo: widget.userInfo,
+      onLogout: widget.onLogout,
+      loggingOut: widget.loggingOut,
+      onNavigate: (route) {
+        setState(() {
+          _activeRoute = route;
+        });
+      },
+      child: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    switch (_activeRoute) {
+      case 'Dashboard':
+        return _buildDashboardContent();
+      // Other routes to be implemented in subsequent tickets
+      default:
+        return Center(
+          child: Text(
+            '$_activeRoute View\n(To be implemented)',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 24, color: Colors.grey),
+          ),
+        );
+    }
+  }
+
+  Widget _buildDashboardContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(40.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Text(
+            'Dashboard',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          const SizedBox(height: 48),
+          
+          Wrap(
+            spacing: 32,
+            runSpacing: 32,
+            alignment: WrapAlignment.center,
+            children: [
+              _buildDashboardCard(
+                title: 'Patients',
+                value: '4',
+                icon: Icons.badge_outlined,
+                mainColor: const Color(0xFF6A9A8B), // Slightly grayish green-blue
+                darkColor: const Color(0xFF50786A),
+              ),
+              _buildDashboardCard(
+                title: 'Staff',
+                value: '1',
+                icon: Icons.medical_services_outlined,
+                mainColor: const Color(0xFF86B9B0), // Teal
+                darkColor: const Color(0xFF6E9A92),
+              ),
+              _buildDashboardCard(
+                title: 'Master List',
+                value: '4',
+                icon: Icons.list_alt,
+                mainColor: const Color(0xFFE5CC82), // Sand Yellow
+                darkColor: const Color(0xFFBCA663),
+              ),
+              _buildDashboardCard(
+                title: 'Settings',
+                value: '', // No number from design
+                icon: Icons.settings,
+                mainColor: const Color(0xFFE28B71), // Orange Red
+                darkColor: const Color(0xFFBA6952),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color mainColor,
+    required Color darkColor,
+  }) {
+    return Container(
+      width: 400,
+      height: 200,
+      decoration: BoxDecoration(
+        color: mainColor,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 32.0, top: 32.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (value.isNotEmpty)
+                        Text(
+                          value,
+                          style: const TextStyle(
+                            fontSize: 48,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      if (value.isEmpty) const SizedBox(height: 24),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  right: 32,
+                  top: 32,
+                  child: Icon(
+                    icon,
+                    size: 80,
+                    color: Colors.white.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                // Navigate to the respective page when clicking More Info
+                setState(() {
+                  _activeRoute = title;
+                });
+              },
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(8),
+                bottomRight: Radius.circular(8),
+              ),
+              child: Ink(
+                height: 50,
+                decoration: BoxDecoration(
+                  color: darkColor,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Text(
+                      'More Info',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_circle_right,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
