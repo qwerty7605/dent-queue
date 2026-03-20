@@ -9,8 +9,29 @@ use Illuminate\Validation\ValidationException;
 
 class BookingRulesEngine
 {
-    private const OPEN_TIME = '07:30';
-    private const CLOSE_TIME = '18:00';
+    private const DEFAULT_OPEN_TIME = '07:30';
+    private const DEFAULT_CLOSE_TIME = '18:00';
+    private const DEFAULT_WORKING_DAYS = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+    ];
+    private const WEEK_DAYS = [
+        'Sunday',
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+    ];
+
+    public function __construct(protected ClinicSettingService $clinicSettingService)
+    {
+    }
 
     /**
      * Validate booking date/time business rules and normalize time format.
@@ -33,9 +54,10 @@ class BookingRulesEngine
             ]
         );
 
-        $validator->after(function ($validator) use ($payload): void {
-            $timezone = (string) config('app.timezone', 'UTC');
+        $timezone = (string) config('app.timezone', 'UTC');
+        $clinicSchedule = $this->resolveClinicSchedule($timezone);
 
+        $validator->after(function ($validator) use ($payload, $timezone, $clinicSchedule): void {
             if (isset($payload['appointment_date'])) {
                 $appointmentDate = $this->parseDate((string) $payload['appointment_date'], $timezone);
 
@@ -44,8 +66,11 @@ class BookingRulesEngine
                         $validator->errors()->add('appointment_date', 'Past dates are not allowed for bookings.');
                     }
 
-                    if ($appointmentDate->isSunday()) {
-                        $validator->errors()->add('appointment_date', 'Sunday bookings are not allowed.');
+                    if (!in_array($appointmentDate->englishDayOfWeek, $clinicSchedule['working_days'], true)) {
+                        $validator->errors()->add(
+                            'appointment_date',
+                            $this->resolveWorkingDayErrorMessage($appointmentDate, $clinicSchedule['uses_default_working_days']),
+                        );
                     }
 
                     $appointmentCount = Queue::where('queue_date', $appointmentDate->toDateString())
@@ -68,11 +93,20 @@ class BookingRulesEngine
             }
 
             $slot = Carbon::createFromFormat('H:i', $normalizedTimeSlot, $timezone);
-            $open = Carbon::createFromFormat('H:i', self::OPEN_TIME, $timezone);
-            $close = Carbon::createFromFormat('H:i', self::CLOSE_TIME, $timezone);
+            $open = Carbon::createFromFormat('H:i', $clinicSchedule['opening_time'], $timezone);
+            $close = Carbon::createFromFormat('H:i', $clinicSchedule['closing_time'], $timezone);
 
             if ($slot->lt($open) || $slot->gt($close)) {
-                $validator->errors()->add('time_slot', 'Booking time must be between 07:30 AM and 6:00 PM.');
+                $validator->errors()->add(
+                    'time_slot',
+                    $clinicSchedule['uses_default_time_range']
+                        ? 'Booking time must be between 07:30 AM and 6:00 PM.'
+                        : sprintf(
+                            'Booking time must be between %s and %s.',
+                            $open->format('g:i A'),
+                            $close->format('g:i A'),
+                        ),
+                );
             }
         });
 
@@ -81,10 +115,42 @@ class BookingRulesEngine
         }
 
         $validated = $validator->validated();
-        $timezone = (string) config('app.timezone', 'UTC');
         $validated['time_slot'] = $this->normalizeTimeSlot((string) $payload['time_slot'], $timezone) ?? (string) $payload['time_slot'];
 
         return $validated;
+    }
+
+    /**
+     * @return array{opening_time: string, closing_time: string, working_days: array<int, string>, uses_default_working_days: bool, uses_default_time_range: bool}
+     */
+    private function resolveClinicSchedule(string $timezone): array
+    {
+        $settings = $this->clinicSettingService->getCurrentSettings();
+        $openingTime = $this->normalizeConfiguredTime($settings['opening_time'] ?? null, $timezone) ?? self::DEFAULT_OPEN_TIME;
+        $closingTime = $this->normalizeConfiguredTime($settings['closing_time'] ?? null, $timezone) ?? self::DEFAULT_CLOSE_TIME;
+        $usesDefaultTimeRange = $openingTime === self::DEFAULT_OPEN_TIME
+            && $closingTime === self::DEFAULT_CLOSE_TIME;
+
+        if (!$this->hasValidTimeRange($openingTime, $closingTime, $timezone)) {
+            $openingTime = self::DEFAULT_OPEN_TIME;
+            $closingTime = self::DEFAULT_CLOSE_TIME;
+            $usesDefaultTimeRange = true;
+        }
+
+        $workingDays = $this->normalizeWorkingDays($settings['working_days'] ?? null);
+        $usesDefaultWorkingDays = $workingDays === [];
+
+        if ($usesDefaultWorkingDays) {
+            $workingDays = self::DEFAULT_WORKING_DAYS;
+        }
+
+        return [
+            'opening_time' => $openingTime,
+            'closing_time' => $closingTime,
+            'working_days' => $workingDays,
+            'uses_default_working_days' => $usesDefaultWorkingDays,
+            'uses_default_time_range' => $usesDefaultTimeRange,
+        ];
     }
 
     private function parseDate(string $value, string $timezone): ?Carbon
@@ -95,6 +161,64 @@ class BookingRulesEngine
         catch (\Throwable) {
             return null;
         }
+    }
+
+    private function normalizeConfiguredTime(mixed $value, string $timezone): ?string
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+
+        return $this->normalizeTimeSlot((string) $value, $timezone);
+    }
+
+    private function hasValidTimeRange(string $openingTime, string $closingTime, string $timezone): bool
+    {
+        try {
+            $open = Carbon::createFromFormat('H:i', $openingTime, $timezone);
+            $close = Carbon::createFromFormat('H:i', $closingTime, $timezone);
+
+            return $close->gt($open);
+        }
+        catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @param  mixed  $workingDays
+     * @return array<int, string>
+     */
+    private function normalizeWorkingDays(mixed $workingDays): array
+    {
+        if (!is_array($workingDays)) {
+            return [];
+        }
+
+        $selectedLookup = [];
+
+        foreach ($workingDays as $workingDay) {
+            $selectedLookup[mb_strtolower(trim((string) $workingDay))] = true;
+        }
+
+        $normalized = [];
+
+        foreach (self::WEEK_DAYS as $weekDay) {
+            if (isset($selectedLookup[mb_strtolower($weekDay)])) {
+                $normalized[] = $weekDay;
+            }
+        }
+
+        return $normalized;
+    }
+
+    private function resolveWorkingDayErrorMessage(Carbon $appointmentDate, bool $usesDefaultWorkingDays): string
+    {
+        if ($usesDefaultWorkingDays && $appointmentDate->isSunday()) {
+            return 'Sunday bookings are not allowed.';
+        }
+
+        return 'Booking date must fall on a selected working day.';
     }
 
     private function normalizeTimeSlot(string $value, string $timezone): ?string

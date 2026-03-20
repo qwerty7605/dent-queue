@@ -8,6 +8,7 @@ use App\Models\Service;
 use App\Models\PatientRecord;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -31,7 +32,7 @@ class QueueAssignmentTest extends TestCase
                 'patient_id' => $patient->id,
                 'service_type' => $service->name,
                 'appointment_date' => $appointmentDate,
-                'appointment_time' => '09:00',
+                'appointment_time' => $this->resolveTimeSlotByIndex($expectedQueueNumber),
             ]);
 
             $response->assertCreated()
@@ -144,7 +145,7 @@ class QueueAssignmentTest extends TestCase
                 'patient_id' => $patient->id,
                 'service_type' => $service->name,
                 'appointment_date' => $appointmentDate,
-                'appointment_time' => '11:00',
+                'appointment_time' => $this->resolveTimeSlotByIndex($expectedQueueNumber),
             ])->assertCreated()->assertJsonPath('appointment.queue_number', str_pad((string) $expectedQueueNumber, 2, '0', STR_PAD_LEFT));
         }
 
@@ -153,7 +154,7 @@ class QueueAssignmentTest extends TestCase
             'patient_id' => $extraPatient->id,
             'service_type' => $service->name,
             'appointment_date' => $appointmentDate,
-            'appointment_time' => '11:00',
+            'appointment_time' => '16:00',
         ]);
 
         $response->assertStatus(422)
@@ -197,5 +198,12 @@ class QueueAssignmentTest extends TestCase
             'description' => 'Queue assignment test service.',
             'is_active' => true,
         ]);
+    }
+
+    private function resolveTimeSlotByIndex(int $index): string
+    {
+        return Carbon::createFromTime(7, 30)
+            ->addMinutes(($index - 1) * 10)
+            ->format('H:i');
     }
 }
