@@ -31,6 +31,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/patients/{patientId}', [PatientRecordController::class, 'show']);
             Route::apiResource('services', ServiceController::class);
             Route::get('/appointments', [AppointmentController::class, 'indexAdmin']);
+            Route::get('/appointments/master-list', [AppointmentController::class, 'masterList']);
             Route::post('/appointments', [AppointmentController::class, 'storeAdmin']);
             Route::post('/appointments/walk-in', [AppointmentController::class, 'storeWalkIn']);
             Route::post('/appointments/follow-up', [AppointmentController::class, 'storeFollowUp']);
