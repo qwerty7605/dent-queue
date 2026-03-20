@@ -71,7 +71,15 @@ class _DashboardViewState extends State<DashboardView> {
 
     final name = _userInfo?['name']?.toString() ?? 'User';
     final email = _userInfo?['email']?.toString() ?? '-';
-    final role = (_userInfo?['role']?.toString() ?? 'user').toLowerCase();
+    
+    String roleStr = 'user';
+    final roleDynamic = _userInfo?['role'];
+    if (roleDynamic is String) {
+      roleStr = roleDynamic;
+    } else if (roleDynamic is Map) {
+      roleStr = roleDynamic['name']?.toString() ?? 'user';
+    }
+    final role = roleStr.toLowerCase();
 
     if (role == 'patient') {
       return PatientDashboardView(

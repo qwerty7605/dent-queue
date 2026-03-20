@@ -1,7 +1,20 @@
 import 'package:flutter/material.dart';
+import '../core/token_storage.dart';
+import '../core/api_client.dart';
+import '../services/base_service.dart';
+import '../services/admin_profile_service.dart';
 
 class AdminProfileView extends StatefulWidget {
-  const AdminProfileView({super.key});
+  const AdminProfileView({
+    super.key,
+    required this.activeUser,
+    required this.tokenStorage,
+    this.onProfileUpdated,
+  });
+
+  final Map<String, dynamic>? activeUser;
+  final TokenStorage tokenStorage;
+  final ValueChanged<Map<String, dynamic>>? onProfileUpdated;
 
   @override
   State<AdminProfileView> createState() => _AdminProfileViewState();
@@ -14,8 +27,57 @@ class _AdminProfileViewState extends State<AdminProfileView> {
   final TextEditingController _birthdateController = TextEditingController();
   final TextEditingController _contactController = TextEditingController();
 
-  final TextEditingController _usernameController = TextEditingController(text: 'ADMIN');
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController(text: '********');
+
+  late AdminProfileService _adminProfileService;
+  
+  bool _isEditingUsername = false;
+  bool _isEditingPassword = false;
+  bool _isEditingProfile = false;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final apiClient = ApiClient(tokenStorage: widget.tokenStorage);
+    final baseService = BaseService(apiClient);
+    _adminProfileService = AdminProfileService(baseService);
+
+    _populateFields();
+    _refreshFromStorage();
+  }
+
+  Future<void> _refreshFromStorage() async {
+    final storedUser = await widget.tokenStorage.readUserInfo();
+    if (storedUser != null && mounted) {
+      setState(() {
+        if (widget.activeUser != null) {
+          widget.activeUser!.addAll(storedUser);
+        }
+        _populateFields();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(AdminProfileView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.activeUser != oldWidget.activeUser) {
+      _populateFields();
+    }
+  }
+
+  void _populateFields() {
+    if (widget.activeUser != null) {
+      _firstNameController.text = widget.activeUser!['first_name'] ?? '';
+      _lastNameController.text = widget.activeUser!['last_name'] ?? '';
+      _genderController.text = widget.activeUser!['gender'] ?? '';
+      _birthdateController.text = widget.activeUser!['birthdate'] ?? '';
+      _contactController.text = widget.activeUser!['phone_number'] ?? widget.activeUser!['contact_number'] ?? '';
+      _usernameController.text = widget.activeUser!['username'] ?? '';
+    }
+  }
 
   @override
   void dispose() {
@@ -29,19 +91,92 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     super.dispose();
   }
 
+  Future<void> _saveChanges() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final payload = <String, dynamic>{};
+      
+      if (_firstNameController.text.isNotEmpty) payload['first_name'] = _firstNameController.text;
+      if (_lastNameController.text.isNotEmpty) payload['last_name'] = _lastNameController.text;
+      if (_genderController.text.isNotEmpty) payload['gender'] = _genderController.text;
+      if (_birthdateController.text.isNotEmpty) payload['birthdate'] = _birthdateController.text;
+      if (_contactController.text.isNotEmpty) payload['contact_number'] = _contactController.text;
+      if (_usernameController.text.isNotEmpty) payload['username'] = _usernameController.text;
+
+      if (_isEditingPassword && _passwordController.text.isNotEmpty && _passwordController.text != '********') {
+        payload['password'] = _passwordController.text;
+      }
+
+      final response = await _adminProfileService.updateProfile(payload);
+      
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.green),
+      );
+
+      setState(() {
+        _isEditingProfile = false;
+        _isEditingPassword = false;
+        _isEditingUsername = false;
+        _passwordController.text = '********';
+      });
+
+      if (widget.onProfileUpdated != null && response['user'] != null) {
+        widget.onProfileUpdated!(response['user'] as Map<String, dynamic>);
+      }
+
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(40.0),
       child: Column(
         children: [
-          const Text(
-            'Admin Profile',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Admin Profile',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              if (!_isEditingProfile)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _isEditingProfile = true;
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF679B6A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.edit, size: 20),
+                  label: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+            ],
           ),
           const SizedBox(height: 24),
           Expanded(
@@ -51,7 +186,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                 color: Colors.white,
                 border: const Border(
                   top: BorderSide(
-                    color: Color(0xFF679B6A), // Dark Green matching sidebar
+                    color: Color(0xFF679B6A),
                     width: 6.0,
                   ),
                 ),
@@ -66,55 +201,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Green Banner Container
-                  Container(
-                    color: const Color(0xFF436B46), // Dark green banner
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.only(right: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(40),
-                          ),
-                          child: Row(
-                            children: [
-                              const CircleAvatar(
-                                radius: 30,
-                                backgroundColor: Colors.white24,
-                                child: Icon(Icons.person, color: Colors.white, size: 36),
-                              ),
-                              const SizedBox(width: 16),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text(
-                                    'ADMIN',
-                                    style: TextStyle(
-                                      color: Color(0xFFFFC107), // Gold/Yellow
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  Text(
-                                    'SYSTEM ADMIN',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Form Content
+                  // Interactive Form content
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(24.0),
@@ -123,46 +210,36 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                         children: [
                           const Text(
                             'Personal Information',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
                           ),
                           const SizedBox(height: 16),
-                          
                           Row(
                             children: [
-                              Expanded(child: _buildTextField('First name', 'Enter First name', _firstNameController)),
+                              Expanded(child: _buildTextField('First name', 'Enter First name', _firstNameController, readOnly: !_isEditingProfile)),
                               const SizedBox(width: 24),
-                              Expanded(child: _buildTextField('Last Name', 'Enter Last name', _lastNameController)),
+                              Expanded(child: _buildTextField('Last Name', 'Enter Last name', _lastNameController, readOnly: !_isEditingProfile)),
                             ],
                           ),
                           const SizedBox(height: 16),
                           Row(
                             children: [
-                              Expanded(child: _buildTextField('Gender', 'Enter Gender', _genderController)),
+                              Expanded(child: _buildDropdownField('Gender', ['male', 'female', 'other'], _genderController, readOnly: !_isEditingProfile)),
                               const SizedBox(width: 24),
-                              Expanded(child: _buildTextField('Birthdate', 'YYYY-MM-DD', _birthdateController)),
+                              Expanded(child: _buildDateField('Birthdate', _birthdateController, context, readOnly: !_isEditingProfile)),
                             ],
                           ),
                           const SizedBox(height: 16),
                           Row(
                             children: [
-                              Expanded(child: _buildTextField('Contact', 'Enter Contact', _contactController)),
+                              Expanded(child: _buildTextField('Contact', '09...', _contactController, readOnly: !_isEditingProfile)),
                               const SizedBox(width: 24),
-                              const Spacer(), // Empty space matching layout
+                              const Spacer(),
                             ],
                           ),
-                          
                           const SizedBox(height: 32),
                           const Text(
                             'Account Information',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
                           ),
                           const SizedBox(height: 16),
 
@@ -173,7 +250,13 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                 child: _buildAccountField(
                                   'Username',
                                   _usernameController,
-                                  'CHANGE USERNAME',
+                                  _isEditingUsername ? 'LOCK' : 'CHANGE USERNAME',
+                                  readOnly: !_isEditingUsername,
+                                  onActionTap: () {
+                                    setState(() {
+                                      _isEditingUsername = !_isEditingUsername;
+                                    });
+                                  },
                                 ),
                               ),
                               const Spacer(flex: 1),
@@ -188,26 +271,38 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                 child: _buildAccountField(
                                   'Password',
                                   _passwordController,
-                                  'CHANGE PASSWORD',
-                                  obscureText: true,
+                                  _isEditingPassword ? 'LOCK' : 'CHANGE PASSWORD',
+                                  obscureText: !_isEditingPassword,
+                                  readOnly: !_isEditingPassword,
+                                  onActionTap: () {
+                                    setState(() {
+                                      _isEditingPassword = !_isEditingPassword;
+                                      if (_isEditingPassword) {
+                                        _passwordController.clear();
+                                      } else {
+                                        _passwordController.text = '********';
+                                      }
+                                    });
+                                  },
                                 ),
                               ),
                               const Spacer(flex: 1),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  // Save logic implementation stub
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF436B46),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4),
+                              if (_isEditingProfile || _isEditingUsername || _isEditingPassword)
+                                ElevatedButton.icon(
+                                  onPressed: _isLoading ? null : _saveChanges,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF436B46),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
                                   ),
+                                  label: _isLoading 
+                                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                      : const Text('Save Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                  icon: _isLoading ? const SizedBox.shrink() : const Icon(Icons.download_for_offline, size: 24),
                                 ),
-                                label: const Text('Save Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                icon: const Icon(Icons.download_for_offline, size: 24),
-                              ),
                             ],
                           ),
                         ],
@@ -223,7 +318,107 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     );
   }
 
-  Widget _buildTextField(String label, String hint, TextEditingController controller) {
+  Widget _buildDateField(String label, TextEditingController controller, BuildContext context, {bool readOnly = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: readOnly ? null : () async {
+            final date = await showDatePicker(
+              context: context,
+              initialDate: DateTime.now(),
+              firstDate: DateTime(1900),
+              lastDate: DateTime.now(),
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.light(
+                      primary: Color(0xFF679B6A),
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+            if (date != null) {
+              controller.text = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+            }
+          },
+          child: IgnorePointer(
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'YYYY-MM-DD',
+                hintStyle: const TextStyle(color: Colors.black38),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                suffixIcon: const Icon(Icons.calendar_today, color: Colors.black54),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(4),
+                  borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownField(String label, List<String> items, TextEditingController controller, {bool readOnly = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: controller.text.isNotEmpty && items.contains(controller.text) ? controller.text : null,
+          decoration: InputDecoration(
+            filled: !readOnly,
+            fillColor: Colors.green.withValues(alpha: 0.05),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Color(0xFF679B6A), width: 2.0),
+            ),
+          ),
+          items: items.map((item) {
+            return DropdownMenuItem<String>(
+              value: item,
+              child: Text(item, style: const TextStyle(color: Colors.black87)),
+            );
+          }).toList(),
+          onChanged: readOnly ? null : (value) {
+            if (value != null) {
+              controller.text = value;
+            }
+          },
+          hint: Text('Select $label', style: const TextStyle(color: Colors.black38)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField(String label, String hint, TextEditingController controller, {bool readOnly = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -234,21 +429,24 @@ class _AdminProfileViewState extends State<AdminProfileView> {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
+          readOnly: readOnly,
           decoration: InputDecoration(
+            filled: !readOnly,
+            fillColor: Colors.green.withValues(alpha: 0.05),
             hintText: hint,
             hintStyle: const TextStyle(color: Colors.black38),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.black26),
+              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.black26),
+              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Color(0xFF679B6A)),
+              borderSide: const BorderSide(color: Color(0xFF679B6A), width: 2.0),
             ),
           ),
         ),
@@ -256,7 +454,9 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     );
   }
 
-  Widget _buildAccountField(String label, TextEditingController controller, String actionText, {bool obscureText = false}) {
+  Widget _buildAccountField(
+      String label, TextEditingController controller, String actionText,
+      {bool obscureText = false, bool readOnly = true, required VoidCallback onActionTap}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -268,23 +468,25 @@ class _AdminProfileViewState extends State<AdminProfileView> {
         TextField(
           controller: controller,
           obscureText: obscureText,
-          readOnly: true, // Just display fields as mock behavior defined by design
-          decoration: InputDecoration(
+          readOnly: readOnly,
+           decoration: InputDecoration(
+            filled: !readOnly,
+            fillColor: Colors.green.withValues(alpha: 0.05),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.black26),
+              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.black26),
+              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Color(0xFF679B6A)),
+              borderSide: const BorderSide(color: Color(0xFF679B6A), width: 2.0),
             ),
             suffixIcon: TextButton(
-              onPressed: () {},
+              onPressed: onActionTap,
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
