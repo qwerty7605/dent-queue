@@ -141,6 +141,28 @@ class PatientRecordController extends Controller
         ]);
     }
 
+    public function destroy(string $patientId): JsonResponse
+    {
+        $patientRecord = PatientRecord::query()
+            ->where('patient_id', $patientId)
+            ->firstOrFail();
+
+        if ($patientRecord->user_id) {
+            $user = $patientRecord->user;
+            if ($user && $user->is_active) {
+                $user->is_active = false;
+                $user->save();
+            }
+        }
+        
+        // Always soft-delete the record to remove it from the dashboard lists.
+        $patientRecord->delete();
+
+        return response()->json([
+            'message' => 'Patient record successfully removed.'
+        ]);
+    }
+
     private function formatPatientResponse(PatientRecord $patientRecord): array
     {
         return [

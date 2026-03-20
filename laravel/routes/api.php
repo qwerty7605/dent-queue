@@ -33,6 +33,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/patients', [PatientRecordController::class, 'index']);
             Route::get('/patients/search', [PatientRecordController::class, 'search']);
             Route::get('/patients/{patientId}', [PatientRecordController::class, 'show']);
+            Route::delete('/patients/{patientId}', [PatientRecordController::class, 'destroy']);
             Route::apiResource('services', ServiceController::class);
             Route::get('/appointments', [AppointmentController::class, 'indexAdmin']);
             Route::get('/appointments/master-list', [AppointmentController::class, 'masterList']);

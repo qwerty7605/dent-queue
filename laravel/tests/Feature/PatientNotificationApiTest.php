@@ -154,7 +154,7 @@ class PatientNotificationApiTest extends TestCase
 
     private function reassignPatientRecord(User $patient, int $recordId): PatientRecord
     {
-        $patient->patientRecord()->delete();
+        $patient->patientRecord()->forceDelete();
         $patient->unsetRelation('patientRecord');
 
         return PatientRecord::create([

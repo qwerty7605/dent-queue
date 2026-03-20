@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PatientRecord extends Model
 {
+    use SoftDeletes;
+
     private const WALK_IN_ID_START = 9000000000000;
     private const WALK_IN_ID_END = 9999999999999;
 

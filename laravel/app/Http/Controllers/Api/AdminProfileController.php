@@ -58,6 +58,7 @@ class AdminProfileController extends Controller
             'phone_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
             'contact_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
             'username' => ['sometimes', 'required', 'string', 'max:255', 'unique:users,username,' . $userId],
+            'email' => ['sometimes', 'required', 'email', 'max:255', 'unique:users,email,' . $userId],
             'password' => ['sometimes', 'required', 'string', 'min:8'],
         ], [
             'birthdate.before_or_equal' => 'Birthdate cannot be in the future.',
