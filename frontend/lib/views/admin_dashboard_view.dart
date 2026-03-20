@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/admin_layout.dart';
 import 'admin_patients_view.dart';
 import 'admin_master_list_view.dart';
+import 'admin_profile_view.dart';
 import '../core/token_storage.dart';
 import '../core/api_client.dart';
 import '../services/base_service.dart';
@@ -91,6 +92,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         );
       case 'Master List':
         return const AdminMasterListView();
+      case 'Profile':
+        return const AdminProfileView();
       // Other routes to be implemented in subsequent tickets
       default:
         return Center(

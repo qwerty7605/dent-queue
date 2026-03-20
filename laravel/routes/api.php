@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\QueueController;
 use App\Http\Controllers\Api\PatientProfileController;
 use App\Http\Controllers\Api\StaffProfileController;
+use App\Http\Controllers\Api\AdminProfileController;
 use App\Http\Controllers\Api\PatientRecordController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\AdminDashboardController;
@@ -27,6 +28,7 @@ Route::prefix('v1')->group(function () {
 
         // Admin/Staff routes
         Route::prefix('admin')->middleware('role:admin,staff')->group(function () {
+            Route::put('/profile', [AdminProfileController::class, 'update']);
             Route::get('/dashboard/stats', [AdminDashboardController::class, 'stats']);
             Route::get('/patients', [PatientRecordController::class, 'index']);
             Route::get('/patients/search', [PatientRecordController::class, 'search']);
