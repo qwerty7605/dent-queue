@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\AdminProfileController;
 use App\Http\Controllers\Api\PatientRecordController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\Api\AdminStaffController;
 
 Route::prefix('v1')->group(function () {
     // Public routes (Auth)
@@ -35,6 +36,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/patients/{patientId}', [PatientRecordController::class, 'show']);
             Route::delete('/patients/{patientId}', [PatientRecordController::class, 'destroy']);
             Route::apiResource('services', ServiceController::class);
+            Route::apiResource('staff', AdminStaffController::class);
             Route::get('/appointments', [AppointmentController::class, 'indexAdmin']);
             Route::get('/appointments/master-list', [AppointmentController::class, 'masterList']);
             Route::post('/appointments', [AppointmentController::class, 'storeAdmin']);
