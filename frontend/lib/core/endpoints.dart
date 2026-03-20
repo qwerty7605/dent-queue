@@ -23,6 +23,7 @@ class Endpoints {
       '$_base/admin/calendar/appointments?date=$date';
   static String adminCalendarAppointmentDetails(int id) =>
       '$_base/admin/calendar/appointments/$id';
+  static const adminDashboardStats = '$_base/admin/dashboard/stats';
   static const adminAppointments = '$_base/admin/appointments';
   static String adminUpdateAppointmentStatus(int id) =>
       '$_base/admin/appointments/$id/status';

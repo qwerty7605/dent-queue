@@ -6,6 +6,7 @@ import '../core/token_storage.dart';
 import '../core/api_client.dart';
 import '../services/base_service.dart';
 import '../services/patient_record_service.dart';
+import '../services/admin_dashboard_service.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({
@@ -28,6 +29,14 @@ class AdminDashboardView extends StatefulWidget {
 class _AdminDashboardViewState extends State<AdminDashboardView> {
   String _activeRoute = 'Dashboard';
   late final PatientRecordService _patientRecordService;
+  late final AdminDashboardService _adminDashboardService;
+
+  bool _isLoadingStats = true;
+  Map<String, int> _dashboardStats = {
+    'patients_count': 0,
+    'staff_count': 0,
+    'appointments_count': 0,
+  };
 
   @override
   void initState() {
@@ -35,6 +44,25 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final apiClient = ApiClient(tokenStorage: widget.tokenStorage);
     final baseService = BaseService(apiClient);
     _patientRecordService = PatientRecordService(baseService);
+    _adminDashboardService = AdminDashboardService(baseService);
+
+    _loadDashboardStats();
+  }
+
+  Future<void> _loadDashboardStats() async {
+    try {
+      final stats = await _adminDashboardService.getStats();
+      if (!mounted) return;
+      setState(() {
+        _dashboardStats = stats;
+        _isLoadingStats = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingStats = false;
+      });
+    }
   }
 
   @override
@@ -98,21 +126,21 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             children: [
               _buildDashboardCard(
                 title: 'Patients',
-                value: '4',
+                value: _isLoadingStats ? '...' : (_dashboardStats['patients_count'] ?? 0).toString(),
                 icon: Icons.badge_outlined,
                 mainColor: const Color(0xFF6A9A8B), // Slightly grayish green-blue
                 darkColor: const Color(0xFF50786A),
               ),
               _buildDashboardCard(
                 title: 'Staff',
-                value: '1',
+                value: _isLoadingStats ? '...' : (_dashboardStats['staff_count'] ?? 0).toString(),
                 icon: Icons.medical_services_outlined,
                 mainColor: const Color(0xFF86B9B0), // Teal
                 darkColor: const Color(0xFF6E9A92),
               ),
               _buildDashboardCard(
                 title: 'Master List',
-                value: '4',
+                value: _isLoadingStats ? '...' : (_dashboardStats['appointments_count'] ?? 0).toString(),
                 icon: Icons.list_alt,
                 mainColor: const Color(0xFFE5CC82), // Sand Yellow
                 darkColor: const Color(0xFFBCA663),
