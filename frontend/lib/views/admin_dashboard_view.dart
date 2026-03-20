@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import '../widgets/admin_layout.dart';
+import 'admin_patients_view.dart';
+import '../core/token_storage.dart';
+import '../core/api_client.dart';
+import '../services/base_service.dart';
+import '../services/patient_record_service.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({
     super.key,
     required this.userInfo,
+    required this.tokenStorage,
     required this.onLogout,
     required this.loggingOut,
   });
 
   final Map<String, dynamic>? userInfo;
+  final TokenStorage tokenStorage;
   final VoidCallback onLogout;
   final bool loggingOut;
 
@@ -19,6 +26,15 @@ class AdminDashboardView extends StatefulWidget {
 
 class _AdminDashboardViewState extends State<AdminDashboardView> {
   String _activeRoute = 'Dashboard';
+  late final PatientRecordService _patientRecordService;
+
+  @override
+  void initState() {
+    super.initState();
+    final apiClient = ApiClient(tokenStorage: widget.tokenStorage);
+    final baseService = BaseService(apiClient);
+    _patientRecordService = PatientRecordService(baseService);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +56,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     switch (_activeRoute) {
       case 'Dashboard':
         return _buildDashboardContent();
+      case 'Patients':
+        return AdminPatientsView(
+          patientRecordService: _patientRecordService,
+        );
       // Other routes to be implemented in subsequent tickets
       default:
         return Center(
@@ -132,12 +152,14 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       child: Column(
         children: [
           Expanded(
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 32.0, top: 32.0),
-                  child: Column(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       if (value.isNotEmpty)
                         Text(
@@ -159,17 +181,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       ),
                     ],
                   ),
-                ),
-                Positioned(
-                  right: 32,
-                  top: 32,
-                  child: Icon(
+                  Icon(
                     icon,
                     size: 80,
                     color: Colors.white.withValues(alpha: 0.6),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           Material(
