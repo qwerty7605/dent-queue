@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../core/config.dart';
+import '../models/admin_ui_notification.dart';
 
 class AdminLayout extends StatelessWidget {
   const AdminLayout({
@@ -9,6 +11,7 @@ class AdminLayout extends StatelessWidget {
     required this.userInfo,
     required this.onLogout,
     required this.loggingOut,
+    required this.notifications,
     required this.onNavigate,
   });
 
@@ -17,6 +20,7 @@ class AdminLayout extends StatelessWidget {
   final Map<String, dynamic>? userInfo;
   final VoidCallback onLogout;
   final bool loggingOut;
+  final List<AdminUiNotification> notifications;
   final ValueChanged<String> onNavigate;
 
   @override
@@ -148,13 +152,36 @@ class AdminLayout extends StatelessWidget {
                     children: [
                       // Notification Bell
                       IconButton(
-                        onPressed: () {
-                          // TODO: Show notifications
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('No new notifications.')),
-                          );
-                        },
-                        icon: const Icon(Icons.notifications_none, color: Colors.white),
+                        onPressed: () => _showNotificationsDialog(context),
+                        icon: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            const Icon(Icons.notifications_none, color: Colors.white),
+                            if (notifications.isNotEmpty)
+                              Positioned(
+                                right: -4,
+                                top: -4,
+                                child: Container(
+                                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE8C355),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      notifications.length.toString(),
+                                      style: const TextStyle(
+                                        color: Color(0xFF1F2A22),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                         tooltip: 'Notifications',
                       ),
                       const SizedBox(width: 16),
@@ -254,6 +281,125 @@ class AdminLayout extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _showNotificationsDialog(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        final formatter = DateFormat('MMM d, h:mm a');
+
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Container(
+            width: 420,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.notifications_active_outlined, color: Color(0xFF497A52)),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Notifications',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF1F2A22),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (notifications.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF4F7F4),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Text(
+                      'No notifications yet.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF607063),
+                      ),
+                    ),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 360),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: notifications.map((notification) {
+                          return Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF4F7F4),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFD9E4DA)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  notification.title,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF1F2A22),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  notification.message,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF4E5A50),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  formatter.format(notification.createdAt),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF768279),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

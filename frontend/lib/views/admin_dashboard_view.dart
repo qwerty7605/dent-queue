@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../models/admin_ui_notification.dart';
 import '../widgets/admin_layout.dart';
 import 'admin_patients_view.dart';
 import 'admin_master_list_view.dart';
 import 'admin_profile_view.dart';
+import 'admin_settings_view.dart';
 import '../core/token_storage.dart';
 import '../core/api_client.dart';
 import '../services/base_service.dart';
@@ -39,6 +41,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     'appointments_count': 0,
   };
 
+  final List<AdminUiNotification> _notifications = <AdminUiNotification>[];
   Map<String, dynamic>? _localUserInfo;
 
   @override
@@ -76,6 +79,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       userInfo: _localUserInfo,
       onLogout: widget.onLogout,
       loggingOut: widget.loggingOut,
+      notifications: _notifications,
       onNavigate: (route) {
         setState(() {
           _activeRoute = route;
@@ -95,6 +99,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         );
       case 'Master List':
         return const AdminMasterListView();
+      case 'Settings':
+        return AdminSettingsView(
+          onNotify: _addNotification,
+        );
       case 'Profile':
         return AdminProfileView(
           activeUser: _localUserInfo,
@@ -131,6 +139,23 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           ),
         );
     }
+  }
+
+  void _addNotification(String title, String message) {
+    setState(() {
+      _notifications.insert(
+        0,
+        AdminUiNotification(
+          title: title,
+          message: message,
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      if (_notifications.length > 8) {
+        _notifications.removeRange(8, _notifications.length);
+      }
+    });
   }
 
   Widget _buildDashboardContent() {
