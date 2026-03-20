@@ -17,7 +17,7 @@ class Appointment extends Model
 
     public function patient()
     {
-        return $this->belongsTo(PatientRecord::class, 'patient_id');
+        return $this->belongsTo(PatientRecord::class, 'patient_id')->withTrashed();
     }
 
     public function service()

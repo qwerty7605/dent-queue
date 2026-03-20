@@ -82,7 +82,7 @@ class AppointmentService
                     'service' => $appointment->service_type !== null ? (string) $appointment->service_type : 'Unknown Service',
                     'date' => (string) $appointment->appointment_date,
                     'contact' => (string) $appointment->contact,
-                    'status' => ucfirst((string) $appointment->status),
+                    'status' => $appointment->status === 'confirmed' ? 'Approved' : ucfirst((string) $appointment->status),
                 ];
             });
     }

@@ -28,7 +28,7 @@ class AppointmentStatusTransitionTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('message', 'Appointment status updated successfully.')
-            ->assertJsonPath('appointment.status', 'Confirmed');
+            ->assertJsonPath('appointment.status', 'Approved');
 
         $this->assertDatabaseHas('appointments', [
             'id' => $appointment->id,
