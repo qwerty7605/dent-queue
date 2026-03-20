@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/admin_layout.dart';
 import 'admin_patients_view.dart';
 import 'admin_master_list_view.dart';
+import 'admin_profile_view.dart';
 import '../core/token_storage.dart';
 import '../core/api_client.dart';
 import '../services/base_service.dart';
@@ -38,9 +39,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     'appointments_count': 0,
   };
 
+  Map<String, dynamic>? _localUserInfo;
+
   @override
   void initState() {
     super.initState();
+    _localUserInfo = widget.userInfo;
     final apiClient = ApiClient(tokenStorage: widget.tokenStorage);
     final baseService = BaseService(apiClient);
     _patientRecordService = PatientRecordService(baseService);
@@ -69,7 +73,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   Widget build(BuildContext context) {
     return AdminLayout(
       activeRoute: _activeRoute,
-      userInfo: widget.userInfo,
+      userInfo: _localUserInfo,
       onLogout: widget.onLogout,
       loggingOut: widget.loggingOut,
       onNavigate: (route) {
@@ -91,6 +95,32 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         );
       case 'Master List':
         return const AdminMasterListView();
+      case 'Profile':
+        return AdminProfileView(
+          activeUser: _localUserInfo,
+          tokenStorage: widget.tokenStorage,
+          onProfileUpdated: (updatedUser) {
+            setState(() {
+              if (_localUserInfo != null) {
+                // Completely merge top-level keys
+                _localUserInfo = Map<String, dynamic>.from(_localUserInfo!)
+                  ..addAll(updatedUser);
+                  
+                // Reconstruct the synthetic 'name' field
+                final fName = _localUserInfo!['first_name']?.toString() ?? '';
+                final mName = _localUserInfo!['middle_name']?.toString() ?? '';
+                final lName = _localUserInfo!['last_name']?.toString() ?? '';
+                final newName = ('$fName $mName $lName').replaceAll(RegExp(r'\s+'), ' ').trim();
+                if (newName.isNotEmpty) {
+                  _localUserInfo!['name'] = newName;
+                }
+                  
+                // Save safely backwards to TokenStorage to survive cold app reloads
+                widget.tokenStorage.writeUserInfo(_localUserInfo!);
+              }
+            });
+          },
+        );
       // Other routes to be implemented in subsequent tickets
       default:
         return Center(

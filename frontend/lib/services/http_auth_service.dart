@@ -141,6 +141,7 @@ class HttpAuthService implements AuthService {
       'first_name': user['first_name'],
       'middle_name': user['middle_name'],
       'last_name': user['last_name'],
+      'username': user['username'],
       'birthdate': user['birthdate'],
       'location': user['location'],
       'gender': user['gender'],
