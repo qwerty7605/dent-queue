@@ -67,6 +67,15 @@ class AppointmentController extends Controller
         ]);
     }
 
+    public function masterList(): JsonResponse
+    {
+        $appointments = $this->appointmentService->getMasterList();
+
+        return response()->json([
+            'data' => $appointments,
+        ]);
+    }
+
     public function calendarAppointments(Request $request): JsonResponse
     {
         $payload = $request->validate([

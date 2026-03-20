@@ -46,6 +46,47 @@ class AppointmentService
             ->get();
     }
 
+    public function getMasterList()
+    {
+        return Appointment::query()
+            ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
+            ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+            ->orderByDesc('appointments.appointment_date')
+            ->orderByDesc('appointments.time_slot')
+            ->select([
+                'appointments.id as appointment_id',
+                'patient_records.first_name',
+                'patient_records.middle_name',
+                'patient_records.last_name',
+                'services.name as service_type',
+                'appointments.appointment_date',
+                'patient_records.contact_number as contact',
+                'appointments.status',
+            ])
+            ->get()
+            ->map(function ($appointment) {
+                $middleName = $appointment->middle_name !== null && $appointment->middle_name !== ''
+                    ? ' ' . mb_substr((string) $appointment->middle_name, 0, 1) . '.'
+                    : '';
+                
+                $patientName = trim(sprintf(
+                    '%s%s %s',
+                    (string) $appointment->first_name,
+                    $middleName,
+                    (string) $appointment->last_name,
+                ));
+                
+                return [
+                    'appointment_id' => (int) $appointment->appointment_id,
+                    'patient_name' => $patientName,
+                    'service' => $appointment->service_type !== null ? (string) $appointment->service_type : 'Unknown Service',
+                    'date' => (string) $appointment->appointment_date,
+                    'contact' => (string) $appointment->contact,
+                    'status' => ucfirst((string) $appointment->status),
+                ];
+            });
+    }
+
     public function getApprovedAppointmentsByDate(string $date)
     {
         return Appointment::query()
