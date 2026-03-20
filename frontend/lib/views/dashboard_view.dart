@@ -93,6 +93,7 @@ class _DashboardViewState extends State<DashboardView> {
     if (role == 'admin') {
       return AdminDashboardView(
         userInfo: _userInfo,
+        tokenStorage: widget.tokenStorage,
         onLogout: () => _logout(),
         loggingOut: _loggingOut,
       );

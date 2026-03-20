@@ -62,6 +62,8 @@ class PatientRecordController extends Controller
             return [
                 'patient_id' => $patient->patient_id,
                 'full_name' => $fullName,
+                'birthdate' => optional($patient->birthdate)->format('m/d/y'),
+                'gender' => $patient->gender ? ucfirst((string) $patient->gender) : null,
                 'contact_number' => $patient->contact_number,
             ];
         });
