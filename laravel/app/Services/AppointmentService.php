@@ -27,6 +27,11 @@ class AppointmentService
         self::STATUS_CANCELLED => self::STATUS_CANCELLED,
         self::STATUS_COMPLETED => self::STATUS_COMPLETED,
     ];
+    private const ACTIVE_BOOKING_STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_CONFIRMED,
+        self::STATUS_COMPLETED,
+    ];
     private const STATUS_TRANSITIONS = [
         self::STATUS_PENDING => [self::STATUS_CONFIRMED, self::STATUS_CANCELLED],
         self::STATUS_CONFIRMED => [self::STATUS_COMPLETED, self::STATUS_CANCELLED],
@@ -219,12 +224,24 @@ class AppointmentService
 
         $existingAppointment = Appointment::where('patient_id', $data['patient_id'])
             ->where('appointment_date', $validatedBooking['appointment_date'])
-            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
             ->exists();
 
         if ($existingAppointment) {
             throw ValidationException::withMessages([
                 'appointment_date' => ['You already have a booking for this date.'],
+            ]);
+        }
+
+        $conflictingAppointment = Appointment::query()
+            ->where('appointment_date', $validatedBooking['appointment_date'])
+            ->where('time_slot', $validatedBooking['time_slot'])
+            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
+            ->exists();
+
+        if ($conflictingAppointment) {
+            throw ValidationException::withMessages([
+                'time_slot' => ['The selected time slot is already booked.'],
             ]);
         }
 

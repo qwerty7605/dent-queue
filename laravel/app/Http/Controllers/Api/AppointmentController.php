@@ -9,6 +9,7 @@ use App\Models\Service;
 use App\Services\AppointmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
 {
@@ -367,6 +368,14 @@ class AppointmentController extends Controller
         /** @var \App\Models\User $user */
         $user = $request->user();
 
-        return PatientRecord::resolveForUser($user);
+        $patientRecord = $user->patientRecord()->first();
+
+        if ($patientRecord === null) {
+            throw ValidationException::withMessages([
+                'patient_id' => ['Authenticated patient must be linked to an existing patient record.'],
+            ]);
+        }
+
+        return $patientRecord;
     }
 }
