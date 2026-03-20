@@ -6,6 +6,22 @@ class PatientRecordService {
 
   final BaseService _baseService;
 
+  Future<List<Map<String, dynamic>>> getAllPatients() async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.adminPatients,
+      (data) => data,
+    );
+
+    if (response is Map<String, dynamic> && response['data'] is List<dynamic>) {
+      return (response['data'] as List<dynamic>)
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+
+    return [];
+  }
+
   Future<List<Map<String, dynamic>>> searchPatients(String query) async {
     final response = await _baseService.getJson<dynamic>(
       Endpoints.adminPatientSearch(query),

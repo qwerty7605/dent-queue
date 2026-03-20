@@ -29,7 +29,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
     });
 
     try {
-      final patients = await widget.patientRecordService.searchPatients('');
+      final patients = await widget.patientRecordService.getAllPatients();
       if (!mounted) return;
       setState(() {
         _patients = patients;

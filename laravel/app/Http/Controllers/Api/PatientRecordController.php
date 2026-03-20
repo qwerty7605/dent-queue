@@ -16,6 +16,50 @@ class PatientRecordController extends Controller
     }
 
     /**
+     * Get all patient records with optional linked users.
+     * Required for AGD-63 Admin Patient Records list.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function index(): JsonResponse
+    {
+        $patients = PatientRecord::query()
+            ->with('user')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $mappedPatients = $patients->map(function (PatientRecord $patient) {
+            $middleInitial = $patient->middle_name !== null && $patient->middle_name !== ''
+                ? ' ' . mb_substr((string) $patient->middle_name, 0, 1) . '.'
+                : '';
+
+            $fullName = trim(sprintf(
+                '%s%s %s',
+                (string) $patient->first_name,
+                $middleInitial,
+                (string) $patient->last_name,
+            ));
+
+            return [
+                'patient_id' => $patient->patient_id,
+                'full_name' => $fullName,
+                'birthdate' => optional($patient->birthdate)->format('Y-m-d'),
+                'gender' => $patient->gender ? ucfirst((string) $patient->gender) : null,
+                'contact_number' => $patient->contact_number,
+                'user_id' => $patient->user_id,
+                'patient_type' => $patient->user_id !== null ? 'Registered' : 'Walk-in',
+                'account_status' => $patient->user_id !== null && $patient->user
+                    ? ($patient->user->is_active ? 'Active' : 'Inactive')
+                    : null,
+            ];
+        });
+
+        return response()->json([
+            'data' => $mappedPatients,
+        ]);
+    }
+
+    /**
      * Search patient records by name or contact number.
      *
      * @param Request $request
