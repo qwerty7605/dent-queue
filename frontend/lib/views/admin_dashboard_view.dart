@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/admin_ui_notification.dart';
 import '../widgets/admin_layout.dart';
 import 'admin_patients_view.dart';
+import 'admin_staff_view.dart';
 import 'admin_master_list_view.dart';
 import 'admin_profile_view.dart';
 import 'admin_settings_view.dart';
@@ -10,6 +11,7 @@ import '../core/api_client.dart';
 import '../services/base_service.dart';
 import '../services/patient_record_service.dart';
 import '../services/admin_dashboard_service.dart';
+import '../services/admin_staff_service.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({
@@ -33,6 +35,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   String _activeRoute = 'Dashboard';
   late final PatientRecordService _patientRecordService;
   late final AdminDashboardService _adminDashboardService;
+  late final AdminStaffService _adminStaffService;
 
   bool _isLoadingStats = true;
   Map<String, int> _dashboardStats = {
@@ -52,6 +55,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     final baseService = BaseService(apiClient);
     _patientRecordService = PatientRecordService(baseService);
     _adminDashboardService = AdminDashboardService(baseService);
+    _adminStaffService = AdminStaffService(baseService);
 
     _loadDashboardStats();
   }
@@ -97,6 +101,13 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return AdminPatientsView(
           patientRecordService: _patientRecordService,
         );
+      case 'Staff':
+        return AdminStaffView(
+          adminStaffService: _adminStaffService,
+          onStaffChanged: () {
+            _loadDashboardStats();
+          },
+        );
       case 'Master List':
         return const AdminMasterListView();
       case 'Settings':
@@ -129,15 +140,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             });
           },
         );
-      // Other routes to be implemented in subsequent tickets
       default:
-        return Center(
-          child: Text(
-            '$_activeRoute View\n(To be implemented)',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 24, color: Colors.grey),
-          ),
-        );
+        return _buildDashboardContent();
     }
   }
 
