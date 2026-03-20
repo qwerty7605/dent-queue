@@ -23,7 +23,8 @@ class AdminStaffController extends Controller
             return response()->json(['data' => []]);
         }
 
-        $staff = User::where('role_id', $staffRole->id)
+        $staff = User::with('staffRecord')
+            ->where('role_id', $staffRole->id)
             ->where('is_active', true)
             ->get();
 
@@ -64,14 +65,14 @@ class AdminStaffController extends Controller
             'phone_number' => $data['contact_number'],
             'username' => $data['username'],
             'email' => $email,
-            'password' => Hash::make($data['password']),
+            'password' => $data['password'], // Will be hashed by User model casts
             'role_id' => $staffRole->id,
             'is_active' => true,
         ]);
 
         return response()->json([
             'message' => 'Staff account successfully created.',
-            'data' => $user->load('role'),
+            'data' => $user->load(['role', 'staffRecord']),
         ], 201);
     }
 

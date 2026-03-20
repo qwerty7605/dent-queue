@@ -19,6 +19,7 @@ class User extends Authenticatable
     {
         static::saved(function (self $user): void {
             $user->syncPatientRecord();
+            $user->syncStaffRecord();
         });
     }
 
@@ -54,6 +55,11 @@ class User extends Authenticatable
     public function patientRecord(): HasOne
     {
         return $this->hasOne(PatientRecord::class);
+    }
+
+    public function staffRecord(): HasOne
+    {
+        return $this->hasOne(StaffRecord::class);
     }
 
     /**
@@ -124,6 +130,26 @@ class User extends Authenticatable
 
         return $this->role()
             ->whereRaw('LOWER(name) = ?', ['patient'])
+            ->exists();
+    }
+
+    private function syncStaffRecord(): ?StaffRecord
+    {
+        if (!$this->shouldMaintainStaffRecord()) {
+            return null;
+        }
+
+        return StaffRecord::syncFromUser($this);
+    }
+
+    private function shouldMaintainStaffRecord(): bool
+    {
+        if ($this->role_id === null) {
+            return false;
+        }
+
+        return $this->role()
+            ->whereRaw('LOWER(name) = ?', ['staff'])
             ->exists();
     }
 }
