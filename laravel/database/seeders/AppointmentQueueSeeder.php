@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Appointment;
 use App\Models\Queue;
+use App\Models\PatientRecord;
 use App\Models\Role;
 use App\Models\Service;
 use App\Models\User;
@@ -39,10 +40,12 @@ class AppointmentQueueSeeder extends Seeder
         $nextQueueNumber = 1;
 
         foreach ($templates as $template) {
-            $patient = $patients[$template['email']] ?? null;
-            if ($patient === null) {
+            $user = $patients[$template['email']] ?? null;
+            if ($user === null) {
                 continue;
             }
+
+            $patientRecord = PatientRecord::resolveForUser($user);
 
             $serviceId = $serviceIdsByName[$template['service_name']] ?? null;
             if ($serviceId === null) {
@@ -51,7 +54,7 @@ class AppointmentQueueSeeder extends Seeder
 
             $appointment = Appointment::query()->updateOrCreate(
                 [
-                    'patient_id' => (int) $patient->id,
+                    'patient_id' => (int) $patientRecord->id,
                     'appointment_date' => $queueDate,
                     'time_slot' => $template['time_slot'],
                 ],

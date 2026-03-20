@@ -18,8 +18,8 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             UserSeeder::class,
             ServiceSeeder::class,
-            AppointmentQueueSeeder::class,
             PatientRecordPreviewSeeder::class,
+            AppointmentQueueSeeder::class,
         ]);
     }
 }
