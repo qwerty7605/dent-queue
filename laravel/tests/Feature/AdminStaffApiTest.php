@@ -36,7 +36,7 @@ class AdminStaffApiTest extends TestCase
 
     public function test_admin_can_list_staff(): void
     {
-        User::create([
+        $user = User::create([
             'first_name' => 'Staff',
             'last_name' => 'One',
             'email' => 'staff1@example.com',
@@ -52,7 +52,14 @@ class AdminStaffApiTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.username', 'staff1');
+            ->assertJsonPath('data.0.username', 'staff1')
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'staff_record'
+                    ]
+                ]
+            ]);
     }
 
     public function test_admin_can_create_staff(): void
@@ -72,12 +79,25 @@ class AdminStaffApiTest extends TestCase
         ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('data.username', 'newstaff');
+            ->assertJsonPath('data.username', 'newstaff')
+            ->assertJsonStructure([
+                'data' => [
+                    'staff_record' => [
+                        'staff_id'
+                    ]
+                ]
+            ]);
 
         $this->assertDatabaseHas('users', [
             'username' => 'newstaff',
             'email' => 'newstaff@system.staff',
             'role_id' => $this->staffRole->id,
+        ]);
+
+        $this->assertDatabaseHas('staff_records', [
+            'first_name' => 'New',
+            'last_name' => 'Staff',
+            'contact_number' => '09123456789',
         ]);
     }
 
