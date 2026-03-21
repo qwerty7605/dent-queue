@@ -78,7 +78,7 @@ class SystemValidationRulesIntegrationTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['time_slot'])
-            ->assertJsonPath('errors.time_slot.0', 'The selected time slot is already booked.');
+            ->assertJsonPath('errors.time_slot.0', 'This schedule is already booked. Please choose another date or time.');
     }
 
     public function test_booking_rejects_missing_patient_record_without_recreating_identity(): void

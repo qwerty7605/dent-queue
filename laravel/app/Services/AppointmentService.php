@@ -236,12 +236,12 @@ class AppointmentService
         $conflictingAppointment = Appointment::query()
             ->where('appointment_date', $validatedBooking['appointment_date'])
             ->where('time_slot', $validatedBooking['time_slot'])
-            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
+            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED])
             ->exists();
 
         if ($conflictingAppointment) {
             throw ValidationException::withMessages([
-                'time_slot' => ['The selected time slot is already booked.'],
+                'time_slot' => ['This schedule is already booked. Please choose another date or time.'],
             ]);
         }
 

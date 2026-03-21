@@ -47,6 +47,60 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
     }
   }
 
+  Future<void> _confirmDeactivate(Map<String, dynamic> patient) async {
+    final patientId = patient['patient_id']?.toString();
+    if (patientId == null) return;
+
+    final fullName = patient['full_name']?.toString() ?? 'this patient';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Remove Patient'),
+          content: Text('Remove / Deactivate $fullName?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFD32F2F),
+              ),
+              child: const Text('Deactivate'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final message = await widget.patientRecordService.deactivatePatient(patientId);
+      if (!mounted) return;
+
+      await _loadPatients();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: const Color(0xFF679B6A),
+          ),
+        );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to deactivate patient account')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -162,19 +216,13 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                                   patient['contact_number']?.toString() ?? '-',
                                   style: const TextStyle(fontSize: 15, color: Colors.black87),
                                 )),
-                                DataCell(
-                                  IconButton(
-                                    icon: const Icon(Icons.delete, color: Color(0xFFD32F2F)),
-                                    onPressed: () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Deactivate patient ${patient['full_name']} (To be implemented)'),
-                                        ),
-                                      );
-                                    },
-                                    tooltip: 'Remove / Deactivate',
+                                  DataCell(
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, color: Color(0xFFD32F2F)),
+                                      onPressed: () => _confirmDeactivate(patient),
+                                      tooltip: 'Remove / Deactivate',
+                                    ),
                                   ),
-                                ),
                               ],
                             );
                           }).toList(),

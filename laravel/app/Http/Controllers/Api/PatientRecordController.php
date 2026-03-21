@@ -25,6 +25,12 @@ class PatientRecordController extends Controller
     {
         $patients = PatientRecord::query()
             ->with('user')
+            ->where(function ($query) {
+                $query->whereNull('user_id')
+                      ->orWhereHas('user', function ($userQuery) {
+                          $userQuery->where('is_active', true);
+                      });
+            })
             ->orderByDesc('created_at')
             ->get();
 
@@ -79,6 +85,12 @@ class PatientRecordController extends Controller
         $terms = array_filter(explode(' ', trim($query)));
 
         $patients = PatientRecord::query()
+            ->where(function ($query) {
+                $query->whereNull('user_id')
+                      ->orWhereHas('user', function ($userQuery) {
+                          $userQuery->where('is_active', true);
+                      });
+            })
             ->where(function ($q) use ($terms, $searchTerm) {
                 // If there are multiple words (like "Kyle Aldea"), we want to make sure
                 // all words appear in either first, last or middle name.
@@ -147,16 +159,16 @@ class PatientRecordController extends Controller
             ->where('patient_id', $patientId)
             ->firstOrFail();
 
-        if ($patientRecord->user_id) {
+        if ($patientRecord->user_id !== null) {
             $user = $patientRecord->user;
             if ($user && $user->is_active) {
                 $user->is_active = false;
                 $user->save();
             }
+        } else {
+            // Always soft-delete the record to remove it from the dashboard lists.
+            $patientRecord->delete();
         }
-        
-        // Always soft-delete the record to remove it from the dashboard lists.
-        $patientRecord->delete();
 
         return response()->json([
             'message' => 'Patient record successfully removed.'
