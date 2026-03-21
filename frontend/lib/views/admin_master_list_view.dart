@@ -1,38 +1,82 @@
 import 'package:flutter/material.dart';
+import '../services/appointment_service.dart';
 
-class AdminMasterListView extends StatelessWidget {
-  const AdminMasterListView({super.key});
+class AdminMasterListView extends StatefulWidget {
+  const AdminMasterListView({
+    super.key,
+    required this.appointmentService,
+  });
+
+  final AppointmentService appointmentService;
+
+  @override
+  State<AdminMasterListView> createState() => _AdminMasterListViewState();
+}
+
+class _AdminMasterListViewState extends State<AdminMasterListView> {
+  List<Map<String, dynamic>> _appointments = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMasterList();
+  }
+
+  Future<void> _loadMasterList() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final appointments = await widget.appointmentService.getAdminMasterList();
+      if (!mounted) return;
+      setState(() {
+        _appointments = appointments;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load master list')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, String>> appointments = [
-      {
-        'Patient': 'Kyle Josh Aldea',
-        'Service': 'Dental Check-up',
-        'Date': '2026/01/2',
-        'Contact': '09169014483',
-        'Status': 'Completed',
-      },
-      {
-        'Patient': 'Aldrin clyde Grandeza',
-        'Service': 'Root Canal',
-        'Date': '2026/02/22',
-        'Contact': '09274448237',
-        'Status': 'Cancelled',
-      },
-    ];
-
     return Padding(
       padding: const EdgeInsets.all(40.0),
       child: Column(
         children: [
-          const Text(
-            'Master List',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Master List',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: _isLoading ? null : _loadMasterList,
+                icon: const Icon(Icons.refresh),
+                label: const Text(
+                  'Refresh',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF679B6A),
+                  side: const BorderSide(color: Color(0xFF679B6A)),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           Expanded(
@@ -60,7 +104,7 @@ class AdminMasterListView extends StatelessWidget {
                   const Padding(
                     padding: EdgeInsets.all(16.0),
                     child: Text(
-                      'Master List',
+                      'All Appointments',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -69,79 +113,102 @@ class AdminMasterListView extends StatelessWidget {
                     ),
                   ),
                   const Divider(height: 1, thickness: 1, color: Colors.black12),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: DataTable(
-                        headingRowColor: WidgetStateProperty.resolveWith(
-                          (states) => Colors.transparent,
+                  if (_isLoading)
+                    const Expanded(
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF679B6A),
                         ),
-                        columns: const [
-                          DataColumn(
-                            label: Text(
-                              'Patient',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
+                      ),
+                    )
+                  else if (_appointments.isEmpty)
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          'No appointments found.',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black54,
                           ),
-                          DataColumn(
-                            label: Text(
-                              'Service',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: DataTable(
+                          headingRowColor: WidgetStateProperty.resolveWith(
+                            (states) => Colors.transparent,
                           ),
-                          DataColumn(
-                            label: Text(
-                              'Date',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          columns: const [
+                            DataColumn(
+                              label: Text(
+                                'Patient',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
                             ),
-                          ),
-                          DataColumn(
-                            label: Text(
-                              'Contact',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            DataColumn(
+                              label: Text(
+                                'Service',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
                             ),
-                          ),
-                          DataColumn(
-                            label: Text(
-                              'Status',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            DataColumn(
+                              label: Text(
+                                'Date',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
                             ),
-                          ),
-                        ],
-                        rows: appointments.map((appointment) {
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(
-                                appointment['Patient']!,
-                                style: const TextStyle(fontSize: 15, color: Colors.black87),
-                              )),
-                              DataCell(Text(
-                                appointment['Service']!,
-                                style: const TextStyle(fontSize: 15, color: Colors.black87),
-                              )),
-                              DataCell(Text(
-                                appointment['Date']!,
-                                style: const TextStyle(fontSize: 15, color: Colors.black87),
-                              )),
-                              DataCell(
-                                Text(
-                                  appointment['Contact']!,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: appointment['Status'] == 'Cancelled' ? Colors.blue[700] : Colors.black87,
-                                    decoration: appointment['Status'] == 'Cancelled' ? TextDecoration.underline : TextDecoration.none,
-                                    decorationColor: Colors.blue[700],
+                            DataColumn(
+                              label: Text(
+                                'Contact',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Status',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                            ),
+                          ],
+                          rows: _appointments.map((appointment) {
+                            final status = appointment['status']?.toString() ?? 'Unknown';
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(
+                                  appointment['patient_name']?.toString() ?? '-',
+                                  style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                )),
+                                DataCell(Text(
+                                  appointment['service']?.toString() ?? '-',
+                                  style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                )),
+                                DataCell(Text(
+                                  appointment['date']?.toString() ?? '-',
+                                  style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                )),
+                                DataCell(
+                                  Text(
+                                    appointment['contact']?.toString() ?? '-',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: status.toLowerCase() == 'cancelled' ? Colors.blue[700] : Colors.black87,
+                                      decoration: status.toLowerCase() == 'cancelled' ? TextDecoration.underline : TextDecoration.none,
+                                      decorationColor: Colors.blue[700],
+                                    ),
                                   ),
                                 ),
-                              ),
-                              DataCell(
-                                _buildStatusBadge(appointment['Status']!),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                                DataCell(
+                                  _buildStatusBadge(status),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

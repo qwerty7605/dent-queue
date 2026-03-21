@@ -13,6 +13,7 @@ import '../services/patient_record_service.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/admin_staff_service.dart';
 import '../services/admin_settings_service.dart';
+import '../services/appointment_service.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({
@@ -38,6 +39,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   late final AdminDashboardService _adminDashboardService;
   late final AdminStaffService _adminStaffService;
   late final AdminSettingsService _adminSettingsService;
+  late final AppointmentService _appointmentService;
 
   bool _isLoadingStats = true;
   Map<String, int> _dashboardStats = {
@@ -59,6 +61,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     _adminDashboardService = AdminDashboardService(baseService);
     _adminStaffService = AdminStaffService(baseService);
     _adminSettingsService = AdminSettingsService(baseService);
+    _appointmentService = AppointmentService(baseService);
 
     _loadDashboardStats();
   }
@@ -110,7 +113,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           },
         );
       case 'Master List':
-        return const AdminMasterListView();
+        return AdminMasterListView(appointmentService: _appointmentService);
       case 'Settings':
         return AdminSettingsView(
           adminSettingsService: _adminSettingsService,
