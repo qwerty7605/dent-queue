@@ -41,6 +41,22 @@ class AppointmentService {
     return response as Map<String, dynamic>;
   }
 
+  Future<List<Map<String, dynamic>>> getAdminMasterList() async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.adminMasterList,
+      (data) => data,
+    );
+
+    if (response is Map<String, dynamic> && response.containsKey('data')) {
+      final appointmentsList = response['data'] as List<dynamic>;
+      return appointmentsList
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    }
+
+    return [];
+  }
+
   Future<List<Map<String, dynamic>>> getPatientAppointments() async {
     final response = await _baseService.getJson<dynamic>(
       Endpoints.appointments,

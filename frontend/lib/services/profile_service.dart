@@ -27,7 +27,7 @@ class ProfileService {
       _resolveUpdateEndpoint(userId, role),
       fields: fields,
       files: files.isNotEmpty ? files : null,
-      mapper: (data) => data as Map<String, dynamic>,
+      mapper: (data) => data is Map ? Map<String, dynamic>.from(data) : {},
     );
 
     return json;
