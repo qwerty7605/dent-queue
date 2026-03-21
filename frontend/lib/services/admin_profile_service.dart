@@ -12,8 +12,8 @@ class AdminProfileService {
       (data) => data,
     );
 
-    if (response is Map<String, dynamic>) {
-      return response;
+    if (response is Map) {
+      return Map<String, dynamic>.from(response);
     }
     return {};
   }
