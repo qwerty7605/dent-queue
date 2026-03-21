@@ -12,6 +12,7 @@ import '../services/base_service.dart';
 import '../services/patient_record_service.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/admin_staff_service.dart';
+import '../services/admin_settings_service.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({
@@ -36,6 +37,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   late final PatientRecordService _patientRecordService;
   late final AdminDashboardService _adminDashboardService;
   late final AdminStaffService _adminStaffService;
+  late final AdminSettingsService _adminSettingsService;
 
   bool _isLoadingStats = true;
   Map<String, int> _dashboardStats = {
@@ -56,6 +58,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     _patientRecordService = PatientRecordService(baseService);
     _adminDashboardService = AdminDashboardService(baseService);
     _adminStaffService = AdminStaffService(baseService);
+    _adminSettingsService = AdminSettingsService(baseService);
 
     _loadDashboardStats();
   }
@@ -98,9 +101,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       case 'Dashboard':
         return _buildDashboardContent();
       case 'Patients':
-        return AdminPatientsView(
-          patientRecordService: _patientRecordService,
-        );
+        return AdminPatientsView(patientRecordService: _patientRecordService);
       case 'Staff':
         return AdminStaffView(
           adminStaffService: _adminStaffService,
@@ -112,6 +113,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return const AdminMasterListView();
       case 'Settings':
         return AdminSettingsView(
+          adminSettingsService: _adminSettingsService,
+          canManageSettings:
+              (_localUserInfo?['role']?.toString().toLowerCase() ?? '') ==
+              'admin',
           onNotify: _addNotification,
         );
       case 'Profile':
@@ -124,16 +129,18 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 // Completely merge top-level keys
                 _localUserInfo = Map<String, dynamic>.from(_localUserInfo!)
                   ..addAll(updatedUser);
-                  
+
                 // Reconstruct the synthetic 'name' field
                 final fName = _localUserInfo!['first_name']?.toString() ?? '';
                 final mName = _localUserInfo!['middle_name']?.toString() ?? '';
                 final lName = _localUserInfo!['last_name']?.toString() ?? '';
-                final newName = ('$fName $mName $lName').replaceAll(RegExp(r'\s+'), ' ').trim();
+                final newName = ('$fName $mName $lName')
+                    .replaceAll(RegExp(r'\s+'), ' ')
+                    .trim();
                 if (newName.isNotEmpty) {
                   _localUserInfo!['name'] = newName;
                 }
-                  
+
                 // Save safely backwards to TokenStorage to survive cold app reloads
                 widget.tokenStorage.writeUserInfo(_localUserInfo!);
               }
@@ -177,7 +184,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             ),
           ),
           const SizedBox(height: 48),
-          
+
           Wrap(
             spacing: 32,
             runSpacing: 32,
@@ -185,21 +192,29 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             children: [
               _buildDashboardCard(
                 title: 'Patients',
-                value: _isLoadingStats ? '...' : (_dashboardStats['patients_count'] ?? 0).toString(),
+                value: _isLoadingStats
+                    ? '...'
+                    : (_dashboardStats['patients_count'] ?? 0).toString(),
                 icon: Icons.badge_outlined,
-                mainColor: const Color(0xFF6A9A8B), // Slightly grayish green-blue
+                mainColor: const Color(
+                  0xFF6A9A8B,
+                ), // Slightly grayish green-blue
                 darkColor: const Color(0xFF50786A),
               ),
               _buildDashboardCard(
                 title: 'Staff',
-                value: _isLoadingStats ? '...' : (_dashboardStats['staff_count'] ?? 0).toString(),
+                value: _isLoadingStats
+                    ? '...'
+                    : (_dashboardStats['staff_count'] ?? 0).toString(),
                 icon: Icons.medical_services_outlined,
                 mainColor: const Color(0xFF86B9B0), // Teal
                 darkColor: const Color(0xFF6E9A92),
               ),
               _buildDashboardCard(
                 title: 'Master List',
-                value: _isLoadingStats ? '...' : (_dashboardStats['appointments_count'] ?? 0).toString(),
+                value: _isLoadingStats
+                    ? '...'
+                    : (_dashboardStats['appointments_count'] ?? 0).toString(),
                 icon: Icons.list_alt,
                 mainColor: const Color(0xFFE5CC82), // Sand Yellow
                 darkColor: const Color(0xFFBCA663),
@@ -243,7 +258,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 32.0,
+                vertical: 24.0,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

@@ -26,6 +26,7 @@ class Endpoints {
   static const adminDashboardStats = '$_base/admin/dashboard/stats';
   static const adminProfileUpdate = '$_base/admin/profile';
   static const adminAppointments = '$_base/admin/appointments';
+  static const adminClinicSettings = '$_base/admin/settings/clinic';
   static String adminUpdateAppointmentStatus(int id) =>
       '$_base/admin/appointments/$id/status';
   static const adminWalkInAppointment = '$_base/admin/appointments/walk-in';
