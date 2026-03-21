@@ -1,8 +1,8 @@
 import '../core/endpoints.dart';
 import 'base_service.dart';
 
-class AdminStaffService {
-  AdminStaffService(this._baseService);
+class StaffService {
+  StaffService(this._baseService);
 
   final BaseService _baseService;
 
@@ -22,30 +22,24 @@ class AdminStaffService {
     return [];
   }
 
-  Future<Map<String, dynamic>> createStaff(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createStaff(Map<String, dynamic> staffData) async {
     final response = await _baseService.postJson<dynamic>(
       Endpoints.adminStaff,
-      data,
+      staffData,
       (data) => data,
     );
-    
+
     if (response is Map<String, dynamic>) {
       return response;
     }
-    
-    return {'message': 'Staff account successfully created.'};
+
+    return <String, dynamic>{};
   }
 
-  Future<String> deactivateStaff(int id) async {
-    final response = await _baseService.deleteJson<dynamic>(
-      Endpoints.adminDeleteStaff(id),
+  Future<void> removeStaff(String staffId) async {
+    await _baseService.deleteJson<dynamic>(
+      Endpoints.adminRemoveStaff(staffId),
       (data) => data,
     );
-
-    if (response is Map<String, dynamic> && response['message'] is String) {
-      return response['message'] as String;
-    }
-
-    return 'Staff account successfully removed.';
   }
 }

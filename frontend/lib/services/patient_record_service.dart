@@ -50,4 +50,17 @@ class PatientRecordService {
 
     return <String, dynamic>{};
   }
+
+  Future<String> deactivatePatient(String patientId) async {
+    final response = await _baseService.deleteJson<dynamic>(
+      Endpoints.adminPatientDetail(patientId),
+      (data) => data,
+    );
+
+    if (response is Map<String, dynamic> && response['message'] is String) {
+      return response['message'] as String;
+    }
+
+    return 'Patient record successfully removed or deactivated.';
+  }
 }

@@ -136,6 +136,22 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
         _isSubmitting = false;
         _apiErrorMessage = _resolveApiError(e);
       });
+      
+      if (_apiErrorMessage!.contains('This schedule is already booked')) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('This schedule is already booked', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: const Text('Sorry, the selected date and time are no longer available. Please choose another schedule.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {

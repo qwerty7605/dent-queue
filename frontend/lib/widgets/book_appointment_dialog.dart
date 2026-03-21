@@ -78,6 +78,24 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
         if (!mounted) return;
         setState(() => _isLoading = false);
         String errorMessage = 'Failed to book appointment.';
+
+        if (e.toString().contains('This schedule is already booked')) {
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('This schedule is already booked'),
+              content: const Text('Sorry, the selected date and time are no longer available. Please choose another schedule.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+
         if (e.toString().contains('already have a booking for this time slot')) {
           errorMessage = 'You already have a booking for this time slot.';
         } else if (e.toString().contains('already have a booking for this date')) {

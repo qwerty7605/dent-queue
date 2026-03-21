@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/admin_staff_service.dart';
+import '../widgets/add_staff_dialog.dart';
 
 class AdminStaffView extends StatefulWidget {
   const AdminStaffView({
@@ -138,6 +139,27 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     }
   }
 
+  Future<void> _showAddStaffDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AddStaffDialog(
+        onSubmit: (data) => widget.adminStaffService.createStaff(data),
+      ),
+    );
+
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Staff account successfully created.'),
+          backgroundColor: Color(0xFF679B6A),
+        ),
+      );
+      _loadStaff();
+      widget.onStaffChanged?.call();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -166,6 +188,18 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF679B6A),
                   side: const BorderSide(color: Color(0xFF679B6A)),
+                ),
+              ),
+              const SizedBox(width: 16),
+              FilledButton.icon(
+                onPressed: _isLoading ? null : _showAddStaffDialog,
+                icon: const Icon(Icons.add),
+                label: const Text(
+                  'Add Staff',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF679B6A),
                 ),
               ),
             ],
@@ -239,31 +273,25 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                             columns: const [
                               DataColumn(
                                 label: Text(
-                                  'Staff ID',
+                                  'Staff',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                 ),
                               ),
                               DataColumn(
                                 label: Text(
-                                  'Staff Name',
+                                  'Birthday',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                 ),
                               ),
                               DataColumn(
                                 label: Text(
-                                  'Username',
+                                  'Gender',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                 ),
                               ),
                               DataColumn(
                                 label: Text(
                                   'Contact',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Birthdate',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                 ),
                               ),
@@ -282,32 +310,36 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                               return DataRow(
                                 cells: [
                                   DataCell(
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          _resolveStaffName(staffMember),
+                                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+                                        ),
+                                        Text(
+                                          _resolveStaffRecordId(staffMember),
+                                          style: const TextStyle(fontSize: 13, color: Colors.black54),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  DataCell(
                                     Text(
-                                      _resolveStaffRecordId(staffMember),
+                                      _resolveText(staffMember['birthdate']),
                                       style: const TextStyle(fontSize: 15, color: Colors.black87),
                                     ),
                                   ),
                                   DataCell(
                                     Text(
-                                      _resolveStaffName(staffMember),
-                                      style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      _resolveText(staffMember['username']),
+                                      _resolveGender(staffMember),
                                       style: const TextStyle(fontSize: 15, color: Colors.black87),
                                     ),
                                   ),
                                   DataCell(
                                     Text(
                                       _resolveContact(staffMember),
-                                      style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      _resolveText(staffMember['birthdate']),
                                       style: const TextStyle(fontSize: 15, color: Colors.black87),
                                     ),
                                   ),
@@ -369,6 +401,14 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     final contact = staffRecord['contact_number'] ?? staffMember['phone_number'];
 
     return _resolveText(contact);
+  }
+
+  String _resolveGender(Map<String, dynamic> staffMember) {
+    final staffRecord = _readMap(staffMember['staff_record']);
+    final gender = staffRecord['gender'] ?? staffMember['gender'];
+    final text = _resolveText(gender);
+    if (text == '-') return text;
+    return text[0].toUpperCase() + text.substring(1).toLowerCase();
   }
 
   String _resolveStaffRecordId(Map<String, dynamic> staffMember) {
