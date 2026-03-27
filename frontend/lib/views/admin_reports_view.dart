@@ -170,13 +170,23 @@ class _AdminReportsViewState extends State<AdminReportsView> {
             ),
           ),
           const SizedBox(height: 32),
-          _buildChartRow('Pending', _reportStats['pending'] ?? 0, total, const Color(0xFFE5CC82)),
-          const SizedBox(height: 16),
-          _buildChartRow('Approved', _reportStats['approved'] ?? 0, total, const Color(0xFF86B9B0)),
-          const SizedBox(height: 16),
-          _buildChartRow('Completed', _reportStats['completed'] ?? 0, total, const Color(0xFF4CAF50)),
-          const SizedBox(height: 16),
-          _buildChartRow('Cancelled', _reportStats['cancelled'] ?? 0, total, const Color(0xFFE28B71)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildChartRow('Pending', _reportStats['pending'] ?? 0, total, const Color(0xFFE5CC82))),
+              const SizedBox(width: 48),
+              Expanded(child: _buildChartRow('Approved', _reportStats['approved'] ?? 0, total, const Color(0xFF86B9B0))),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _buildChartRow('Completed', _reportStats['completed'] ?? 0, total, const Color(0xFF4CAF50))),
+              const SizedBox(width: 48),
+              Expanded(child: _buildChartRow('Cancelled', _reportStats['cancelled'] ?? 0, total, const Color(0xFFE28B71))),
+            ],
+          ),
         ],
       ),
     );
