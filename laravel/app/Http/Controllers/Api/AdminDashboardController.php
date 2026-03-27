@@ -70,4 +70,37 @@ class AdminDashboardController extends Controller
             ]
         ]);
     }
+
+    /**
+     * Get grouped counts by status for the distribution chart.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function statusDistribution(): JsonResponse
+    {
+        $counts = DB::table('appointments')
+            ->select('status', DB::raw('count(*) as count'))
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->all();
+
+        $statuses = [
+            'pending' => 'pending',
+            'confirmed' => 'approved',
+            'completed' => 'completed',
+            'cancelled' => 'cancelled',
+        ];
+
+        $data = [];
+        foreach ($statuses as $dbStatus => $label) {
+            $data[] = [
+                'status' => $label,
+                'count' => (int) ($counts[$dbStatus] ?? 0),
+            ];
+        }
+
+        return response()->json([
+            'data' => $data
+        ]);
+    }
 }

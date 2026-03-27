@@ -49,6 +49,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/queues/today', [QueueController::class, 'index']);
             Route::post('/queues/call-next', [QueueController::class, 'callNext']);
             Route::get('/reports/summary', [AdminDashboardController::class, 'reportSummary']);
+            Route::get('/reports/status-distribution', [AdminDashboardController::class, 'statusDistribution']);
             Route::apiResource('reports', ReportController::class);
 
             Route::middleware('role:admin')->group(function () {
