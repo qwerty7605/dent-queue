@@ -168,6 +168,12 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                           columns: const [
                             DataColumn(
                               label: Text(
+                                'No.',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
                                 'Patient',
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
@@ -197,15 +203,25 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                               ),
                             ),
                           ],
-                          rows: _patients.map((patient) {
+                          rows: _patients.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final patient = entry.value;
                             return DataRow(
                               cells: [
+                                DataCell(Text(
+                                  '${index + 1}',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black87,
+                                  ),
+                                )),
                                 DataCell(Text(
                                   patient['full_name']?.toString() ?? '-',
                                   style: const TextStyle(fontSize: 15, color: Colors.black87),
                                 )),
                                 DataCell(Text(
-                                  patient['birthdate']?.toString() ?? '-',
+                                  _formatBirthdate(patient['birthdate']),
                                   style: const TextStyle(fontSize: 15, color: Colors.black87),
                                 )),
                                 DataCell(Text(
@@ -236,5 +252,18 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
         ],
       ),
     );
+  }
+
+  String _formatBirthdate(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) {
+      return '-';
+    }
+
+    if (text.contains('T')) {
+      return text.split('T').first;
+    }
+
+    return text;
   }
 }

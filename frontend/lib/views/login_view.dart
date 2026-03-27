@@ -30,6 +30,7 @@ class _LoginViewState extends State<LoginView> {
   final _passwordController = TextEditingController();
   bool _showPassword = false;
   bool _submitting = false;
+  String? _loginError;
 
   @override
   void dispose() {
@@ -42,6 +43,7 @@ class _LoginViewState extends State<LoginView> {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _submitting = true;
+      _loginError = null;
     });
 
     try {
@@ -53,9 +55,9 @@ class _LoginViewState extends State<LoginView> {
       widget.onLoginSuccess?.call();
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      setState(() {
+        _loginError = e.message;
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -208,6 +210,14 @@ class _LoginViewState extends State<LoginView> {
                                   controller: _usernameController,
                                   hint: 'Username or Email',
                                   fontSize: inputFontSize,
+                                  errorText: _loginError,
+                                  onChanged: (_) {
+                                    if (_loginError != null) {
+                                      setState(() {
+                                        _loginError = null;
+                                      });
+                                    }
+                                  },
                                   suffix: const Icon(
                                     Icons.person,
                                     color: Color(0xFF606060),
@@ -225,6 +235,14 @@ class _LoginViewState extends State<LoginView> {
                                   hint: 'Enter your Password',
                                   fontSize: inputFontSize,
                                   obscureText: !_showPassword,
+                                  errorText: _loginError,
+                                  onChanged: (_) {
+                                    if (_loginError != null) {
+                                      setState(() {
+                                        _loginError = null;
+                                      });
+                                    }
+                                  },
                                   suffix: IconButton(
                                     onPressed: () {
                                       setState(() {
@@ -351,6 +369,8 @@ class _LoginInput extends StatelessWidget {
     required this.hint,
     required this.suffix,
     this.validator,
+    this.errorText,
+    this.onChanged,
     this.obscureText = false,
     this.fontSize = 20,
   });
@@ -359,15 +379,20 @@ class _LoginInput extends StatelessWidget {
   final String hint;
   final Widget suffix;
   final String? Function(String?)? validator;
+  final String? errorText;
+  final ValueChanged<String>? onChanged;
   final bool obscureText;
   final double fontSize;
 
   @override
   Widget build(BuildContext context) {
+    const errorColor = Color(0xFFD32F2F);
+
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       validator: validator,
+      onChanged: onChanged,
       style: TextStyle(
         color: const Color(0xFF9D9B9B),
         fontSize: fontSize,
@@ -383,6 +408,12 @@ class _LoginInput extends StatelessWidget {
         filled: true,
         fillColor: const Color(0xFFFFF3F3),
         suffixIcon: suffix,
+        errorText: errorText,
+        errorStyle: TextStyle(
+          color: errorColor,
+          fontSize: fontSize >= 20 ? 14 : 12,
+          fontWeight: FontWeight.w700,
+        ),
         contentPadding: EdgeInsets.symmetric(
           horizontal: 16,
           vertical: fontSize >= 20 ? 14 : 12,
@@ -393,11 +424,24 @@ class _LoginInput extends StatelessWidget {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF777676)),
+          borderSide: BorderSide(
+            color: errorText != null ? errorColor : const Color(0xFF777676),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF599566)),
+          borderSide: BorderSide(
+            color: errorText != null ? errorColor : const Color(0xFF599566),
+            width: 1.6,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: errorColor, width: 1.6),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: errorColor, width: 1.8),
         ),
       ),
     );

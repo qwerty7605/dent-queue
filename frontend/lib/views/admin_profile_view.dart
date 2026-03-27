@@ -23,9 +23,6 @@ class AdminProfileView extends StatefulWidget {
 class _AdminProfileViewState extends State<AdminProfileView> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _genderController = TextEditingController();
-  final TextEditingController _birthdateController = TextEditingController();
-  final TextEditingController _contactController = TextEditingController();
 
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController(text: '********');
@@ -72,9 +69,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     if (widget.activeUser != null) {
       _firstNameController.text = widget.activeUser!['first_name'] ?? '';
       _lastNameController.text = widget.activeUser!['last_name'] ?? '';
-      _genderController.text = widget.activeUser!['gender'] ?? '';
-      _birthdateController.text = widget.activeUser!['birthdate'] ?? '';
-      _contactController.text = widget.activeUser!['phone_number'] ?? widget.activeUser!['contact_number'] ?? '';
       _usernameController.text = widget.activeUser!['username'] ?? '';
     }
   }
@@ -83,9 +77,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _genderController.dispose();
-    _birthdateController.dispose();
-    _contactController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -103,9 +94,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       
       if (_firstNameController.text.isNotEmpty) payload['first_name'] = _firstNameController.text;
       if (_lastNameController.text.isNotEmpty) payload['last_name'] = _lastNameController.text;
-      if (_genderController.text.isNotEmpty) payload['gender'] = _genderController.text;
-      if (_birthdateController.text.isNotEmpty) payload['birthdate'] = _birthdateController.text;
-      if (_contactController.text.isNotEmpty) payload['contact_number'] = _contactController.text;
       if (_usernameController.text.isNotEmpty) payload['username'] = _usernameController.text;
 
       if (_isEditingPassword && _passwordController.text.isNotEmpty && _passwordController.text != '********') {
@@ -220,22 +208,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                               Expanded(child: _buildTextField('Last Name', 'Enter Last name', _lastNameController, readOnly: !_isEditingProfile)),
                             ],
                           ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(child: _buildDropdownField('Gender', ['male', 'female', 'other'], _genderController, readOnly: !_isEditingProfile)),
-                              const SizedBox(width: 24),
-                              Expanded(child: _buildDateField('Birthdate', _birthdateController, context, readOnly: !_isEditingProfile)),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(child: _buildTextField('Contact', '09...', _contactController, readOnly: !_isEditingProfile)),
-                              const SizedBox(width: 24),
-                              const Spacer(),
-                            ],
-                          ),
                           const SizedBox(height: 32),
                           const Text(
                             'Account Information',
@@ -315,106 +287,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildDateField(String label, TextEditingController controller, BuildContext context, {bool readOnly = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: readOnly ? null : () async {
-            final date = await showDatePicker(
-              context: context,
-              initialDate: DateTime.now(),
-              firstDate: DateTime(1900),
-              lastDate: DateTime.now(),
-              builder: (context, child) {
-                return Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.light(
-                      primary: Color(0xFF679B6A),
-                    ),
-                  ),
-                  child: child!,
-                );
-              },
-            );
-            if (date != null) {
-              controller.text = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-            }
-          },
-          child: IgnorePointer(
-            child: TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                hintText: 'YYYY-MM-DD',
-                hintStyle: const TextStyle(color: Colors.black38),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                suffixIcon: const Icon(Icons.calendar_today, color: Colors.black54),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDropdownField(String label, List<String> items, TextEditingController controller, {bool readOnly = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: controller.text.isNotEmpty && items.contains(controller.text) ? controller.text : null,
-          decoration: InputDecoration(
-            filled: !readOnly,
-            fillColor: Colors.green.withValues(alpha: 0.05),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Color(0xFF679B6A), width: 2.0),
-            ),
-          ),
-          items: items.map((item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Text(item, style: const TextStyle(color: Colors.black87)),
-            );
-          }).toList(),
-          onChanged: readOnly ? null : (value) {
-            if (value != null) {
-              controller.text = value;
-            }
-          },
-          hint: Text('Select $label', style: const TextStyle(color: Colors.black38)),
-        ),
-      ],
     );
   }
 

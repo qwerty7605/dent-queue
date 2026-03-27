@@ -48,7 +48,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   _StaffFilter _selectedFilter = _StaffFilter.all;
 
   List<Map<String, dynamic>> _appointments = [];
+  Map<String, dynamic>? _queueStatus;
   bool _isLoadingAppointments = true;
+  bool _isCallingNext = false;
   String? _appointmentsLoadError;
   final int _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
 
@@ -62,7 +64,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     _localUserInfo = widget.userInfo != null
         ? Map<String, dynamic>.from(widget.userInfo!)
         : <String, dynamic>{};
-    _loadAppointmentsForSelectedDate();
+    _initializeAppointments();
   }
 
   @override
@@ -89,15 +91,25 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
     try {
       final list = await _appointmentService.getAdminAppointmentsByDate(date);
+      Map<String, dynamic>? queueStatus;
+      try {
+        queueStatus = await _appointmentService.getAdminTodayQueue(date);
+      } on ApiException {
+        queueStatus = _buildQueueStatusFallback(list, date);
+      } catch (_) {
+        queueStatus = _buildQueueStatusFallback(list, date);
+      }
       if (!mounted) return;
       setState(() {
         _appointments = list;
+        _queueStatus = queueStatus;
         _isLoadingAppointments = false;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
         _appointments = [];
+        _queueStatus = null;
         _isLoadingAppointments = false;
         _appointmentsLoadError = e.message;
       });
@@ -105,10 +117,48 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       if (!mounted) return;
       setState(() {
         _appointments = [];
+        _queueStatus = null;
         _isLoadingAppointments = false;
         _appointmentsLoadError =
             'Unable to load daily queue for $date. Please try again.';
       });
+    }
+  }
+
+  Future<void> _initializeAppointments() async {
+    await _selectNextBookedDateForInitialLoad();
+    if (!mounted) return;
+    await _loadAppointmentsForSelectedDate();
+  }
+
+  Future<void> _selectNextBookedDateForInitialLoad() async {
+    try {
+      final appointments = await _appointmentService.getAdminMasterList();
+      final today = _startOfDay(DateTime.now());
+
+      DateTime? nextBookedDate;
+
+      for (final appointment in appointments) {
+        final status = _normalizeStatus(appointment['status']);
+        if (status == 'cancelled') {
+          continue;
+        }
+
+        final parsedDate = _parseApiDate(appointment['date']);
+        if (parsedDate == null || parsedDate.isBefore(today)) {
+          continue;
+        }
+
+        if (nextBookedDate == null || parsedDate.isBefore(nextBookedDate)) {
+          nextBookedDate = parsedDate;
+        }
+      }
+
+      if (nextBookedDate != null) {
+        _selectedDate = nextBookedDate;
+      }
+    } catch (_) {
+      // Fall back to today's queue when the master list is unavailable.
     }
   }
 
@@ -125,6 +175,41 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       _selectedDate = DateTime(picked.year, picked.month, picked.day);
     });
     await _loadAppointmentsForSelectedDate();
+  }
+
+  Future<void> _callNextPatient() async {
+    if (_isCallingNext) return;
+
+    setState(() {
+      _isCallingNext = true;
+    });
+
+    try {
+      final response = await _appointmentService.callNextQueue(
+        date: _formatApiDate(_selectedDate),
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _queueStatus = Map<String, dynamic>.from(response);
+      });
+
+      final message =
+          response['message']?.toString() ?? 'Queue updated successfully.';
+      _showStatusMessage(message);
+      await _loadAppointmentsForSelectedDate(showLoader: false);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      _showStatusMessage(e.message);
+    } catch (_) {
+      if (!mounted) return;
+      _showStatusMessage('Unable to call the next patient right now.');
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isCallingNext = false;
+      });
+    }
   }
 
   void _openAppointmentDetails(Map<String, dynamic> appointment) {
@@ -163,9 +248,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       if (_normalizeStatus(nextStatus) == 'approved') {
         await showAppointmentSuccessDialog(
           context,
-          title: 'Appointment Booked\nSuccessfully!',
-          message:
-              'The appointment has been successfully scheduled for the patient.',
+          title: 'Appointment\nSuccessfully Approved!',
+          message: 'The appointment has been successfully approved.',
           buttonLabel: 'DONE',
         );
         if (!mounted) return true;
@@ -749,6 +833,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   _buildDailyQueueHeader(),
                   const SizedBox(height: 10),
                   _buildSummaryCards(constraints.maxWidth),
+                  const SizedBox(height: 10),
+                  _buildTodayQueuePanel(),
                   const SizedBox(height: 14),
                   _buildSearchField(),
                   const SizedBox(height: 10),
@@ -953,39 +1039,173 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          const Icon(
-            Icons.format_list_numbered,
-            size: 18,
-            color: Color(0xFF679B6A),
+          Row(
+            children: [
+              const Icon(
+                Icons.format_list_numbered,
+                size: 18,
+                color: Color(0xFF679B6A),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Daily Queue - ${_formatLongDate(_selectedDate)}',
+                  style: const TextStyle(
+                    color: Color(0xFF1E293B),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _pickDate,
+                icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                color: const Color(0xFF679B6A),
+                tooltip: 'Select date',
+                visualDensity: VisualDensity.compact,
+              ),
+              IconButton(
+                onPressed: _isLoadingAppointments
+                    ? null
+                    : () => _loadAppointmentsForSelectedDate(),
+                icon: const Icon(Icons.refresh, size: 18),
+                color: const Color(0xFF679B6A),
+                tooltip: 'Refresh daily queue',
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Daily Queue - ${_formatLongDate(_selectedDate)}',
-              style: const TextStyle(
-                color: Color(0xFF1E293B),
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTodayQueuePanel() {
+    final nowServing = _queueStatus?['now_serving'] as Map<String, dynamic>?;
+    final nextUp = _queueStatus?['next_up'] as Map<String, dynamic>?;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Today\'s Queue',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1E293B),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildQueueStatusCard(
+                  label: 'NOW SERVING',
+                  queueNumber: nowServing?['queue_number'],
+                  caption: nowServing?['patient_name']?.toString() ?? 'Waiting',
+                  accentColor: const Color(0xFF16A34A),
+                  backgroundColor: const Color(0xFFEFFCF3),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildQueueStatusCard(
+                  label: 'NEXT UP',
+                  queueNumber: nextUp?['queue_number'],
+                  caption:
+                      nextUp?['patient_name']?.toString() ?? 'No one in line',
+                  accentColor: const Color(0xFF1D4ED8),
+                  backgroundColor: const Color(0xFFEFF5FF),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: (_isCallingNext || _isLoadingAppointments)
+                  ? null
+                  : _callNextPatient,
+              icon: _isCallingNext
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.campaign_outlined, size: 18),
+              label: Text(_isCallingNext ? 'Calling...' : 'Call Next'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF679B6A),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ),
-          IconButton(
-            onPressed: _pickDate,
-            icon: const Icon(Icons.calendar_month_outlined, size: 18),
-            color: const Color(0xFF679B6A),
-            tooltip: 'Select date',
-            visualDensity: VisualDensity.compact,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQueueStatusCard({
+    required String label,
+    required dynamic queueNumber,
+    required String caption,
+    required Color accentColor,
+    required Color backgroundColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              color: accentColor,
+              letterSpacing: 0.4,
+            ),
           ),
-          IconButton(
-            onPressed: _isLoadingAppointments
-                ? null
-                : () => _loadAppointmentsForSelectedDate(),
-            icon: const Icon(Icons.refresh, size: 18),
-            color: const Color(0xFF679B6A),
-            tooltip: 'Refresh daily queue',
-            visualDensity: VisualDensity.compact,
+          const SizedBox(height: 4),
+          Text(
+            '#${_formatQueueNumber(queueNumber)}',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: accentColor,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF475569),
+            ),
           ),
         ],
       ),
@@ -1608,6 +1828,57 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     return queue.toString().padLeft(2, '0');
   }
 
+  Map<String, dynamic> _buildQueueStatusFallback(
+    List<Map<String, dynamic>> appointments,
+    String date,
+  ) {
+    final nowServingCandidates =
+        appointments
+            .where((appointment) => appointment['is_called'] == true)
+            .toList()
+          ..sort(
+            (a, b) => _parseQueueNumber(
+              b['queue_number'],
+            ).compareTo(_parseQueueNumber(a['queue_number'])),
+          );
+
+    final nextUpCandidates =
+        appointments
+            .where(
+              (appointment) =>
+                  appointment['is_called'] != true &&
+                  _normalizeStatus(appointment['status']) == 'approved',
+            )
+            .toList()
+          ..sort(
+            (a, b) => _parseQueueNumber(
+              a['queue_number'],
+            ).compareTo(_parseQueueNumber(b['queue_number'])),
+          );
+
+    return {
+      'date': date,
+      'now_serving': nowServingCandidates.isEmpty
+          ? null
+          : _toQueueStatusEntry(nowServingCandidates.first),
+      'next_up': nextUpCandidates.isEmpty
+          ? null
+          : _toQueueStatusEntry(nextUpCandidates.first),
+    };
+  }
+
+  Map<String, dynamic> _toQueueStatusEntry(Map<String, dynamic> appointment) {
+    return {
+      'appointment_id': appointment['id'],
+      'queue_number': _parseQueueNumber(appointment['queue_number']),
+      'patient_name': appointment['patient_name']?.toString() ?? 'Patient',
+      'service_type': appointment['service_type']?.toString() ?? 'Service',
+      'appointment_time': appointment['time']?.toString() ?? '--:--',
+      'status': appointment['status']?.toString() ?? 'Pending',
+      'is_called': appointment['is_called'] == true,
+    };
+  }
+
   String _formatDisplayTime(String rawTime) {
     final trimmed = rawTime.trim();
     if (trimmed.isEmpty) return '--:--';
@@ -1623,6 +1894,24 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '$year-$month-$day';
+  }
+
+  DateTime _startOfDay(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  DateTime? _parseApiDate(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) {
+      return null;
+    }
+
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) {
+      return null;
+    }
+
+    return _startOfDay(parsed);
   }
 
   String _formatLongDate(DateTime date) {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/appointment_service.dart';
 
+enum _MasterListFilter { all, approved, cancelled, completed, pending }
+
 class AdminMasterListView extends StatefulWidget {
   const AdminMasterListView({
     super.key,
@@ -16,6 +18,7 @@ class AdminMasterListView extends StatefulWidget {
 class _AdminMasterListViewState extends State<AdminMasterListView> {
   List<Map<String, dynamic>> _appointments = [];
   bool _isLoading = true;
+  _MasterListFilter _selectedFilter = _MasterListFilter.all;
 
   @override
   void initState() {
@@ -46,8 +49,28 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
     }
   }
 
+  List<Map<String, dynamic>> get _filteredAppointments {
+    if (_selectedFilter == _MasterListFilter.all) {
+      return _appointments;
+    }
+
+    return _appointments.where((appointment) {
+      final status = _normalizeStatus(appointment['status']?.toString());
+
+      return switch (_selectedFilter) {
+        _MasterListFilter.approved => status == 'approved',
+        _MasterListFilter.cancelled => status == 'cancelled',
+        _MasterListFilter.completed => status == 'completed',
+        _MasterListFilter.pending => status == 'pending',
+        _MasterListFilter.all => true,
+      };
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filteredAppointments = _filteredAppointments;
+
     return Padding(
       padding: const EdgeInsets.all(40.0),
       child: Column(
@@ -79,6 +102,21 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
             ],
           ),
           const SizedBox(height: 24),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _buildFilterButton('All', _MasterListFilter.all),
+                _buildFilterButton('Approved', _MasterListFilter.approved),
+                _buildFilterButton('Cancelled', _MasterListFilter.cancelled),
+                _buildFilterButton('Completed', _MasterListFilter.completed),
+                _buildFilterButton('Pending', _MasterListFilter.pending),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           Expanded(
             child: Container(
               width: double.infinity,
@@ -121,11 +159,11 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                         ),
                       ),
                     )
-                  else if (_appointments.isEmpty)
+                  else if (filteredAppointments.isEmpty)
                     const Expanded(
                       child: Center(
                         child: Text(
-                          'No appointments found.',
+                          'No appointments found for this filter.',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -173,7 +211,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                               ),
                             ),
                           ],
-                          rows: _appointments.map((appointment) {
+                          rows: filteredAppointments.map((appointment) {
                             final status = appointment['status']?.toString() ?? 'Unknown';
                             return DataRow(
                               cells: [
@@ -259,5 +297,51 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
         ),
       ),
     );
+  }
+
+  Widget _buildFilterButton(String label, _MasterListFilter filter) {
+    final isSelected = _selectedFilter == filter;
+
+    return ChoiceChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: isSelected ? Colors.white : const Color(0xFF4B5563),
+        ),
+      ),
+      selected: isSelected,
+      onSelected: (_) {
+        setState(() {
+          _selectedFilter = filter;
+        });
+      },
+      selectedColor: const Color(0xFF679B6A),
+      backgroundColor: Colors.white,
+      side: const BorderSide(color: Color(0xFF679B6A)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+      ),
+      showCheckmark: false,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+  }
+
+  String _normalizeStatus(String? status) {
+    final raw = status?.trim().toLowerCase() ?? 'pending';
+
+    if (raw == 'approved' || raw == 'confirmed') {
+      return 'approved';
+    }
+
+    if (raw == 'cancelled') {
+      return 'cancelled';
+    }
+
+    if (raw == 'completed') {
+      return 'completed';
+    }
+
+    return 'pending';
   }
 }

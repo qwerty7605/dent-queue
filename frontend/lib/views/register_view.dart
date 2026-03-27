@@ -35,13 +35,24 @@ class _RegisterViewState extends State<RegisterView> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   String? _gender;
+  String? _emailErrorText;
+  String? _usernameErrorText;
 
   bool _submitting = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
 
   @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_clearEmailError);
+    _usernameController.addListener(_clearUsernameError);
+  }
+
+  @override
   void dispose() {
+    _emailController.removeListener(_clearEmailError);
+    _usernameController.removeListener(_clearUsernameError);
     _firstNameController.dispose();
     _middleNameController.dispose();
     _lastNameController.dispose();
@@ -53,10 +64,39 @@ class _RegisterViewState extends State<RegisterView> {
     super.dispose();
   }
 
+  void _clearEmailError() {
+    if (_emailErrorText == null) return;
+    setState(() {
+      _emailErrorText = null;
+    });
+  }
+
+  void _clearUsernameError() {
+    if (_usernameErrorText == null) return;
+    setState(() {
+      _usernameErrorText = null;
+    });
+  }
+
+  String? _firstErrorMessage(dynamic value) {
+    if (value is List && value.isNotEmpty) {
+      final first = value.first;
+      if (first is String && first.trim().isNotEmpty) {
+        return first;
+      }
+    }
+    if (value is String && value.trim().isNotEmpty) {
+      return value;
+    }
+    return null;
+  }
+
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
+      _emailErrorText = null;
+      _usernameErrorText = null;
       _submitting = true;
     });
 
@@ -77,9 +117,19 @@ class _RegisterViewState extends State<RegisterView> {
       widget.onRegisterSuccess?.call();
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      final emailError = _firstErrorMessage(e.errors?['email']);
+      final usernameError = _firstErrorMessage(e.errors?['username']);
+
+      setState(() {
+        _emailErrorText = emailError;
+        _usernameErrorText = usernameError;
+      });
+
+      if (emailError == null && usernameError == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -107,7 +157,9 @@ class _RegisterViewState extends State<RegisterView> {
 
             final maxCardWidth = isTablet ? 760.0 : 520.0;
             final outerHorizontalPadding = isTablet ? 28.0 : 0.0;
-            final outerVerticalPadding = isTablet ? (isLandscape ? 12.0 : 16.0) : 0.0;
+            final outerVerticalPadding = isTablet
+                ? (isLandscape ? 12.0 : 16.0)
+                : 0.0;
             final cardRadius = isTablet ? 30.0 : 0.0;
             final headerHeight = (screenHeight * (isLandscape ? 0.2 : 0.24))
                 .clamp(isSmallPhone ? 130.0 : 150.0, 220.0)
@@ -294,6 +346,7 @@ class _RegisterViewState extends State<RegisterView> {
                                           icon: Icons.email,
                                           fontSize: inputFontSize,
                                           verticalPadding: fieldVerticalPadding,
+                                          errorText: _emailErrorText,
                                           validator: (value) {
                                             if (value == null ||
                                                 value.trim().isEmpty) {
@@ -376,6 +429,7 @@ class _RegisterViewState extends State<RegisterView> {
                                     icon: Icons.email,
                                     fontSize: inputFontSize,
                                     verticalPadding: fieldVerticalPadding,
+                                    errorText: _emailErrorText,
                                     validator: (value) {
                                       if (value == null ||
                                           value.trim().isEmpty) {
@@ -431,6 +485,7 @@ class _RegisterViewState extends State<RegisterView> {
                                           icon: Icons.mail,
                                           fontSize: inputFontSize,
                                           verticalPadding: fieldVerticalPadding,
+                                          errorText: _usernameErrorText,
                                           validator: (value) {
                                             if (value == null ||
                                                 value.trim().isEmpty) {
@@ -507,6 +562,7 @@ class _RegisterViewState extends State<RegisterView> {
                                     icon: Icons.mail,
                                     fontSize: inputFontSize,
                                     verticalPadding: fieldVerticalPadding,
+                                    errorText: _usernameErrorText,
                                     validator: (value) {
                                       if (value == null ||
                                           value.trim().isEmpty) {
@@ -678,6 +734,7 @@ class _RegisterInput extends StatelessWidget {
     this.icon,
     this.suffix,
     this.validator,
+    this.errorText,
     this.obscureText = false,
     this.fontSize = 22,
     this.verticalPadding = 8,
@@ -688,6 +745,7 @@ class _RegisterInput extends StatelessWidget {
   final IconData? icon;
   final Widget? suffix;
   final String? Function(String?)? validator;
+  final String? errorText;
   final bool obscureText;
   final double fontSize;
   final double verticalPadding;
@@ -699,6 +757,7 @@ class _RegisterInput extends StatelessWidget {
       validator: validator,
       obscureText: obscureText,
       decoration: InputDecoration(
+        errorText: errorText,
         hintText: hint,
         hintStyle: TextStyle(
           color: const Color(0xFF9D9B9B),

@@ -12,6 +12,8 @@ class Endpoints {
   static const services = '$_base/patient/services';
   static const appointments = '$_base/patient/appointments';
   static const medicalHistory = '$_base/patient/appointments/history';
+  static const patientTodayQueue = '$_base/patient/queues/today';
+  static const patientJoinQueue = '$_base/patient/queues/join';
   static String cancelAppointment(int id) =>
       '$_base/patient/appointments/$id/cancel';
   static String updatePatientProfile(int id) => '$_base/patient/profile/$id';
@@ -28,6 +30,10 @@ class Endpoints {
   static const adminAppointments = '$_base/admin/appointments';
   static const adminMasterList = '$_base/admin/appointments/master-list';
   static const adminClinicSettings = '$_base/admin/settings/clinic';
+  static String adminTodayQueue([String? date]) => date == null || date.isEmpty
+      ? '$_base/admin/queues/today'
+      : '$_base/admin/queues/today?date=$date';
+  static const adminCallNextQueue = '$_base/admin/queues/call-next';
   static String adminUpdateAppointmentStatus(int id) =>
       '$_base/admin/appointments/$id/status';
   static const adminWalkInAppointment = '$_base/admin/appointments/walk-in';

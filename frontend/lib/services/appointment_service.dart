@@ -172,4 +172,38 @@ class AppointmentService {
     );
     return response as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> getPatientTodayQueue() async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.patientTodayQueue,
+      (data) => data,
+    );
+    return response as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> joinPatientTodayQueue() async {
+    final response = await _baseService.postJson<dynamic>(
+      Endpoints.patientJoinQueue,
+      {},
+      (data) => data,
+    );
+    return response as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getAdminTodayQueue([String? date]) async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.adminTodayQueue(date),
+      (data) => data,
+    );
+    return response as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> callNextQueue({String? date}) async {
+    final response = await _baseService.postJson<dynamic>(
+      Endpoints.adminCallNextQueue,
+      date == null || date.isEmpty ? {} : {'date': date},
+      (data) => data,
+    );
+    return response as Map<String, dynamic>;
+  }
 }

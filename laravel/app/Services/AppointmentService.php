@@ -110,6 +110,7 @@ class AppointmentService
                 'appointments.notes',
                 'appointments.status',
                 'queues.queue_number',
+                'queues.is_called',
                 'patient_records.first_name',
                 'patient_records.last_name',
                 'services.name as service_name',
@@ -212,6 +213,7 @@ class AppointmentService
                     'time' => (string) $appointment->time_slot,
                     'status' => ucfirst((string) $appointment->status),
                     'queue_number' => (int) $appointment->queue_number,
+                    'is_called' => (bool) $appointment->is_called,
                     'appointment_date' => (string) $appointment->appointment_date,
                 ];
             });

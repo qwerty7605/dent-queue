@@ -17,11 +17,20 @@ class AdminDashboardController extends Controller
      */
     public function stats(): JsonResponse
     {
-        $patientsCount = PatientRecord::count();
+        $patientsCount = PatientRecord::query()
+            ->where(function ($query) {
+                $query->whereNull('user_id')
+                    ->orWhereHas('user', function ($userQuery) {
+                        $userQuery->where('is_active', true);
+                    });
+            })
+            ->count();
         
         $staffCount = User::whereHas('role', function ($query) {
             $query->whereRaw('LOWER(name) = ?', ['staff']);
-        })->count();
+        })
+            ->where('is_active', true)
+            ->count();
         
         $appointmentsCount = Appointment::count();
 
