@@ -263,14 +263,28 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                   else
                     Expanded(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
                         scrollDirection: Axis.horizontal,
                         child: SingleChildScrollView(
                           child: DataTable(
+                            horizontalMargin: 28,
+                            columnSpacing: 44,
+                            headingRowHeight: 60,
+                            dataRowMinHeight: 72,
+                            dataRowMaxHeight: 84,
                             headingRowColor: WidgetStateProperty.resolveWith(
                               (states) => Colors.transparent,
                             ),
                             columns: const [
+                              DataColumn(
+                                label: Text(
+                                  'No.',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                              ),
                               DataColumn(
                                 label: Text(
                                   'Staff',
@@ -302,7 +316,9 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                                 ),
                               ),
                             ],
-                            rows: _staffMembers.map((staffMember) {
+                            rows: _staffMembers.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final staffMember = entry.value;
                               final staffId = _readInt(staffMember['id']);
                               final isProcessing = _processingStaffId != null &&
                                   _processingStaffId == staffId;
@@ -310,54 +326,85 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                               return DataRow(
                                 cells: [
                                   DataCell(
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          _resolveStaffName(staffMember),
-                                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+                                    SizedBox(
+                                      width: 52,
+                                      child: Text(
+                                        '${index + 1}',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.black87,
                                         ),
-                                        Text(
-                                          _resolveStaffRecordId(staffMember),
-                                          style: const TextStyle(fontSize: 13, color: Colors.black54),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ),
                                   DataCell(
-                                    Text(
-                                      _resolveText(staffMember['birthdate']),
-                                      style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      _resolveGender(staffMember),
-                                      style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      _resolveContact(staffMember),
-                                      style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    isProcessing
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                          )
-                                        : IconButton(
-                                            onPressed: () => _confirmDeactivate(staffMember),
-                                            icon: const Icon(
-                                              Icons.person_remove_alt_1,
-                                              color: Color(0xFFD32F2F),
-                                            ),
-                                            tooltip: 'Deactivate staff',
+                                    ConstrainedBox(
+                                      constraints: const BoxConstraints(minWidth: 220),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            _resolveStaffName(staffMember),
+                                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
                                           ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _resolveStaffRecordId(staffMember),
+                                            style: const TextStyle(fontSize: 13, color: Colors.black54),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    SizedBox(
+                                      width: 130,
+                                      child: Text(
+                                        _formatBirthdate(staffMember['birthdate']),
+                                        style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    SizedBox(
+                                      width: 90,
+                                      child: Text(
+                                        _resolveGender(staffMember),
+                                        style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    SizedBox(
+                                      width: 160,
+                                      child: Text(
+                                        _resolveContact(staffMember),
+                                        style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    SizedBox(
+                                      width: 84,
+                                      child: Center(
+                                        child: isProcessing
+                                            ? const SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child: CircularProgressIndicator(strokeWidth: 2),
+                                              )
+                                            : IconButton(
+                                                onPressed: () => _confirmDeactivate(staffMember),
+                                                icon: const Icon(
+                                                  Icons.person_remove_alt_1,
+                                                  color: Color(0xFFD32F2F),
+                                                ),
+                                                tooltip: 'Deactivate staff',
+                                              ),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               );
@@ -439,5 +486,18 @@ class _AdminStaffViewState extends State<AdminStaffView> {
   String _resolveText(dynamic value) {
     final text = value?.toString().trim() ?? '';
     return text.isEmpty ? '-' : text;
+  }
+
+  String _formatBirthdate(dynamic value) {
+    final text = _resolveText(value);
+    if (text == '-') {
+      return text;
+    }
+
+    if (text.contains('T')) {
+      return text.split('T').first;
+    }
+
+    return text;
   }
 }

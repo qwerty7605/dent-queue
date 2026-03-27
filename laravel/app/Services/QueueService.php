@@ -2,18 +2,284 @@
 
 namespace App\Services;
 
+use App\Models\Appointment;
 use App\Models\Queue;
-use Carbon\Carbon;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class QueueService
 {
-    public function generateQueueNumber(int $appointmentId = null)
+    private const DAILY_QUEUE_LIMIT = 50;
+    private const MAX_QUEUE_ASSIGNMENT_RETRIES = 5;
+    private const ELIGIBLE_CALL_STATUSES = ['confirmed'];
+    private const ACTIVE_DISPLAY_STATUSES = ['pending', 'confirmed', 'completed'];
+
+    public function generateQueueNumber(?int $appointmentId = null)
     {
-        //
+        if ($appointmentId === null) {
+            throw ValidationException::withMessages([
+                'appointment_id' => ['Appointment ID is required.'],
+            ]);
+        }
+
+        $appointment = Appointment::query()->find($appointmentId);
+        if ($appointment === null) {
+            throw ValidationException::withMessages([
+                'appointment_id' => ['Appointment not found.'],
+            ]);
+        }
+
+        $existingQueue = Queue::query()
+            ->where('appointment_id', $appointmentId)
+            ->first();
+
+        if ($existingQueue !== null) {
+            return $existingQueue;
+        }
+
+        $appointmentDate = (string) $appointment->appointment_date;
+
+        return DB::transaction(function () use ($appointment, $appointmentDate) {
+            for ($attempt = 0; $attempt < self::MAX_QUEUE_ASSIGNMENT_RETRIES; $attempt++) {
+                $nextQueueNumber = $this->resolveNextQueueNumber($appointmentDate);
+
+                if ($nextQueueNumber > self::DAILY_QUEUE_LIMIT) {
+                    throw ValidationException::withMessages([
+                        'appointment_date' => ['The daily limit of ' . self::DAILY_QUEUE_LIMIT . ' patients has been reached for this date.'],
+                    ]);
+                }
+
+                try {
+                    return Queue::query()->create([
+                        'appointment_id' => (int) $appointment->id,
+                        'queue_date' => $appointmentDate,
+                        'queue_number' => $nextQueueNumber,
+                        'is_called' => false,
+                    ]);
+                } catch (QueryException $exception) {
+                    if (!$this->isUniqueConstraintViolation($exception)) {
+                        throw $exception;
+                    }
+
+                    if ($attempt === self::MAX_QUEUE_ASSIGNMENT_RETRIES - 1) {
+                        throw ValidationException::withMessages([
+                            'appointment_date' => ['Unable to assign a queue number right now. Please retry.'],
+                        ]);
+                    }
+                }
+            }
+        });
     }
 
-    public function callNext()
+    public function getQueueSnapshot(?int $patientRecordId = null, ?string $date = null): array
     {
-        //
+        $queueDate = $date !== null
+            ? Carbon::createFromFormat('Y-m-d', $date)->toDateString()
+            : Carbon::today(config('app.timezone'))->toDateString();
+
+        $nowServing = Queue::query()
+            ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
+            ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
+            ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+            ->where('queues.queue_date', $queueDate)
+            ->where('queues.is_called', true)
+            ->whereIn('appointments.status', ['confirmed', 'completed'])
+            ->orderByDesc('queues.queue_number')
+            ->select([
+                'queues.queue_number',
+                'queues.is_called',
+                'appointments.id as appointment_id',
+                'appointments.status',
+                'appointments.time_slot',
+                'services.name as service_name',
+                'patient_records.first_name',
+                'patient_records.last_name',
+            ])
+            ->first();
+
+        $nextUp = Queue::query()
+            ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
+            ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
+            ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+            ->where('queues.queue_date', $queueDate)
+            ->where('queues.is_called', false)
+            ->whereIn('appointments.status', self::ELIGIBLE_CALL_STATUSES)
+            ->orderBy('queues.queue_number')
+            ->select([
+                'queues.queue_number',
+                'queues.is_called',
+                'appointments.id as appointment_id',
+                'appointments.status',
+                'appointments.time_slot',
+                'services.name as service_name',
+                'patient_records.first_name',
+                'patient_records.last_name',
+            ])
+            ->first();
+
+        return [
+            'date' => $queueDate,
+            'now_serving' => $nowServing !== null ? $this->formatQueueEntry($nowServing) : null,
+            'next_up' => $nextUp !== null ? $this->formatQueueEntry($nextUp) : null,
+            'patient_queue' => $patientRecordId !== null
+                ? $this->getPatientQueueEntry($patientRecordId, $queueDate, $nowServing !== null ? (int) $nowServing->queue_number : null)
+                : null,
+        ];
+    }
+
+    public function callNext(?string $date = null): array
+    {
+        $queueDate = $date !== null
+            ? Carbon::createFromFormat('Y-m-d', $date)->toDateString()
+            : Carbon::today(config('app.timezone'))->toDateString();
+
+        $calledQueue = DB::transaction(function () use ($queueDate) {
+            $queue = Queue::query()
+                ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
+                ->where('queues.queue_date', $queueDate)
+                ->where('queues.is_called', false)
+                ->whereIn('appointments.status', self::ELIGIBLE_CALL_STATUSES)
+                ->orderBy('queues.queue_number')
+                ->select('queues.id')
+                ->lockForUpdate()
+                ->first();
+
+            if ($queue === null) {
+                return null;
+            }
+
+            Queue::query()
+                ->whereKey((int) $queue->id)
+                ->update(['is_called' => true]);
+
+            return Queue::query()->find((int) $queue->id);
+        });
+
+        $snapshot = $this->getQueueSnapshot(null, $queueDate);
+
+        return [
+            'date' => $queueDate,
+            'called_queue' => $calledQueue !== null
+                ? $this->formatQueueEntry(
+                    Queue::query()
+                        ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
+                        ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
+                        ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+                        ->where('queues.id', (int) $calledQueue->id)
+                        ->select([
+                            'queues.queue_number',
+                            'queues.is_called',
+                            'appointments.id as appointment_id',
+                            'appointments.status',
+                            'appointments.time_slot',
+                            'services.name as service_name',
+                            'patient_records.first_name',
+                            'patient_records.last_name',
+                        ])
+                        ->first()
+                )
+                : null,
+            'now_serving' => $snapshot['now_serving'],
+            'next_up' => $snapshot['next_up'],
+        ];
+    }
+
+    private function getPatientQueueEntry(int $patientRecordId, string $queueDate, ?int $nowServingNumber): ?array
+    {
+        $queue = Queue::query()
+            ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
+            ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+            ->where('appointments.patient_id', $patientRecordId)
+            ->where('queues.queue_date', $queueDate)
+            ->whereIn('appointments.status', self::ACTIVE_DISPLAY_STATUSES)
+            ->orderBy('queues.queue_number')
+            ->select([
+                'queues.queue_number',
+                'queues.is_called',
+                'appointments.id as appointment_id',
+                'appointments.status',
+                'appointments.time_slot',
+                'services.name as service_name',
+            ])
+            ->first();
+
+        if ($queue === null) {
+            return null;
+        }
+
+        $queueNumber = (int) $queue->queue_number;
+        $peopleAhead = Queue::query()
+            ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
+            ->where('queues.queue_date', $queueDate)
+            ->where('queues.queue_number', '<', $queueNumber)
+            ->whereIn('appointments.status', self::ELIGIBLE_CALL_STATUSES)
+            ->count();
+
+        return [
+            'appointment_id' => (int) $queue->appointment_id,
+            'queue_number' => $queueNumber,
+            'status' => $this->displayStatus((string) $queue->status),
+            'appointment_time' => (string) $queue->time_slot,
+            'service_type' => $this->resolveServiceType($queue->service_name),
+            'is_called' => (bool) $queue->is_called,
+            'is_now_serving' => $nowServingNumber !== null && $queueNumber === $nowServingNumber,
+            'people_ahead' => max(0, $peopleAhead),
+        ];
+    }
+
+    private function formatQueueEntry(object $entry): array
+    {
+        return [
+            'appointment_id' => (int) $entry->appointment_id,
+            'queue_number' => (int) $entry->queue_number,
+            'patient_name' => trim(sprintf(
+                '%s %s',
+                (string) ($entry->first_name ?? ''),
+                (string) ($entry->last_name ?? ''),
+            )),
+            'service_type' => $this->resolveServiceType($entry->service_name ?? null),
+            'appointment_time' => (string) ($entry->time_slot ?? ''),
+            'status' => $this->displayStatus((string) $entry->status),
+            'is_called' => (bool) $entry->is_called,
+        ];
+    }
+
+    private function resolveServiceType(?string $serviceName): string
+    {
+        return $serviceName !== null && $serviceName !== ''
+            ? $serviceName
+            : 'Unknown Service';
+    }
+
+    private function displayStatus(string $status): string
+    {
+        return $status === 'confirmed' ? 'Approved' : ucfirst($status);
+    }
+
+    private function resolveNextQueueNumber(string $appointmentDate): int
+    {
+        $lastQueue = Queue::query()
+            ->where('queue_date', $appointmentDate)
+            ->lockForUpdate()
+            ->orderByDesc('queue_number')
+            ->first();
+
+        return $lastQueue ? ((int) $lastQueue->queue_number + 1) : 1;
+    }
+
+    private function isUniqueConstraintViolation(QueryException $exception): bool
+    {
+        $sqlState = (string) ($exception->errorInfo[0] ?? $exception->getCode());
+        if ($sqlState === '23000' || $sqlState === '23505') {
+            return true;
+        }
+
+        $message = mb_strtolower($exception->getMessage());
+
+        return str_contains($message, 'unique constraint')
+            || str_contains($message, 'duplicate entry')
+            || str_contains($message, 'is not unique');
     }
 }

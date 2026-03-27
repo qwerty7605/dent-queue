@@ -46,6 +46,7 @@ Route::prefix('v1')->group(function () {
             Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus']);
             Route::get('/calendar/appointments', [AppointmentController::class, 'calendarAppointments']);
             Route::get('/calendar/appointments/{appointment}', [AppointmentController::class, 'calendarAppointmentDetails']);
+            Route::get('/queues/today', [QueueController::class, 'index']);
             Route::post('/queues/call-next', [QueueController::class, 'callNext']);
             Route::apiResource('reports', ReportController::class);
 

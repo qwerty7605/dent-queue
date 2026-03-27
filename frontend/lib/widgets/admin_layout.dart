@@ -13,6 +13,7 @@ class AdminLayout extends StatelessWidget {
     required this.loggingOut,
     required this.notifications,
     required this.onNavigate,
+    this.sidebarCounts = const <String, int>{},
   });
 
   final Widget child;
@@ -22,6 +23,7 @@ class AdminLayout extends StatelessWidget {
   final bool loggingOut;
   final List<AdminUiNotification> notifications;
   final ValueChanged<String> onNavigate;
+  final Map<String, int> sidebarCounts;
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +38,7 @@ class AdminLayout extends StatelessWidget {
           // Left Sidebar
           Container(
             width: 250,
-            color: const Color(0xFF679B6A), // Dark Green
+            color: const Color(0xFF3F6341), // Darker green sidebar
             child: Column(
               children: [
                 // Logo Header
@@ -89,9 +91,20 @@ class AdminLayout extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12.0),
                     children: [
                       _buildSidebarItem(context, 'Dashboard', Icons.home),
-                      _buildSidebarItem(context, 'Patients', Icons.badge_outlined),
-                      _buildSidebarItem(context, 'Staff', Icons.medical_services_outlined),
+                      _buildSidebarItem(
+                        context,
+                        'Patients',
+                        Icons.badge_outlined,
+                        labelSuffix: _formatSidebarCount(sidebarCounts['Patients']),
+                      ),
+                      _buildSidebarItem(
+                        context,
+                        'Staff',
+                        Icons.medical_services_outlined,
+                        labelSuffix: _formatSidebarCount(sidebarCounts['Staff']),
+                      ),
                       _buildSidebarItem(context, 'Master List', Icons.list_alt),
+                      _buildSidebarItem(context, 'Reports', Icons.analytics_outlined),
                       _buildSidebarItem(context, 'Settings', Icons.settings),
                       _buildSidebarItem(context, 'Profile', Icons.person_outline),
                     ],
@@ -142,93 +155,97 @@ class AdminLayout extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF679B6A),
+                    color: const Color(0xFF3F6341),
                     border: const Border(
                       bottom: BorderSide(color: Color(0xFFE8C355), width: 4),
                     ),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Notification Bell
-                      IconButton(
-                        onPressed: () => _showNotificationsDialog(context),
-                        icon: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            const Icon(Icons.notifications_none, color: Colors.white),
-                            if (notifications.isNotEmpty)
-                              Positioned(
-                                right: -4,
-                                top: -4,
-                                child: Container(
-                                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFE8C355),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      notifications.length.toString(),
-                                      style: const TextStyle(
-                                        color: Color(0xFF1F2A22),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w900,
+                      const SizedBox.shrink(),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () => _showNotificationsDialog(context),
+                            icon: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                const Icon(Icons.notifications_none, color: Colors.white),
+                                if (notifications.isNotEmpty)
+                                  Positioned(
+                                    right: -4,
+                                    top: -4,
+                                    child: Container(
+                                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFE8C355),
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          notifications.length.toString(),
+                                          style: const TextStyle(
+                                            color: Color(0xFF1F2A22),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        tooltip: 'Notifications',
-                      ),
-                      const SizedBox(width: 16),
-                      // Admin Account Chip
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Row(
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                              ],
+                            ),
+                            tooltip: 'Notifications',
+                          ),
+                          const SizedBox(width: 16),
+                          Container(
+                            padding: const EdgeInsets.fromLTRB(16, 6, 6, 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: Row(
                               children: [
-                                const Text(
-                                  'ADMIN',
-                                  style: TextStyle(
-                                    color: Color(0xFFE8C355),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.5,
-                                  ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    const Text(
+                                      'ADMIN',
+                                      style: TextStyle(
+                                        color: Color(0xFFE8C355),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                    Text(
+                                      name.toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                Text(
-                                  name.toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                const SizedBox(width: 12),
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: Colors.white,
+                                  backgroundImage: hasProfilePic
+                                      ? NetworkImage('${AppConfig.baseUrl}$profilePic')
+                                      : null,
+                                  child: !hasProfilePic
+                                      ? const Icon(Icons.person, color: Colors.grey, size: 24)
+                                      : null,
                                 ),
                               ],
                             ),
-                            const SizedBox(width: 12),
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: Colors.white,
-                              backgroundImage: hasProfilePic 
-                                  ? NetworkImage('${AppConfig.baseUrl}$profilePic') 
-                                  : null,
-                              child: !hasProfilePic 
-                                  ? const Icon(Icons.person, color: Colors.grey, size: 24)
-                                  : null,
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -246,7 +263,16 @@ class AdminLayout extends StatelessWidget {
     );
   }
 
-  Widget _buildSidebarItem(BuildContext context, String title, IconData icon) {
+  String _formatSidebarCount(int? count) {
+    return count == null ? '' : ' ($count)';
+  }
+
+  Widget _buildSidebarItem(
+    BuildContext context,
+    String title,
+    IconData icon, {
+    String labelSuffix = '',
+  }) {
     final isActive = activeRoute == title;
     
     return Container(
@@ -269,7 +295,7 @@ class AdminLayout extends StatelessWidget {
                 ),
                 const SizedBox(width: 16),
                 Text(
-                  title,
+                  '$title$labelSuffix',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,

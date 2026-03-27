@@ -6,6 +6,7 @@ import 'admin_staff_view.dart';
 import 'admin_master_list_view.dart';
 import 'admin_profile_view.dart';
 import 'admin_settings_view.dart';
+import 'admin_reports_view.dart';
 import '../core/token_storage.dart';
 import '../core/api_client.dart';
 import '../services/base_service.dart';
@@ -90,6 +91,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       onLogout: widget.onLogout,
       loggingOut: widget.loggingOut,
       notifications: _notifications,
+      sidebarCounts: <String, int>{
+        'Patients': _dashboardStats['patients_count'] ?? 0,
+        'Staff': _dashboardStats['staff_count'] ?? 0,
+      },
       onNavigate: (route) {
         setState(() {
           _activeRoute = route;
@@ -114,12 +119,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         );
       case 'Master List':
         return AdminMasterListView(appointmentService: _appointmentService);
+      case 'Reports':
+        return const AdminReportsView();
       case 'Settings':
         return AdminSettingsView(
           adminSettingsService: _adminSettingsService,
-          canManageSettings:
-              (_localUserInfo?['role']?.toString().toLowerCase() ?? '') ==
-              'admin',
+          canManageSettings: _canManageClinicSettings(),
           onNotify: _addNotification,
         );
       case 'Profile':
@@ -170,6 +175,49 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         _notifications.removeRange(8, _notifications.length);
       }
     });
+  }
+
+  bool _canManageClinicSettings() {
+    final userInfo = _localUserInfo;
+    if (userInfo == null) {
+      return false;
+    }
+
+    final directRole = _normalizeRoleValue(userInfo['role']);
+    if (directRole == 'admin') {
+      return true;
+    }
+
+    final roleName = _normalizeRoleValue(userInfo['role_name']);
+    if (roleName == 'admin') {
+      return true;
+    }
+
+    final roles = userInfo['roles'];
+    if (roles is List) {
+      for (final role in roles) {
+        if (_normalizeRoleValue(role) == 'admin') {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  String _normalizeRoleValue(dynamic value) {
+    if (value is String) {
+      return value.trim().toLowerCase();
+    }
+
+    if (value is Map) {
+      final roleName = value['name']?.toString().trim().toLowerCase();
+      if (roleName != null && roleName.isNotEmpty) {
+        return roleName;
+      }
+    }
+
+    return '';
   }
 
   Widget _buildDashboardContent() {
@@ -244,8 +292,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     required Color darkColor,
   }) {
     return Container(
-      width: 400,
-      height: 200,
+      width: 480,
+      height: 198,
       decoration: BoxDecoration(
         color: mainColor,
         borderRadius: BorderRadius.circular(8),
@@ -262,7 +310,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: 32.0,
+                horizontal: 36.0,
                 vertical: 24.0,
               ),
               child: Row(
@@ -315,7 +363,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 bottomRight: Radius.circular(8),
               ),
               child: Ink(
-                height: 50,
+                height: 46,
                 decoration: BoxDecoration(
                   color: darkColor,
                   borderRadius: const BorderRadius.only(
