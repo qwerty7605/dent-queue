@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import '../services/admin_dashboard_service.dart';
+import '../services/appointment_service.dart';
 
 class AdminReportsView extends StatefulWidget {
   const AdminReportsView({
     super.key,
     required this.adminDashboardService,
+    required this.appointmentService,
   });
 
   final AdminDashboardService adminDashboardService;
+  final AppointmentService appointmentService;
 
   @override
   State<AdminReportsView> createState() => _AdminReportsViewState();
@@ -15,7 +18,8 @@ class AdminReportsView extends StatefulWidget {
 
 class _AdminReportsViewState extends State<AdminReportsView> {
   // Prep for API integration
-  bool _isLoading = false;
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _detailedRecords = [];
   
   // Dummy values based on acceptance criteria to ensure zero values do not break UI
   Map<String, int> _reportStats = {
@@ -29,7 +33,26 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   @override
   void initState() {
     super.initState();
-    _fetchReportSummary();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    await Future.wait([
+      _fetchReportSummary(),
+      _fetchDetailedRecords(),
+    ]);
+  }
+
+  Future<void> _fetchDetailedRecords() async {
+    try {
+      final records = await widget.appointmentService.getAdminMasterList();
+      if (!mounted) return;
+      setState(() {
+        _detailedRecords = records;
+      });
+    } catch (_) {
+      // Silently fail or handle error
+    }
   }
 
   Future<void> _fetchReportSummary() async {
@@ -75,7 +98,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: _isLoading ? null : _fetchReportSummary,
+                onPressed: _isLoading ? null : _fetchData,
                 icon: const Icon(Icons.refresh),
                 label: const Text(
                   'Refresh',
@@ -136,7 +159,134 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
           // Status Distribution Chart Section
           _buildDistributionChart(),
+          const SizedBox(height: 56),
+
+          // Detailed Report Table Section
+          _buildDetailedReportTable(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDetailedReportTable() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: const Border(
+          top: BorderSide(
+            color: Color(0xFF679B6A),
+            width: 6.0,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              'Detailed Records',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.all(48.0),
+              child: Center(
+                child: CircularProgressIndicator(color: Color(0xFF679B6A)),
+              ),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: MediaQuery.of(context).size.width - 400,
+                ),
+                child: DataTable(
+                  headingRowHeight: 64,
+                  dataRowMinHeight: 64,
+                  dataRowMaxHeight: 64,
+                  columns: const [
+                    DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('Patient', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('Booking Type', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('Service', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('Queue No.', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+                  ],
+                  rows: _detailedRecords.map((record) {
+                    return DataRow(cells: [
+                      DataCell(Text(record['date']?.toString() ?? '-')),
+                      DataCell(Text(record['patient_name']?.toString() ?? '-')),
+                      DataCell(Text(record['booking_type']?.toString() ?? '-')),
+                      DataCell(Text(record['service']?.toString() ?? '-')),
+                      DataCell(Text(record['queue_number']?.toString() ?? '-')),
+                      DataCell(_buildStatusBadge(record['status']?.toString() ?? 'Pending')),
+                    ]);
+                  }).toList(),
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color backgroundColor;
+    Color textColor;
+
+    switch (status.toLowerCase()) {
+      case 'completed':
+        backgroundColor = const Color(0xFF81C784); // Light Green
+        textColor = const Color(0xFF1B5E20); // Dark Green
+        break;
+      case 'cancelled':
+        backgroundColor = const Color(0xFFE57373); // Light Red
+        textColor = const Color(0xFFB71C1C); // Dark Red
+        break;
+      case 'pending':
+        backgroundColor = const Color(0xFFFFD54F); // Light Yellow
+        textColor = const Color(0xFFF57F17); // Dark Orange/Yellow
+        break;
+      case 'approved':
+        backgroundColor = const Color(0xFF64B5F6); // Light Blue
+        textColor = const Color(0xFF0D47A1); // Dark Blue
+        break;
+      default:
+        backgroundColor = Colors.grey[300]!;
+        textColor = Colors.black87;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: backgroundColor.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 12,
+        ),
       ),
     );
   }
