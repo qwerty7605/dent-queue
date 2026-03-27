@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import '../services/admin_dashboard_service.dart';
 
 class AdminReportsView extends StatefulWidget {
-  const AdminReportsView({super.key});
+  const AdminReportsView({
+    super.key,
+    required this.adminDashboardService,
+  });
+
+  final AdminDashboardService adminDashboardService;
 
   @override
   State<AdminReportsView> createState() => _AdminReportsViewState();
@@ -21,19 +27,66 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    _fetchReportSummary();
+  }
+
+  Future<void> _fetchReportSummary() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final stats = await widget.adminDashboardService.getReportSummary();
+      if (!mounted) return;
+      setState(() {
+        _reportStats = stats;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load report summary')),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(40.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Reports',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Reports',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: _isLoading ? null : _fetchReportSummary,
+                icon: const Icon(Icons.refresh),
+                label: const Text(
+                  'Refresh',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF679B6A),
+                  side: const BorderSide(color: Color(0xFF679B6A)),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 48),
 

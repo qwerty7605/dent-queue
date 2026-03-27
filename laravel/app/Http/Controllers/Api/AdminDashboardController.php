@@ -8,6 +8,8 @@ use App\Models\PatientRecord;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 
+use Illuminate\Support\Facades\DB;
+
 class AdminDashboardController extends Controller
 {
     /**
@@ -39,6 +41,32 @@ class AdminDashboardController extends Controller
                 'patients_count' => $patientsCount,
                 'staff_count' => $staffCount,
                 'appointments_count' => $appointmentsCount,
+            ]
+        ]);
+    }
+
+    /**
+     * Get summary counts for the reports dashboard.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function reportSummary(): JsonResponse
+    {
+        $summary = DB::table('appointments')
+            ->selectRaw('COUNT(*) as total_appointments')
+            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count")
+            ->selectRaw("SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as approved_count")
+            ->selectRaw("SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count")
+            ->selectRaw("SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count")
+            ->first();
+
+        return response()->json([
+            'data' => [
+                'total_appointments' => (int) ($summary->total_appointments ?? 0),
+                'pending_count' => (int) ($summary->pending_count ?? 0),
+                'approved_count' => (int) ($summary->approved_count ?? 0),
+                'completed_count' => (int) ($summary->completed_count ?? 0),
+                'cancelled_count' => (int) ($summary->cancelled_count ?? 0),
             ]
         ]);
     }

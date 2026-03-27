@@ -120,7 +120,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       case 'Master List':
         return AdminMasterListView(appointmentService: _appointmentService);
       case 'Reports':
-        return const AdminReportsView();
+        return AdminReportsView(adminDashboardService: _adminDashboardService);
       case 'Settings':
         return AdminSettingsView(
           adminSettingsService: _adminSettingsService,
