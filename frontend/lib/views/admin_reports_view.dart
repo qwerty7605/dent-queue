@@ -132,8 +132,103 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               ),
             ],
           ),
+          const SizedBox(height: 56),
+
+          // Status Distribution Chart Section
+          _buildDistributionChart(),
         ],
       ),
+    );
+  }
+
+  Widget _buildDistributionChart() {
+    final total = _reportStats['total'] ?? 0;
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Status Distribution',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 32),
+          _buildChartRow('Pending', _reportStats['pending'] ?? 0, total, const Color(0xFFE5CC82)),
+          const SizedBox(height: 16),
+          _buildChartRow('Approved', _reportStats['approved'] ?? 0, total, const Color(0xFF86B9B0)),
+          const SizedBox(height: 16),
+          _buildChartRow('Completed', _reportStats['completed'] ?? 0, total, const Color(0xFF4CAF50)),
+          const SizedBox(height: 16),
+          _buildChartRow('Cancelled', _reportStats['cancelled'] ?? 0, total, const Color(0xFFE28B71)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartRow(String label, int count, int total, Color color) {
+    final double percentage = total > 0 ? (count / total * 100) : 0;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black54,
+              ),
+            ),
+            Text(
+              '${percentage.toStringAsFixed(1)}% ($count)',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 12,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: total > 0 ? (count / total) : 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
