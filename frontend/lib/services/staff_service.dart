@@ -36,9 +36,9 @@ class StaffService {
     return <String, dynamic>{};
   }
 
-  Future<void> removeStaff(String staffId) async {
+  Future<void> removeStaff(int staffId) async {
     await _baseService.deleteJson<dynamic>(
-      Endpoints.adminRemoveStaff(staffId),
+      Endpoints.adminDeleteStaff(staffId),
       (data) => data,
     );
   }
