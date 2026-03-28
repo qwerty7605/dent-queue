@@ -32,7 +32,7 @@ class GenerateAppointmentReminders extends Command
 
         $appointments = Appointment::with('service')
             ->where('appointment_date', $tomorrow)
-            ->where('status', 'approved')
+            ->where('status', 'confirmed')
             ->get();
 
         $generatedCount = 0;

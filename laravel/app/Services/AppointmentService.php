@@ -279,8 +279,12 @@ class AppointmentService
                 (string) $validatedBooking['appointment_date'],
             );
 
-            $appointment->load(['patient', 'queue']);
+            $appointment->load(['patient', 'queue', 'service']);
             $this->createBookingNotification($appointment);
+
+            if ($initialStatus === self::STATUS_CONFIRMED) {
+                $this->createApprovalNotification($appointment);
+            }
 
             return $appointment;
         });
@@ -391,6 +395,10 @@ class AppointmentService
             }
 
             $appointment->update(['status' => $targetStatus]);
+
+            if ($targetStatus === self::STATUS_CONFIRMED) {
+                $this->createApprovalNotification($appointment);
+            }
 
             Log::channel('audit')->info('appointment.status_updated', [
                 'appointment_id' => (int) $appointment->id,
@@ -511,6 +519,7 @@ class AppointmentService
 
     private function createBookingNotification(Appointment $appointment): void
     {
+        $appointment->loadMissing('patient');
         if ((int) ($appointment->patient?->user_id ?? 0) === 0) {
             return;
         }
@@ -524,6 +533,26 @@ class AppointmentService
                 'Your appointment on %s at %s has been booked successfully.',
                 (string) $appointment->appointment_date,
                 (string) $appointment->time_slot,
+            ),
+        ]);
+    }
+
+    private function createApprovalNotification(Appointment $appointment): void
+    {
+        $appointment->loadMissing(['patient', 'service']);
+        if ((int) ($appointment->patient?->user_id ?? 0) === 0) {
+            return;
+        }
+
+        PatientNotification::create([
+            'patient_id' => (int) $appointment->patient_id,
+            'appointment_id' => (int) $appointment->id,
+            'type' => 'approved',
+            'title' => 'Appointment Approved',
+            'message' => sprintf(
+                'Your appointment for %s on %s has been approved.',
+                $this->resolveServiceType($appointment->service?->name, (int) $appointment->service_id),
+                (string) $appointment->appointment_date,
             ),
         ]);
     }

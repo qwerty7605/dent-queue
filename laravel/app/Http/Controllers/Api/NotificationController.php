@@ -48,8 +48,8 @@ class NotificationController extends Controller
             'type' => (string) $notification->type,
             'title' => (string) $notification->title,
             'message' => (string) $notification->message,
-            'read_at' => optional($notification->read_at)?->toDateTimeString(),
-            'timestamp_created' => optional($notification->created_at)?->toDateTimeString(),
+            'read_at' => optional($notification->read_at)?->toIso8601String(),
+            'timestamp_created' => optional($notification->created_at)?->toIso8601String(),
         ];
     }
 

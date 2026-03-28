@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Appointment;
 use App\Models\Queue;
+use App\Models\PatientNotification;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -158,6 +159,34 @@ class QueueService
         });
 
         $snapshot = $this->getQueueSnapshot(null, $queueDate);
+
+        if ($calledQueue !== null) {
+            $appointment = Appointment::query()->find((int) $calledQueue->appointment_id);
+            if ($appointment !== null && $appointment->patient_id !== null) {
+                PatientNotification::firstOrCreate([
+                    'patient_id' => $appointment->patient_id,
+                    'appointment_id' => $appointment->id,
+                    'type' => 'queue_now_serving',
+                ], [
+                    'title' => 'Queue Update',
+                    'message' => 'Now serving your queue number: ' . $calledQueue->queue_number . '. Please proceed to the clinic.',
+                ]);
+            }
+        }
+
+        if ($snapshot['next_up'] !== null) {
+            $nextUpAppointment = Appointment::query()->find($snapshot['next_up']['appointment_id']);
+            if ($nextUpAppointment !== null && $nextUpAppointment->patient_id !== null) {
+                PatientNotification::firstOrCreate([
+                    'patient_id' => $nextUpAppointment->patient_id,
+                    'appointment_id' => $nextUpAppointment->id,
+                    'type' => 'queue_next_up',
+                ], [
+                    'title' => 'Queue Update',
+                    'message' => 'Your turn is approaching. You are next in line (Queue #' . $snapshot['next_up']['queue_number'] . ').',
+                ]);
+            }
+        }
 
         return [
             'date' => $queueDate,

@@ -56,7 +56,7 @@ class GenerateAppointmentRemindersTest extends TestCase
             'service_id' => $service->id,
             'appointment_date' => Carbon::tomorrow()->toDateString(),
             'time_slot' => '10:00:00',
-            'status' => 'approved',
+            'status' => 'confirmed',
         ]);
 
         $this->artisan('appointments:generate-reminders')
@@ -111,7 +111,7 @@ class GenerateAppointmentRemindersTest extends TestCase
             'patient_id' => $patient->id,
             'service_id' => $service->id,
             'appointment_date' => Carbon::tomorrow()->toDateString(),
-            'status' => 'approved',
+            'status' => 'confirmed',
             'time_slot' => '10:00:00',
         ]);
 

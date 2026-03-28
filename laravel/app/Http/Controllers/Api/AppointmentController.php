@@ -359,7 +359,7 @@ class AppointmentController extends Controller
             'status' => $appointment->status === 'confirmed' ? 'Approved' : ucfirst((string) $appointment->status),
             'queue_number' => $appointment->queue ? str_pad((string) $appointment->queue->queue_number, 2, '0', STR_PAD_LEFT) : null,
             'is_called' => (bool) ($appointment->queue?->is_called ?? false),
-            'timestamp_created' => optional($appointment->created_at)?->toDateTimeString(),
+            'timestamp_created' => optional($appointment->created_at)?->toIso8601String(),
             'notes' => (string) $appointment->notes,
         ];
     }
