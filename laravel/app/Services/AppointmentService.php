@@ -56,6 +56,7 @@ class AppointmentService
         return Appointment::query()
             ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+            ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id')
             ->orderByDesc('appointments.appointment_date')
             ->orderByDesc('appointments.time_slot')
             ->select([
@@ -67,6 +68,9 @@ class AppointmentService
                 'appointments.appointment_date',
                 'patient_records.contact_number as contact',
                 'appointments.status',
+                'appointments.notes',
+                'patient_records.user_id',
+                'queues.queue_number',
             ])
             ->get()
             ->map(function ($appointment) {
@@ -80,6 +84,8 @@ class AppointmentService
                     $middleName,
                     (string) $appointment->last_name,
                 ));
+
+                $isWalkIn = (str_contains(strtolower((string)$appointment->notes), 'walk-in') || $appointment->user_id === null);
                 
                 return [
                     'appointment_id' => (int) $appointment->appointment_id,
@@ -88,6 +94,8 @@ class AppointmentService
                     'date' => (string) $appointment->appointment_date,
                     'contact' => (string) $appointment->contact,
                     'status' => $appointment->status === 'confirmed' ? 'Approved' : ucfirst((string) $appointment->status),
+                    'booking_type' => $isWalkIn ? 'Walk-in' : 'Online',
+                    'queue_number' => $appointment->queue_number ? str_pad((string)$appointment->queue_number, 2, '0', STR_PAD_LEFT) : '-',
                 ];
             });
     }

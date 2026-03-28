@@ -8,6 +8,7 @@ import '../core/config.dart';
 import '../widgets/book_appointment_dialog.dart';
 import '../widgets/edit_profile_dialog.dart';
 import '../widgets/appointment_details_dialog.dart';
+import 'notifications_view.dart';
 
 class PatientDashboardView extends StatefulWidget {
   const PatientDashboardView({
@@ -245,6 +246,29 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                   Navigator.pop(context);
                 },
               ),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 32),
+                leading: const Icon(
+                  Icons.notifications_none,
+                  color: Color(0xFF679B6A),
+                ),
+                title: const Text(
+                  'Notifications',
+                  style: TextStyle(
+                    color: Color(0xFF679B6A),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsView(),
+                    ),
+                  );
+                },
+              ),
               const Spacer(),
               ListTile(
                 contentPadding: const EdgeInsets.symmetric(
@@ -349,6 +373,15 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
         ],
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_none, color: Colors.black54),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsView()),
+            );
+          },
+        ),
         // Profile chip placeholder
         Padding(
           padding: const EdgeInsets.only(right: 16.0),

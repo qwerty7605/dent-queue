@@ -13,6 +13,7 @@ import '../widgets/edit_profile_dialog.dart';
 import 'staff_walk_in_view.dart';
 import 'staff_patient_records_view.dart';
 import 'staff_calendar_view.dart';
+import 'notifications_view.dart';
 
 enum _StaffTab { appointments, walkIn, calendar, records, profile }
 
@@ -378,6 +379,15 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         ],
       ),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_none, color: Colors.black54),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsView()),
+            );
+          },
+        ),
         Padding(
           padding: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
           child: InkWell(
@@ -563,6 +573,18 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   _selectedTab = _StaffTab.calendar;
                 });
                 Navigator.pop(context);
+              },
+            ),
+            _buildDrawerItem(
+              icon: Icons.notifications_none,
+              title: 'Notifications',
+              selected: false,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationsView()),
+                );
               },
             ),
             const Spacer(),
