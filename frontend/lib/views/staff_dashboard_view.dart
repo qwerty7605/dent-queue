@@ -14,6 +14,7 @@ import 'staff_walk_in_view.dart';
 import 'staff_patient_records_view.dart';
 import 'staff_calendar_view.dart';
 import 'notifications_view.dart';
+import 'recycle_bin_view.dart';
 
 enum _StaffTab { appointments, walkIn, calendar, records, profile }
 
@@ -206,10 +207,11 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       if (!mounted) return;
       _showStatusMessage('Unable to call the next patient right now.');
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isCallingNext = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isCallingNext = false;
+        });
+      }
     }
   }
 
@@ -584,6 +586,21 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const NotificationsView()),
+                );
+              },
+            ),
+            _buildDrawerItem(
+              icon: Icons.restore_from_trash_outlined,
+              title: 'Recycle Bin',
+              selected: false,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const RecycleBinView(role: RecycleBinRole.staff),
+                  ),
                 );
               },
             ),
