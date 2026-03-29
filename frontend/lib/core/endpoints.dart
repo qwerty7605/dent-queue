@@ -12,11 +12,21 @@ class Endpoints {
   static const services = '$_base/patient/services';
   static const appointments = '$_base/patient/appointments';
   static const medicalHistory = '$_base/patient/appointments/history';
+  static const patientNotifications = '$_base/patient/notifications';
+  static const patientNotificationsMarkAllRead =
+      '$_base/patient/notifications/read-all';
   static const patientTodayQueue = '$_base/patient/queues/today';
   static const patientJoinQueue = '$_base/patient/queues/join';
   static String cancelAppointment(int id) =>
       '$_base/patient/appointments/$id/cancel';
+  static String patientNotificationMarkRead(int id) =>
+      '$_base/patient/notifications/$id/read';
   static String updatePatientProfile(int id) => '$_base/patient/profile/$id';
+  static const staffNotifications = '$_base/staff/notifications';
+  static const staffNotificationsMarkAllRead =
+      '$_base/staff/notifications/read-all';
+  static String staffNotificationMarkRead(int id) =>
+      '$_base/staff/notifications/$id/read';
   static String updateStaffProfile(int id) => '$_base/staff/profile/$id';
 
   static String adminAppointmentsByDate(String date) =>

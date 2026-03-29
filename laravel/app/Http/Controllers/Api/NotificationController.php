@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\PatientRecord;
 use App\Models\PatientNotification;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
@@ -23,14 +22,16 @@ class NotificationController extends Controller
 
         return response()->json([
             'notifications' => $this->notificationService->listForUser($user)->values(),
+            'unread_count' => $this->notificationService->unreadCountForUser($user),
         ]);
     }
 
     public function show(Request $request, PatientNotification $notification): JsonResponse
     {
-        $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
+        /** @var \App\Models\User $user */
+        $user = $request->user();
 
-        if ((int) $notification->patient_id !== (int) $patientRecord->id) {
+        if (!$this->notificationService->canAccessNotification($user, $notification)) {
             return response()->json([
                 'message' => 'Unauthorized. You can only view your own notifications.',
             ], 403);
@@ -41,11 +42,37 @@ class NotificationController extends Controller
         ]);
     }
 
-    private function resolveAuthenticatedPatientRecord(Request $request): PatientRecord
+    public function markAsRead(Request $request, PatientNotification $notification): JsonResponse
     {
         /** @var \App\Models\User $user */
         $user = $request->user();
 
-        return PatientRecord::resolveForUser($user);
+        if (!$this->notificationService->canAccessNotification($user, $notification)) {
+            return response()->json([
+                'message' => 'Unauthorized. You can only update your own notifications.',
+            ], 403);
+        }
+
+        $notification = $this->notificationService->markNotificationAsRead($notification);
+
+        return response()->json([
+            'message' => 'Notification marked as read.',
+            'notification' => $this->notificationService->formatNotification($notification),
+            'unread_count' => $this->notificationService->unreadCountForUser($user),
+        ]);
+    }
+
+    public function markAllAsRead(Request $request): JsonResponse
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $updatedCount = $this->notificationService->markAllAsReadForUser($user);
+
+        return response()->json([
+            'message' => 'Notifications marked as read.',
+            'updated_count' => $updatedCount,
+            'unread_count' => $this->notificationService->unreadCountForUser($user),
+        ]);
     }
 }

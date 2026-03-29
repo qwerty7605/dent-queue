@@ -65,8 +65,12 @@ Route::prefix('v1')->group(function () {
             Route::get('/appointments/history', [AppointmentController::class, 'medicalHistory']);
             Route::apiResource('appointments', AppointmentController::class);
             Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel']);
+            Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
             Route::get('/notifications', [NotificationController::class, 'index']);
-            Route::get('/notifications/{notification}', [NotificationController::class, 'show']);
+            Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
+                ->whereNumber('notification');
+            Route::get('/notifications/{notification}', [NotificationController::class, 'show'])
+                ->whereNumber('notification');
             Route::get('/queues/today', [QueueController::class, 'index']);
             Route::post('/queues/join', [QueueController::class, 'store']);
             Route::match(['put', 'patch'], '/profile/{id}', [PatientProfileController::class, 'update'])
@@ -74,7 +78,10 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::prefix('staff')->middleware('role:staff')->group(function () {
+            Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
             Route::get('/notifications', [NotificationController::class, 'index']);
+            Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
+                ->whereNumber('notification');
             Route::match(['put', 'patch'], '/profile/{id}', [StaffProfileController::class, 'update'])
                 ->whereNumber('id');
         });

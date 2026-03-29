@@ -65,6 +65,7 @@ class NotificationListRetrievalApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonCount(2, 'notifications')
+            ->assertJsonPath('unread_count', 1)
             ->assertJsonStructure([
                 'notifications' => [
                     '*' => [
@@ -115,6 +116,7 @@ class NotificationListRetrievalApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'notifications' => [],
+                'unread_count' => 0,
             ]);
     }
 
@@ -128,6 +130,7 @@ class NotificationListRetrievalApiTest extends TestCase
             ->assertOk()
             ->assertExactJson([
                 'notifications' => [],
+                'unread_count' => 0,
             ]);
     }
 
