@@ -5,22 +5,24 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\PatientRecord;
 use App\Models\PatientNotification;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
+    public function __construct(
+        private readonly NotificationService $notificationService,
+    ) {
+    }
+
     public function index(Request $request): JsonResponse
     {
-        $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
-
-        $notifications = PatientNotification::query()
-            ->where('patient_id', (int) $patientRecord->id)
-            ->orderByDesc('created_at')
-            ->get();
+        /** @var \App\Models\User $user */
+        $user = $request->user();
 
         return response()->json([
-            'notifications' => $notifications->map(fn (PatientNotification $notification) => $this->formatNotificationResponse($notification)),
+            'notifications' => $this->notificationService->listForUser($user)->values(),
         ]);
     }
 
@@ -35,22 +37,8 @@ class NotificationController extends Controller
         }
 
         return response()->json([
-            'notification' => $this->formatNotificationResponse($notification),
+            'notification' => $this->notificationService->formatNotification($notification),
         ]);
-    }
-
-    private function formatNotificationResponse(PatientNotification $notification): array
-    {
-        return [
-            'id' => (int) $notification->id,
-            'patient_id' => (int) $notification->patient_id,
-            'appointment_id' => (int) $notification->appointment_id,
-            'type' => (string) $notification->type,
-            'title' => (string) $notification->title,
-            'message' => (string) $notification->message,
-            'read_at' => optional($notification->read_at)?->toIso8601String(),
-            'timestamp_created' => optional($notification->created_at)?->toIso8601String(),
-        ];
     }
 
     private function resolveAuthenticatedPatientRecord(Request $request): PatientRecord
