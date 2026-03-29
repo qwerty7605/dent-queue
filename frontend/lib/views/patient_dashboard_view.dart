@@ -17,11 +17,13 @@ class PatientDashboardView extends StatefulWidget {
     required this.userInfo,
     required this.onLogout,
     required this.loggingOut,
+    this.appointmentService,
   });
 
   final Map<String, dynamic>? userInfo;
   final VoidCallback onLogout;
   final bool loggingOut;
+  final AppointmentService? appointmentService;
 
   @override
   State<PatientDashboardView> createState() => _PatientDashboardViewState();
@@ -46,14 +48,22 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   void initState() {
     super.initState();
     _localUserInfo = widget.userInfo ?? {};
-    _appointmentService = AppointmentService(
-      BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
-    );
+    _appointmentService =
+        widget.appointmentService ??
+        AppointmentService(
+          BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
+        );
     _loadAppointments();
   }
 
-  Future<void> _loadAppointments() async {
-    setState(() => _isLoadingAppointments = true);
+  Future<void> _loadAppointments({bool showLoader = true}) async {
+    final bool hasVisibleContent =
+        _appointments.isNotEmpty || _todayQueueStatus != null;
+
+    if (showLoader || !hasVisibleContent) {
+      setState(() => _isLoadingAppointments = true);
+    }
+
     try {
       final list = await _appointmentService.getPatientAppointments();
       Map<String, dynamic>? queueStatus;
@@ -70,11 +80,24 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       });
     } catch (e) {
       if (!mounted) return;
+
+      if (!showLoader && hasVisibleContent) {
+        setState(() {
+          _isLoadingAppointments = false;
+        });
+        _showStatusMessage('Unable to refresh appointments right now.');
+        return;
+      }
+
       setState(() {
         _isLoadingAppointments = false;
         _todayQueueStatus = null;
       });
     }
+  }
+
+  Future<void> _refreshAppointmentsAndQueue() {
+    return _loadAppointments(showLoader: false);
   }
 
   Future<void> _joinTodayQueue() async {
@@ -107,6 +130,16 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
         });
       }
     }
+  }
+
+  void _showStatusMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -471,238 +504,252 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   Widget _buildBody() {
     final visibleAppointments = _visibleAppointments();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 96),
-      child: Column(
-        children: [
-          if (_successMessage != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              decoration: BoxDecoration(
-                color: _messageType == 'success'
-                    ? const Color(0xFFE8F5E9)
-                    : const Color(0xFFFFCCCC),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    _messageType == 'success'
-                        ? Icons.check_circle_outline
-                        : Icons.error_outline,
-                    color: _messageType == 'success'
-                        ? const Color(0xFF2E7D32)
-                        : const Color(0xFFD32F2F),
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _successMessage!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: _messageType == 'success'
-                            ? const Color(0xFF2E7D32)
-                            : const Color(0xFFD32F2F),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+    return RefreshIndicator(
+      key: const Key('patient-dashboard-refresh'),
+      onRefresh: _refreshAppointmentsAndQueue,
+      color: const Color(0xFF679B6A),
+      child: SingleChildScrollView(
+        key: const Key('patient-dashboard-scroll'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 96),
+        child: Column(
+          children: [
+            if (_successMessage != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: _messageType == 'success'
+                      ? const Color(0xFFE8F5E9)
+                      : const Color(0xFFFFCCCC),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 24),
-          const Center(
-            child: Text(
-              'PATIENT DASHBOARD',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Builder(
-            builder: (context) {
-              final pendingCount = _appointments
-                  .where(
-                    (a) =>
-                        _normalizeAppointmentStatus(a['status']) == 'pending',
-                  )
-                  .length;
-              final approvedCount = _appointments
-                  .where(
-                    (a) =>
-                        _normalizeAppointmentStatus(a['status']) == 'approved',
-                  )
-                  .length;
-              final completedCount = _appointments
-                  .where(
-                    (a) =>
-                        _normalizeAppointmentStatus(a['status']) == 'completed',
-                  )
-                  .length;
-              final cancelledCount = _appointments
-                  .where(
-                    (a) =>
-                        _normalizeAppointmentStatus(a['status']) == 'cancelled',
-                  )
-                  .length;
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  children: [
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 16,
-                      childAspectRatio: 1.35,
-                      children: [
-                        _buildStatusCard(
-                          title: 'PENDING',
-                          count: pendingCount.toString(),
-                          icon: Icons.access_time_filled,
-                          color: Colors.orange,
-                          backgroundColor: const Color(0xFFFFF7EF),
-                          filter: _PatientAppointmentFilter.pending,
-                        ),
-                        _buildStatusCard(
-                          title: 'APPROVED',
-                          count: approvedCount.toString(),
-                          icon: Icons.check_circle_outline,
-                          color: Colors.blue,
-                          backgroundColor: const Color(0xFFF1F7FF),
-                          filter: _PatientAppointmentFilter.approved,
-                        ),
-                        _buildStatusCard(
-                          title: 'COMPLETED',
-                          count: completedCount.toString(),
-                          icon: Icons.medical_services_outlined,
-                          color: Colors.green,
-                          backgroundColor: const Color(0xFFF1FFF7),
-                          filter: _PatientAppointmentFilter.completed,
-                        ),
-                        _buildStatusCard(
-                          title: 'CANCELLED',
-                          count: cancelledCount.toString(),
-                          icon: Icons.cancel_outlined,
-                          color: Colors.redAccent,
-                          backgroundColor: const Color(0xFFFFF1F1),
-                          filter: _PatientAppointmentFilter.cancelled,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _buildTodayQueuePanel(),
                   ],
                 ),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Row(
-              children: [
-                _buildFilterChip(
-                  'ALL',
-                  filter: _PatientAppointmentFilter.all,
-                  isSelected: _selectedFilter == _PatientAppointmentFilter.all,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _messageType == 'success'
+                          ? Icons.check_circle_outline
+                          : Icons.error_outline,
+                      color: _messageType == 'success'
+                          ? const Color(0xFF2E7D32)
+                          : const Color(0xFFD32F2F),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _successMessage!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _messageType == 'success'
+                              ? const Color(0xFF2E7D32)
+                              : const Color(0xFFD32F2F),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  'Pending',
-                  filter: _PatientAppointmentFilter.pending,
-                  isSelected:
-                      _selectedFilter == _PatientAppointmentFilter.pending,
+              ),
+            const SizedBox(height: 24),
+            const Center(
+              child: Text(
+                'PATIENT DASHBOARD',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                  color: Colors.black87,
                 ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  'Approved',
-                  filter: _PatientAppointmentFilter.approved,
-                  isSelected:
-                      _selectedFilter == _PatientAppointmentFilter.approved,
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  'Completed',
-                  filter: _PatientAppointmentFilter.completed,
-                  isSelected:
-                      _selectedFilter == _PatientAppointmentFilter.completed,
-                ),
-                const SizedBox(width: 8),
-                _buildFilterChip(
-                  'Cancelled',
-                  filter: _PatientAppointmentFilter.cancelled,
-                  isSelected:
-                      _selectedFilter == _PatientAppointmentFilter.cancelled,
-                ),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          if (_isLoadingAppointments)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 48),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_appointments.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 48),
-              child: Center(
-                child: Text(
-                  'No Appointment Yet',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
+            const SizedBox(height: 24),
+            Builder(
+              builder: (context) {
+                final pendingCount = _appointments
+                    .where(
+                      (a) =>
+                          _normalizeAppointmentStatus(a['status']) == 'pending',
+                    )
+                    .length;
+                final approvedCount = _appointments
+                    .where(
+                      (a) =>
+                          _normalizeAppointmentStatus(a['status']) ==
+                          'approved',
+                    )
+                    .length;
+                final completedCount = _appointments
+                    .where(
+                      (a) =>
+                          _normalizeAppointmentStatus(a['status']) ==
+                          'completed',
+                    )
+                    .length;
+                final cancelledCount = _appointments
+                    .where(
+                      (a) =>
+                          _normalizeAppointmentStatus(a['status']) ==
+                          'cancelled',
+                    )
+                    .length;
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Column(
+                    children: [
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                        childAspectRatio: 1.35,
+                        children: [
+                          _buildStatusCard(
+                            title: 'PENDING',
+                            count: pendingCount.toString(),
+                            icon: Icons.access_time_filled,
+                            color: Colors.orange,
+                            backgroundColor: const Color(0xFFFFF7EF),
+                            filter: _PatientAppointmentFilter.pending,
+                          ),
+                          _buildStatusCard(
+                            title: 'APPROVED',
+                            count: approvedCount.toString(),
+                            icon: Icons.check_circle_outline,
+                            color: Colors.blue,
+                            backgroundColor: const Color(0xFFF1F7FF),
+                            filter: _PatientAppointmentFilter.approved,
+                          ),
+                          _buildStatusCard(
+                            title: 'COMPLETED',
+                            count: completedCount.toString(),
+                            icon: Icons.medical_services_outlined,
+                            color: Colors.green,
+                            backgroundColor: const Color(0xFFF1FFF7),
+                            filter: _PatientAppointmentFilter.completed,
+                          ),
+                          _buildStatusCard(
+                            title: 'CANCELLED',
+                            count: cancelledCount.toString(),
+                            icon: Icons.cancel_outlined,
+                            color: Colors.redAccent,
+                            backgroundColor: const Color(0xFFFFF1F1),
+                            filter: _PatientAppointmentFilter.cancelled,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _buildTodayQueuePanel(),
+                    ],
                   ),
-                ),
-              ),
-            )
-          else if (visibleAppointments.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 48),
-              child: Center(
-                child: Text(
-                  'No appointments found for this status.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
-                  ),
-                ),
-              ),
-            )
-          else
-            ListView.builder(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 8.0,
-              ),
-              itemCount: visibleAppointments.length,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemBuilder: (context, index) {
-                return _buildAppointmentCard(visibleAppointments[index]);
+                );
               },
             ),
-        ],
+            const SizedBox(height: 24),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Row(
+                children: [
+                  _buildFilterChip(
+                    'ALL',
+                    filter: _PatientAppointmentFilter.all,
+                    isSelected:
+                        _selectedFilter == _PatientAppointmentFilter.all,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    'Pending',
+                    filter: _PatientAppointmentFilter.pending,
+                    isSelected:
+                        _selectedFilter == _PatientAppointmentFilter.pending,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    'Approved',
+                    filter: _PatientAppointmentFilter.approved,
+                    isSelected:
+                        _selectedFilter == _PatientAppointmentFilter.approved,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    'Completed',
+                    filter: _PatientAppointmentFilter.completed,
+                    isSelected:
+                        _selectedFilter == _PatientAppointmentFilter.completed,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    'Cancelled',
+                    filter: _PatientAppointmentFilter.cancelled,
+                    isSelected:
+                        _selectedFilter == _PatientAppointmentFilter.cancelled,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_isLoadingAppointments)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_appointments.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: Center(
+                  child: Text(
+                    'No Appointment Yet',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              )
+            else if (visibleAppointments.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: Center(
+                  child: Text(
+                    'No appointments found for this status.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              )
+            else
+              ListView.builder(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 8.0,
+                ),
+                itemCount: visibleAppointments.length,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemBuilder: (context, index) {
+                  return _buildAppointmentCard(visibleAppointments[index]);
+                },
+              ),
+          ],
+        ),
       ),
     );
   }

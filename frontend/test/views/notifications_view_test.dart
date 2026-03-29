@@ -11,13 +11,23 @@ class _FakeNotificationService extends Fake implements NotificationService {
     unreadCount: 0,
   );
 
+  List<NotificationListResult> queuedResults = <NotificationListResult>[];
   final List<int> markedIds = <int>[];
   int markAllCalls = 0;
+  int listCalls = 0;
   String? lastListedRole;
 
   @override
   Future<NotificationListResult> getNotifications(String role) async {
+    listCalls += 1;
     lastListedRole = role;
+    if (queuedResults.isNotEmpty) {
+      final int index = listCalls <= queuedResults.length
+          ? listCalls - 1
+          : queuedResults.length - 1;
+      nextResult = queuedResults[index];
+    }
+
     return nextResult;
   }
 
@@ -181,5 +191,79 @@ void main() {
     expect(notificationService.markAllCalls, 1);
     expect(find.text('All caught up'), findsOneWidget);
     expect(find.byKey(const Key('notification-mark-all-button')), findsNothing);
+  });
+
+  testWidgets('pull to refresh reloads the notifications list', (
+    WidgetTester tester,
+  ) async {
+    final InMemoryTokenStorage tokenStorage = InMemoryTokenStorage();
+    await tokenStorage.writeUserInfo(<String, dynamic>{'role': 'patient'});
+
+    final _FakeNotificationService notificationService =
+        _FakeNotificationService()
+          ..queuedResults = <NotificationListResult>[
+            NotificationListResult(
+              notifications: <AppNotification>[
+                AppNotification(
+                  id: 30,
+                  title: 'Queued update',
+                  message: 'Initial notification state.',
+                  createdAt: DateTime(2026, 3, 30, 8, 0),
+                  isRead: false,
+                  type: 'queue',
+                ),
+              ],
+              unreadCount: 1,
+            ),
+            NotificationListResult(
+              notifications: <AppNotification>[
+                AppNotification(
+                  id: 30,
+                  title: 'Queued update',
+                  message: 'Initial notification state.',
+                  createdAt: DateTime(2026, 3, 30, 8, 0),
+                  isRead: false,
+                  type: 'queue',
+                ),
+                AppNotification(
+                  id: 31,
+                  title: 'Reminder',
+                  message: 'Refreshed notification state.',
+                  createdAt: DateTime(2026, 3, 30, 8, 30),
+                  isRead: false,
+                  type: 'reminder',
+                ),
+              ],
+              unreadCount: 2,
+            ),
+          ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: NotificationsView(
+          notificationService: notificationService,
+          tokenStorage: tokenStorage,
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(notificationService.listCalls, 1);
+    expect(find.byKey(const Key('notifications-refresh')), findsOneWidget);
+    expect(find.text('Initial notification state.'), findsOneWidget);
+
+    await tester.drag(
+      find.byKey(const Key('notifications-list')),
+      const Offset(0, 300),
+    );
+    await tester.pump();
+
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+
+    await tester.pumpAndSettle();
+
+    expect(notificationService.listCalls, 2);
+    expect(find.text('Refreshed notification state.'), findsOneWidget);
   });
 }
