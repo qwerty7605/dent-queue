@@ -27,6 +27,8 @@ class Endpoints {
       '$_base/admin/calendar/appointments/$id';
   static const adminDashboardStats = '$_base/admin/dashboard/stats';
   static const adminReportsSummary = '$_base/admin/reports/summary';
+  static String adminReportsTrends(String trendType) =>
+      '$_base/admin/reports/trends?trend_type=${Uri.encodeQueryComponent(trendType)}';
   static const adminProfileUpdate = '$_base/admin/profile';
   static const adminAppointments = '$_base/admin/appointments';
   static const adminMasterList = '$_base/admin/appointments/master-list';
