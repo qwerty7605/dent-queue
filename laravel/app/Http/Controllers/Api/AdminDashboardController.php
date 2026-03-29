@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\ReportService;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
-
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class AdminDashboardController extends Controller
 {
@@ -101,6 +103,29 @@ class AdminDashboardController extends Controller
 
         return response()->json([
             'data' => $data
+        ]);
+    }
+
+    /**
+     * Get grouped appointment trend counts for the reports chart.
+     */
+    public function appointmentTrends(Request $request, ReportService $reportService): JsonResponse
+    {
+        $trendType = (string) $request->query('trend_type', 'daily');
+
+        validator(
+            ['trend_type' => $trendType],
+            [
+                'trend_type' => [
+                    'required',
+                    'string',
+                    Rule::in(ReportService::supportedTrendTypes()),
+                ],
+            ],
+        )->validate();
+
+        return response()->json([
+            'data' => $reportService->getAppointmentTrends($trendType),
         ]);
     }
 }
