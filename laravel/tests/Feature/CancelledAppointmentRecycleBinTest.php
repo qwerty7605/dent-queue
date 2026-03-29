@@ -8,8 +8,10 @@ use App\Models\Service;
 use App\Models\User;
 use App\Services\AppointmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -79,6 +81,111 @@ class CancelledAppointmentRecycleBinTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.total_appointments', 1)
             ->assertJsonPath('data.cancelled_count', 1);
+    }
+
+    public function test_cancel_response_exposes_recycle_bin_expiration_state(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $appointment = $this->createAppointment($patient->id, 'pending', '2026-04-26', '10:00');
+        $frozenNow = Carbon::parse('2026-03-30 09:10:00', 'UTC');
+
+        Carbon::setTestNow($frozenNow);
+
+        try {
+            Sanctum::actingAs($patient);
+
+            $response = $this->patchJson('/api/v1/patient/appointments/' . $appointment->id . '/cancel')
+                ->assertOk()
+                ->assertJsonPath('appointment.recycle_bin.deleted_at', $frozenNow->toIso8601String())
+                ->assertJsonPath(
+                    'appointment.recycle_bin.expires_at',
+                    $frozenNow->copy()->addDays(7)->toIso8601String(),
+                )
+                ->assertJsonPath('appointment.recycle_bin.is_expired', false)
+                ->assertJsonPath('appointment.recycle_bin.is_restorable', true)
+                ->assertJsonPath('appointment.recycle_bin.restore_window_days', 7);
+
+            $this->assertNotNull(data_get($response->json(), 'appointment.recycle_bin'));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_expired_recycle_bin_appointments_are_detected_and_cannot_be_restored(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $appointment = $this->createAppointment($patient->id, 'cancelled', '2026-04-27', '13:00');
+        $expiredNow = Carbon::parse('2026-03-30 12:00:00', 'UTC');
+
+        $appointment->delete();
+
+        Appointment::withTrashed()
+            ->whereKey($appointment->id)
+            ->update([
+                'deleted_at' => $expiredNow->copy()->subDays(8),
+            ]);
+
+        $recycledAppointment = app(AppointmentService::class)->findRecycleBinAppointment((int) $appointment->id);
+
+        $this->assertNotNull($recycledAppointment);
+        $this->assertTrue(
+            app(AppointmentService::class)->isRecycleBinAppointmentExpired($recycledAppointment, $expiredNow),
+        );
+        $this->assertFalse(
+            app(AppointmentService::class)->canRestoreRecycleBinAppointment($recycledAppointment, $expiredNow),
+        );
+        $this->assertSame(
+            $expiredNow->copy()->subDay()->toIso8601String(),
+            data_get(
+                app(AppointmentService::class)->buildRecycleBinState($recycledAppointment, $expiredNow),
+                'expires_at',
+            ),
+        );
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('This cancelled appointment is no longer eligible for restore.');
+
+        app(AppointmentService::class)->assertRecycleBinAppointmentCanBeRestored(
+            $recycledAppointment,
+            $expiredNow,
+        );
+    }
+
+    public function test_recent_recycle_bin_appointments_remain_restorable_inside_the_restore_window(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $appointment = $this->createAppointment($patient->id, 'cancelled', '2026-04-28', '15:00');
+        $referenceTime = Carbon::parse('2026-03-30 12:00:00', 'UTC');
+
+        $appointment->delete();
+
+        Appointment::withTrashed()
+            ->whereKey($appointment->id)
+            ->update([
+                'deleted_at' => $referenceTime->copy()->subDays(2),
+            ]);
+
+        $recycledAppointment = app(AppointmentService::class)->findRecycleBinAppointment((int) $appointment->id);
+
+        $this->assertNotNull($recycledAppointment);
+        $this->assertFalse(
+            app(AppointmentService::class)->isRecycleBinAppointmentExpired($recycledAppointment, $referenceTime),
+        );
+        $this->assertTrue(
+            app(AppointmentService::class)->canRestoreRecycleBinAppointment($recycledAppointment, $referenceTime),
+        );
+
+        app(AppointmentService::class)->assertRecycleBinAppointmentCanBeRestored(
+            $recycledAppointment,
+            $referenceTime,
+        );
+
+        $this->assertTrue(
+            data_get(
+                app(AppointmentService::class)->buildRecycleBinState($recycledAppointment, $referenceTime),
+                'is_restorable',
+            ),
+        );
     }
 
     private function createAppointment(

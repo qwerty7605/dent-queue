@@ -17,6 +17,7 @@ class AppointmentService
 {
     private const DAILY_QUEUE_LIMIT = 50;
     private const MAX_QUEUE_ASSIGNMENT_RETRIES = 5;
+    private const RECYCLE_BIN_RESTORE_WINDOW_DAYS = 7;
     private const STATUS_PENDING = 'pending';
     private const STATUS_CONFIRMED = 'confirmed';
     private const STATUS_CANCELLED = 'cancelled';
@@ -464,6 +465,64 @@ class AppointmentService
             ->first();
     }
 
+    public function getRecycleBinRestoreWindowDays(): int
+    {
+        return self::RECYCLE_BIN_RESTORE_WINDOW_DAYS;
+    }
+
+    public function buildRecycleBinState(Appointment $appointment, ?Carbon $referenceTime = null): array
+    {
+        $expiresAt = $this->resolveRecycleBinExpiresAt($appointment);
+        $isExpired = $this->isRecycleBinAppointmentExpired($appointment, $referenceTime);
+
+        return [
+            'deleted_at' => optional($appointment->deleted_at)?->toIso8601String(),
+            'expires_at' => $expiresAt?->toIso8601String(),
+            'is_expired' => $isExpired,
+            'is_restorable' => $this->canRestoreRecycleBinAppointment($appointment, $referenceTime),
+            'restore_window_days' => self::RECYCLE_BIN_RESTORE_WINDOW_DAYS,
+        ];
+    }
+
+    public function isRecycleBinAppointmentExpired(Appointment $appointment, ?Carbon $referenceTime = null): bool
+    {
+        $expiresAt = $this->resolveRecycleBinExpiresAt($appointment);
+        if ($expiresAt === null) {
+            return false;
+        }
+
+        $comparisonTime = $referenceTime?->copy()
+            ?? Carbon::now((string) config('app.timezone', 'UTC'));
+
+        return $comparisonTime->greaterThanOrEqualTo($expiresAt);
+    }
+
+    public function canRestoreRecycleBinAppointment(Appointment $appointment, ?Carbon $referenceTime = null): bool
+    {
+        if (!$this->isRecycleBinAppointment($appointment)) {
+            return false;
+        }
+
+        return !$this->isRecycleBinAppointmentExpired($appointment, $referenceTime);
+    }
+
+    public function assertRecycleBinAppointmentCanBeRestored(
+        Appointment $appointment,
+        ?Carbon $referenceTime = null,
+    ): void {
+        if (!$this->isRecycleBinAppointment($appointment)) {
+            throw ValidationException::withMessages([
+                'appointment' => ['Only cancelled appointments in the recycle bin can be restored.'],
+            ]);
+        }
+
+        if ($this->isRecycleBinAppointmentExpired($appointment, $referenceTime)) {
+            throw ValidationException::withMessages([
+                'appointment' => ['This cancelled appointment is no longer eligible for restore.'],
+            ]);
+        }
+    }
+
     private function normalizeStatus(string $status): ?string
     {
         $normalized = mb_strtolower(trim($status));
@@ -608,6 +667,22 @@ class AppointmentService
         return Appointment::withTrashed()
             ->with(['patient', 'queue', 'service'])
             ->findOrFail($appointmentId);
+    }
+
+    private function resolveRecycleBinExpiresAt(Appointment $appointment): ?Carbon
+    {
+        if (!$this->isRecycleBinAppointment($appointment)) {
+            return null;
+        }
+
+        return $appointment->deleted_at
+            ? $appointment->deleted_at->copy()->addDays(self::RECYCLE_BIN_RESTORE_WINDOW_DAYS)
+            : null;
+    }
+
+    private function isRecycleBinAppointment(Appointment $appointment): bool
+    {
+        return $appointment->trashed() && (string) $appointment->status === self::STATUS_CANCELLED;
     }
 
     private function recycleBinAppointmentsQuery(): Builder
