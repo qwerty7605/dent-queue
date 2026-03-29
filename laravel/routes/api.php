@@ -74,6 +74,7 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::prefix('staff')->middleware('role:staff')->group(function () {
+            Route::get('/notifications', [NotificationController::class, 'index']);
             Route::match(['put', 'patch'], '/profile/{id}', [StaffProfileController::class, 'update'])
                 ->whereNumber('id');
         });
