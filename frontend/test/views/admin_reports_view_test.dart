@@ -79,6 +79,92 @@ class _FakeBaseService extends Fake implements BaseService {
 
 void main() {
   testWidgets(
+    'renders report filters with the supported status and booking type options',
+    (WidgetTester tester) async {
+      final BaseService baseService = _FakeBaseService();
+      final AdminDashboardService adminDashboardService = AdminDashboardService(
+        baseService,
+      );
+      final AppointmentService appointmentService = AppointmentService(
+        baseService,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AdminReportsView(
+              adminDashboardService: adminDashboardService,
+              appointmentService: appointmentService,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('report-filters-section')), findsOneWidget);
+      expect(find.byKey(const Key('report-filter-start-date')), findsOneWidget);
+      expect(find.byKey(const Key('report-filter-end-date')), findsOneWidget);
+      expect(find.byKey(const Key('report-filter-status')), findsOneWidget);
+      expect(
+        find.byKey(const Key('report-filter-booking-type')),
+        findsOneWidget,
+      );
+      expect(find.text('Apply Filters'), findsOneWidget);
+      expect(find.text('Reset'), findsOneWidget);
+
+      final Finder statusField = find.byKey(
+        const Key('report-filter-status-field'),
+      );
+      await tester.ensureVisible(statusField);
+      await tester.tap(statusField);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('report-filter-status-option-pending')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('report-filter-status-option-approved')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('report-filter-status-option-completed')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('report-filter-status-option-cancelled')),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const Key('report-filter-status-option-approved')),
+      );
+      await tester.pumpAndSettle();
+
+      final Finder bookingTypeField = find.byKey(
+        const Key('report-filter-booking-type-field'),
+      );
+      await tester.ensureVisible(bookingTypeField);
+      await tester.tap(bookingTypeField);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(
+          const Key('report-filter-booking-type-option-online-booking'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const Key('report-filter-booking-type-option-walk-in-booking'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'loads appointment trends from the api and switches daily weekly monthly views',
     (WidgetTester tester) async {
       final BaseService baseService = _FakeBaseService();

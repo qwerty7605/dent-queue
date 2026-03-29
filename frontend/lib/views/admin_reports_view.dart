@@ -13,6 +13,13 @@ class _AppointmentTrendPoint {
   final int count;
 }
 
+class _ReportFilterChipData {
+  const _ReportFilterChipData({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
 class AdminReportsView extends StatefulWidget {
   const AdminReportsView({
     super.key,
@@ -31,11 +38,29 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   static const Color _reportAccent = Color(0xFF3F6341);
   static const Color _reportAccentSoft = Color(0xFF6A9A8B);
   static const Color _reportHighlight = Color(0xFFE8C355);
+  static const List<String> _reportStatuses = <String>[
+    'Pending',
+    'Approved',
+    'Completed',
+    'Cancelled',
+  ];
+  static const List<String> _reportBookingTypes = <String>[
+    'Online Booking',
+    'Walk-In Booking',
+  ];
 
   bool _isLoading = true;
   bool _isTrendLoading = true;
   String? _trendLoadError;
   List<Map<String, dynamic>> _detailedRecords = [];
+  DateTime? _draftStartDate;
+  DateTime? _draftEndDate;
+  String? _draftStatus;
+  String? _draftBookingType;
+  DateTime? _appliedStartDate;
+  DateTime? _appliedEndDate;
+  String? _appliedStatus;
+  String? _appliedBookingType;
 
   final Map<_TrendView, List<_AppointmentTrendPoint>> _appointmentTrends =
       <_TrendView, List<_AppointmentTrendPoint>>{
@@ -248,6 +273,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
           ),
           const SizedBox(height: 56),
 
+          _buildReportFilterSection(),
+          const SizedBox(height: 56),
+
           _buildAppointmentTrendsSection(),
           const SizedBox(height: 56),
 
@@ -260,6 +288,583 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         ],
       ),
     );
+  }
+
+  Widget _buildReportFilterSection() {
+    return Container(
+      key: const Key('report-filters-section'),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: const Border(
+          top: BorderSide(color: _reportHighlight, width: 6),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final bool compactHeader = constraints.maxWidth < 900;
+            final double fieldWidth = _reportFilterFieldWidth(
+              constraints.maxWidth,
+            );
+
+            final Widget header = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF7E0),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.filter_alt_outlined,
+                        size: 16,
+                        color: Color(0xFF8A6B10),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Prepared For API',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF8A6B10),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Report Filters',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Stage a report window, appointment status, and booking channel before the filtered reports endpoints are connected.',
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF5E6C63),
+                  ),
+                ),
+              ],
+            );
+
+            final Widget actions = Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('report-filter-reset'),
+                  onPressed: _resetReportFilters,
+                  icon: const Icon(Icons.restart_alt),
+                  label: const Text(
+                    'Reset',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF55655B),
+                    side: const BorderSide(color: Color(0xFFD2DCD4)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+                FilledButton.icon(
+                  key: const Key('report-filter-apply'),
+                  onPressed: _applyReportFilters,
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text(
+                    'Apply Filters',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _reportAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+              ],
+            );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (compactHeader)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [header, const SizedBox(height: 20), actions],
+                  )
+                else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: header),
+                      const SizedBox(width: 24),
+                      actions,
+                    ],
+                  ),
+                const SizedBox(height: 24),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: [
+                    SizedBox(
+                      width: fieldWidth,
+                      child: _buildDateFilterField(
+                        fieldKey: const Key('report-filter-start-date'),
+                        label: 'Start Date',
+                        placeholder: 'Select start date',
+                        value: _draftStartDate,
+                        onTap: () => _pickReportFilterDate(isStartDate: true),
+                      ),
+                    ),
+                    SizedBox(
+                      width: fieldWidth,
+                      child: _buildDateFilterField(
+                        fieldKey: const Key('report-filter-end-date'),
+                        label: 'End Date',
+                        placeholder: 'Select end date',
+                        value: _draftEndDate,
+                        onTap: () => _pickReportFilterDate(isStartDate: false),
+                      ),
+                    ),
+                    SizedBox(
+                      width: fieldWidth,
+                      child: _buildDropdownFilterField(
+                        fieldKey: const Key('report-filter-status-field'),
+                        containerKey: const Key('report-filter-status'),
+                        optionPrefix: 'report-filter-status',
+                        label: 'Status',
+                        hint: 'Select status',
+                        icon: Icons.flag_outlined,
+                        value: _draftStatus,
+                        options: _reportStatuses,
+                        onChanged: (String? value) {
+                          setState(() {
+                            _draftStatus = value;
+                          });
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: fieldWidth,
+                      child: _buildDropdownFilterField(
+                        fieldKey: const Key('report-filter-booking-type-field'),
+                        containerKey: const Key('report-filter-booking-type'),
+                        optionPrefix: 'report-filter-booking-type',
+                        label: 'Booking Type',
+                        hint: 'Select booking type',
+                        icon: Icons.meeting_room_outlined,
+                        value: _draftBookingType,
+                        options: _reportBookingTypes,
+                        onChanged: (String? value) {
+                          setState(() {
+                            _draftBookingType = value;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FBF8),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFDCE7DE)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.integration_instructions_outlined,
+                            size: 18,
+                            color: _reportAccent,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _hasAppliedReportFilters
+                                ? 'Applied filters: ${_appliedFilterChips.length}'
+                                : 'No filters applied yet',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Selections are stored locally for now so the layout is ready when filtered report requests are added.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.45,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF647167),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      if (_hasAppliedReportFilters)
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: _appliedFilterChips.map((chip) {
+                            return _buildAppliedFilterChip(chip);
+                          }).toList(),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFDCE7DE)),
+                          ),
+                          child: const Text(
+                            'Choose a date range, status, or booking type, then apply to preview the filter payload.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF5E6C63),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  double _reportFilterFieldWidth(double maxWidth) {
+    if (maxWidth >= 1200) {
+      return (maxWidth - 48) / 4;
+    }
+
+    if (maxWidth >= 720) {
+      return (maxWidth - 16) / 2;
+    }
+
+    return maxWidth;
+  }
+
+  Widget _buildDateFilterField({
+    required Key fieldKey,
+    required String label,
+    required String placeholder,
+    required DateTime? value,
+    required VoidCallback onTap,
+  }) {
+    final bool hasValue = value != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF5E6C63),
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          key: fieldKey,
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: InputDecorator(
+            decoration: _reportFilterInputDecoration(
+              hintText: placeholder,
+              suffixIcon: const Icon(
+                Icons.calendar_today_outlined,
+                size: 18,
+                color: Color(0xFF55655B),
+              ),
+            ),
+            child: Text(
+              hasValue ? _formatReportFilterDate(value) : placeholder,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: hasValue ? Colors.black87 : const Color(0xFF8A948D),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdownFilterField({
+    required Key fieldKey,
+    required Key containerKey,
+    required String optionPrefix,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required String? value,
+    required List<String> options,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      key: containerKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF5E6C63),
+            ),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            key: fieldKey,
+            initialValue: value,
+            onChanged: onChanged,
+            icon: const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF55655B),
+            ),
+            decoration: _reportFilterInputDecoration(
+              hintText: hint,
+              prefixIcon: Icon(icon, size: 18, color: const Color(0xFF55655B)),
+            ),
+            items: options.map((String option) {
+              return DropdownMenuItem<String>(
+                value: option,
+                child: Text(
+                  option,
+                  key: Key('$optionPrefix-option-${_slugFilterKey(option)}'),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _reportFilterInputDecoration({
+    required String hintText,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(
+        color: Color(0xFF8A948D),
+        fontWeight: FontWeight.w600,
+      ),
+      prefixIcon: prefixIcon,
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: const Color(0xFFF6F8F4),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFD6DED8)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFD6DED8)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: _reportAccent, width: 1.5),
+      ),
+    );
+  }
+
+  Widget _buildAppliedFilterChip(_ReportFilterChipData chip) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFD6DED8)),
+      ),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: '${chip.label}: ',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF5E6C63),
+              ),
+            ),
+            TextSpan(
+              text: chip.value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<_ReportFilterChipData> get _appliedFilterChips {
+    final List<_ReportFilterChipData> chips = <_ReportFilterChipData>[];
+
+    if (_appliedStartDate != null) {
+      chips.add(
+        _ReportFilterChipData(
+          label: 'Start Date',
+          value: _formatReportFilterDate(_appliedStartDate),
+        ),
+      );
+    }
+
+    if (_appliedEndDate != null) {
+      chips.add(
+        _ReportFilterChipData(
+          label: 'End Date',
+          value: _formatReportFilterDate(_appliedEndDate),
+        ),
+      );
+    }
+
+    if (_appliedStatus != null) {
+      chips.add(_ReportFilterChipData(label: 'Status', value: _appliedStatus!));
+    }
+
+    if (_appliedBookingType != null) {
+      chips.add(
+        _ReportFilterChipData(
+          label: 'Booking Type',
+          value: _appliedBookingType!,
+        ),
+      );
+    }
+
+    return chips;
+  }
+
+  bool get _hasAppliedReportFilters =>
+      _appliedStartDate != null ||
+      _appliedEndDate != null ||
+      _appliedStatus != null ||
+      _appliedBookingType != null;
+
+  Future<void> _pickReportFilterDate({required bool isStartDate}) async {
+    final DateTime now = DateTime.now();
+    final DateTime initialDate = isStartDate
+        ? (_draftStartDate ?? now)
+        : (_draftEndDate ?? _draftStartDate ?? now);
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      helpText: isStartDate ? 'Select start date' : 'Select end date',
+    );
+
+    if (picked == null) {
+      return;
+    }
+
+    final DateTime selectedDate = DateTime(
+      picked.year,
+      picked.month,
+      picked.day,
+    );
+
+    setState(() {
+      if (isStartDate) {
+        _draftStartDate = selectedDate;
+        if (_draftEndDate != null && _draftEndDate!.isBefore(selectedDate)) {
+          _draftEndDate = selectedDate;
+        }
+      } else {
+        _draftEndDate = selectedDate;
+        if (_draftStartDate != null && _draftStartDate!.isAfter(selectedDate)) {
+          _draftStartDate = selectedDate;
+        }
+      }
+    });
+  }
+
+  void _applyReportFilters() {
+    setState(() {
+      _appliedStartDate = _draftStartDate;
+      _appliedEndDate = _draftEndDate;
+      _appliedStatus = _draftStatus;
+      _appliedBookingType = _draftBookingType;
+    });
+  }
+
+  void _resetReportFilters() {
+    setState(() {
+      _draftStartDate = null;
+      _draftEndDate = null;
+      _draftStatus = null;
+      _draftBookingType = null;
+      _appliedStartDate = null;
+      _appliedEndDate = null;
+      _appliedStatus = null;
+      _appliedBookingType = null;
+    });
+  }
+
+  String _formatReportFilterDate(DateTime? value) {
+    if (value == null) {
+      return '-';
+    }
+
+    final String month = value.month.toString().padLeft(2, '0');
+    final String day = value.day.toString().padLeft(2, '0');
+    return '${value.year}-$month-$day';
+  }
+
+  String _slugFilterKey(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
   }
 
   Widget _buildAppointmentTrendsSection() {
