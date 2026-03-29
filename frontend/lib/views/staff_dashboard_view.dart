@@ -27,12 +27,16 @@ class StaffDashboardView extends StatefulWidget {
     required this.tokenStorage,
     required this.onLogout,
     required this.loggingOut,
+    this.appointmentService,
+    this.patientRecordService,
   });
 
   final Map<String, dynamic>? userInfo;
   final TokenStorage tokenStorage;
   final VoidCallback onLogout;
   final bool loggingOut;
+  final AppointmentService? appointmentService;
+  final PatientRecordService? patientRecordService;
 
   @override
   State<StaffDashboardView> createState() => _StaffDashboardViewState();
@@ -61,8 +65,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     super.initState();
     _selectedDate = DateTime.now();
     _baseService = BaseService(ApiClient(tokenStorage: widget.tokenStorage));
-    _appointmentService = AppointmentService(_baseService);
-    _patientRecordService = PatientRecordService(_baseService);
+    _appointmentService =
+        widget.appointmentService ?? AppointmentService(_baseService);
+    _patientRecordService =
+        widget.patientRecordService ?? PatientRecordService(_baseService);
     _localUserInfo = widget.userInfo != null
         ? Map<String, dynamic>.from(widget.userInfo!)
         : <String, dynamic>{};
@@ -79,8 +85,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     bool showLoader = true,
   }) async {
     final date = _formatApiDate(_selectedDate);
+    final bool hasVisibleContent =
+        _appointments.isNotEmpty || _queueStatus != null;
 
-    if (showLoader) {
+    if (showLoader || !hasVisibleContent) {
       setState(() {
         _isLoadingAppointments = true;
         _appointmentsLoadError = null;
@@ -109,6 +117,15 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       });
     } on ApiException catch (e) {
       if (!mounted) return;
+
+      if (!showLoader && hasVisibleContent) {
+        setState(() {
+          _isLoadingAppointments = false;
+        });
+        _showStatusMessage(e.message);
+        return;
+      }
+
       setState(() {
         _appointments = [];
         _queueStatus = null;
@@ -117,6 +134,15 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       });
     } catch (_) {
       if (!mounted) return;
+
+      if (!showLoader && hasVisibleContent) {
+        setState(() {
+          _isLoadingAppointments = false;
+        });
+        _showStatusMessage('Unable to refresh daily queue right now.');
+        return;
+      }
+
       setState(() {
         _appointments = [];
         _queueStatus = null;
@@ -125,6 +151,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             'Unable to load daily queue for $date. Please try again.';
       });
     }
+  }
+
+  Future<void> _refreshAppointmentsAndQueue() {
+    return _loadAppointmentsForSelectedDate(showLoader: false);
   }
 
   Future<void> _initializeAppointments() async {
@@ -843,60 +873,66 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         final horizontalPadding = constraints.maxWidth < 440 ? 14.0 : 22.0;
         final maxWidth = constraints.maxWidth > 1024 ? 920.0 : double.infinity;
 
-        return SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            16,
-            horizontalPadding,
-            16,
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Center(
-                    child: Text(
-                      'STAFF DASHBOARD',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.4,
-                        color: Colors.black87,
+        return RefreshIndicator(
+          key: const Key('staff-dashboard-refresh'),
+          onRefresh: _refreshAppointmentsAndQueue,
+          color: const Color(0xFF679B6A),
+          child: SingleChildScrollView(
+            key: const Key('staff-dashboard-scroll'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              16,
+              horizontalPadding,
+              16,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Center(
+                      child: Text(
+                        'STAFF DASHBOARD',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.4,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDailyQueueHeader(),
-                  const SizedBox(height: 10),
-                  _buildSummaryCards(constraints.maxWidth),
-                  const SizedBox(height: 10),
-                  _buildTodayQueuePanel(),
-                  const SizedBox(height: 14),
-                  _buildSearchField(),
-                  const SizedBox(height: 10),
-                  _buildFilterRow(),
-                  const SizedBox(height: 12),
-                  if (_isLoadingAppointments)
-                    _buildLoadingState()
-                  else if (_appointmentsLoadError != null)
-                    _buildErrorState(_appointmentsLoadError!)
-                  else if (visibleAppointments.isEmpty)
-                    _buildEmptyState()
-                  else
-                    ListView.builder(
-                      itemCount: visibleAppointments.length,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemBuilder: (context, index) {
-                        return _buildAppointmentCard(
-                          visibleAppointments[index],
-                        );
-                      },
-                    ),
-                ],
+                    const SizedBox(height: 16),
+                    _buildDailyQueueHeader(),
+                    const SizedBox(height: 10),
+                    _buildSummaryCards(constraints.maxWidth),
+                    const SizedBox(height: 10),
+                    _buildTodayQueuePanel(),
+                    const SizedBox(height: 14),
+                    _buildSearchField(),
+                    const SizedBox(height: 10),
+                    _buildFilterRow(),
+                    const SizedBox(height: 12),
+                    if (_isLoadingAppointments)
+                      _buildLoadingState()
+                    else if (_appointmentsLoadError != null)
+                      _buildErrorState(_appointmentsLoadError!)
+                    else if (visibleAppointments.isEmpty)
+                      _buildEmptyState()
+                    else
+                      ListView.builder(
+                        itemCount: visibleAppointments.length,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemBuilder: (context, index) {
+                          return _buildAppointmentCard(
+                            visibleAppointments[index],
+                          );
+                        },
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
