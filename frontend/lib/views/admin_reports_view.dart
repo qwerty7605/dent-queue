@@ -32,18 +32,18 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   static const Color _reportAccentSoft = Color(0xFF6A9A8B);
   static const Color _reportHighlight = Color(0xFFE8C355);
 
-  // Prep for API integration
   bool _isLoading = true;
+  bool _isTrendLoading = true;
+  String? _trendLoadError;
   List<Map<String, dynamic>> _detailedRecords = [];
 
-  // Filled by the reports endpoint later; placeholder buckets keep the chart
-  // layout stable before backend integration lands.
   final Map<_TrendView, List<_AppointmentTrendPoint>> _appointmentTrends =
       <_TrendView, List<_AppointmentTrendPoint>>{
         _TrendView.daily: const <_AppointmentTrendPoint>[],
         _TrendView.weekly: const <_AppointmentTrendPoint>[],
         _TrendView.monthly: const <_AppointmentTrendPoint>[],
       };
+  final Set<_TrendView> _loadedTrendViews = <_TrendView>{};
   _TrendView _selectedTrendView = _TrendView.daily;
 
   // Dummy values based on acceptance criteria to ensure zero values do not break UI
@@ -62,7 +62,11 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   }
 
   Future<void> _fetchData() async {
-    await Future.wait([_fetchReportSummary(), _fetchDetailedRecords()]);
+    await Future.wait([
+      _fetchReportSummary(),
+      _fetchDetailedRecords(),
+      _loadTrendData(_selectedTrendView, forceRefresh: true),
+    ]);
   }
 
   Future<void> _fetchDetailedRecords() async {
@@ -100,6 +104,67 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     }
   }
 
+  Future<void> _loadTrendData(
+    _TrendView view, {
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh && _loadedTrendViews.contains(view)) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isTrendLoading = true;
+        _trendLoadError = null;
+        if (forceRefresh) {
+          _loadedTrendViews.remove(view);
+        }
+      });
+    }
+
+    try {
+      final trendRows = await widget.adminDashboardService.getAppointmentTrends(
+        view.name,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _appointmentTrends[view] = trendRows.map(_mapTrendPoint).toList();
+        _loadedTrendViews.add(view);
+        _isTrendLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _appointmentTrends[view] = const <_AppointmentTrendPoint>[];
+        _loadedTrendViews.remove(view);
+        _isTrendLoading = false;
+        _trendLoadError = 'Unable to load appointment trends.';
+      });
+    }
+  }
+
+  _AppointmentTrendPoint _mapTrendPoint(Map<String, dynamic> row) {
+    return _AppointmentTrendPoint(
+      label: row['label']?.toString() ?? '-',
+      count: _toInt(row['count']),
+    );
+  }
+
+  int _toInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -120,7 +185,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: _isLoading ? null : _fetchData,
+                onPressed: _isLoading || _isTrendLoading ? null : _fetchData,
                 icon: const Icon(Icons.refresh),
                 label: const Text(
                   'Refresh',
@@ -199,6 +264,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
   Widget _buildAppointmentTrendsSection() {
     final List<_AppointmentTrendPoint> points = _currentTrendPoints;
+    final bool hasLoadedSelectedTrend = _loadedTrendViews.contains(
+      _selectedTrendView,
+    );
     final bool hasRealData = _hasTrendDataFor(_selectedTrendView);
     final int totalAppointments = points.fold<int>(
       0,
@@ -300,9 +368,15 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                 ),
                 _buildTrendSummaryChip(
                   label: 'Data source',
-                  value: hasRealData ? 'Live' : 'API pending',
-                  icon: hasRealData ? Icons.cloud_done : Icons.cloud_off,
-                  emphasize: !hasRealData,
+                  value: _trendDataSourceLabel(
+                    hasLoadedSelectedTrend: hasLoadedSelectedTrend,
+                    hasRealData: hasRealData,
+                  ),
+                  icon: _trendDataSourceIcon(
+                    hasLoadedSelectedTrend: hasLoadedSelectedTrend,
+                    hasRealData: hasRealData,
+                  ),
+                  emphasize: _trendLoadError != null || !hasRealData,
                 ),
               ],
             ),
@@ -386,7 +460,19 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                             ),
                           ),
                         ),
-                        if (!hasRealData)
+                        if (_isTrendLoading)
+                          const Center(
+                            child: SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: CircularProgressIndicator(
+                                color: _reportAccent,
+                                strokeWidth: 3,
+                              ),
+                            ),
+                          )
+                        else if (_trendLoadError != null ||
+                            (hasLoadedSelectedTrend && !hasRealData))
                           Center(
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -400,9 +486,11 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                                   color: const Color(0xFFD7E2D8),
                                 ),
                               ),
-                              child: const Text(
-                                'Chart is ready for API integration.',
-                                style: TextStyle(
+                              child: Text(
+                                _trendLoadError ??
+                                    'No appointment trend data available yet.',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                   color: Color(0xFF5A685E),
@@ -466,14 +554,17 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         key: Key('appointment-trends-${view.name}'),
-        onTap: () {
+        onTap: () async {
           if (view == _selectedTrendView) {
             return;
           }
 
           setState(() {
             _selectedTrendView = view;
+            _trendLoadError = null;
           });
+
+          await _loadTrendData(view);
         },
         borderRadius: BorderRadius.circular(999),
         child: Padding(
@@ -496,6 +587,52 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         ),
       ),
     );
+  }
+
+  String _trendDataSourceLabel({
+    required bool hasLoadedSelectedTrend,
+    required bool hasRealData,
+  }) {
+    if (_isTrendLoading) {
+      return 'Loading';
+    }
+
+    if (_trendLoadError != null) {
+      return 'Unavailable';
+    }
+
+    if (hasLoadedSelectedTrend && hasRealData) {
+      return 'Live';
+    }
+
+    if (hasLoadedSelectedTrend) {
+      return 'No data';
+    }
+
+    return 'Pending';
+  }
+
+  IconData _trendDataSourceIcon({
+    required bool hasLoadedSelectedTrend,
+    required bool hasRealData,
+  }) {
+    if (_isTrendLoading) {
+      return Icons.sync;
+    }
+
+    if (_trendLoadError != null) {
+      return Icons.cloud_off;
+    }
+
+    if (hasLoadedSelectedTrend && hasRealData) {
+      return Icons.cloud_done;
+    }
+
+    if (hasLoadedSelectedTrend) {
+      return Icons.inbox_outlined;
+    }
+
+    return Icons.schedule;
   }
 
   Widget _buildTrendSummaryChip({

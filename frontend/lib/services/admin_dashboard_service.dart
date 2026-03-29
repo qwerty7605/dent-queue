@@ -23,11 +23,7 @@ class AdminDashboardService {
       }
     }
 
-    return {
-      'patients_count': 0,
-      'staff_count': 0,
-      'appointments_count': 0,
-    };
+    return {'patients_count': 0, 'staff_count': 0, 'appointments_count': 0};
   }
 
   Future<Map<String, int>> getReportSummary() async {
@@ -57,5 +53,23 @@ class AdminDashboardService {
       'completed': 0,
       'cancelled': 0,
     };
+  }
+
+  Future<List<Map<String, dynamic>>> getAppointmentTrends(
+    String trendType,
+  ) async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.adminReportsTrends(trendType),
+      (data) => data,
+    );
+
+    if (response is Map<String, dynamic> && response['data'] is List<dynamic>) {
+      return (response['data'] as List<dynamic>)
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+
+    return const <Map<String, dynamic>>[];
   }
 }
