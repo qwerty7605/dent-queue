@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter Frontend (Chrome)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define=API_BASE_URL=http://localhost:8080"
+      ],
+      "templateFor": "frontend"
+    },
+    {
+      "name": "Flutter Frontend (Linux)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "deviceId": "linux",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define=API_BASE_URL=http://localhost:8080"
+      ],
+      "templateFor": "frontend"
+    }
+  ]
+}
