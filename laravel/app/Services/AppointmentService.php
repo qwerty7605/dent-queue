@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\PatientRecord;
 use App\Models\PatientNotification;
 use App\Models\Queue;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,7 @@ class AppointmentService
     public function getAllAppointments()
     {
         return Appointment::with(['patient', 'queue'])
+            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
             ->orderBy('appointment_date')
             ->orderBy('time_slot')
             ->get();
@@ -57,6 +59,7 @@ class AppointmentService
             ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id')
+            ->whereIn('appointments.status', self::ACTIVE_BOOKING_STATUSES)
             ->orderByDesc('appointments.appointment_date')
             ->orderByDesc('appointments.time_slot')
             ->select([
@@ -194,6 +197,7 @@ class AppointmentService
             ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->where('appointments.appointment_date', $date)
+            ->whereIn('appointments.status', self::ACTIVE_BOOKING_STATUSES)
             ->orderBy('queues.queue_number')
             ->select([
                 'appointments.id',
@@ -380,6 +384,8 @@ class AppointmentService
             ]);
         }
 
+        $updatedAppointment = $this->loadAppointmentForResponse((int) $appointment->id);
+
         if ($currentStatus !== $targetStatus) {
             $allowedTransitions = self::STATUS_TRANSITIONS[$currentStatus] ?? [];
             if (!in_array($targetStatus, $allowedTransitions, true)) {
@@ -394,21 +400,27 @@ class AppointmentService
                 ]);
             }
 
-            $appointment->update(['status' => $targetStatus]);
+            if ($targetStatus === self::STATUS_CANCELLED) {
+                $updatedAppointment = $this->recycleCancelledAppointment($appointment);
+            } else {
+                $appointment->update(['status' => $targetStatus]);
 
-            if ($targetStatus === self::STATUS_CONFIRMED) {
-                $this->createApprovalNotification($appointment);
+                if ($targetStatus === self::STATUS_CONFIRMED) {
+                    $this->createApprovalNotification($appointment);
+                }
+
+                $updatedAppointment = $this->loadAppointmentForResponse((int) $appointment->id);
             }
 
             Log::channel('audit')->info('appointment.status_updated', [
                 'appointment_id' => (int) $appointment->id,
                 'changed_by_user_id' => $changedByUserId,
                 'action' => ucfirst($this->displayStatusLabel($targetStatus)),
-                'previous_status' => $this->displayStatusLabel($currentStatus),
-            ]);
+                    'previous_status' => $this->displayStatusLabel($currentStatus),
+                ]);
         }
 
-        return $appointment->fresh(['patient', 'queue']);
+        return $updatedAppointment;
     }
 
     public function cancelByPatient(Appointment $appointment, int $patientId): Appointment
@@ -421,7 +433,7 @@ class AppointmentService
             ]);
         }
 
-        $appointment->update(['status' => self::STATUS_CANCELLED]);
+        $appointment = $this->recycleCancelledAppointment($appointment);
 
         Log::info('appointment.cancelled.by_patient', [
             'appointment_id' => (int) $appointment->id,
@@ -431,7 +443,25 @@ class AppointmentService
             'occurred_at' => now()->toISOString(),
         ]);
 
-        return $appointment->fresh(['patient', 'queue']);
+        return $appointment;
+    }
+
+    public function getRecycleBinAppointments()
+    {
+        return $this->recycleBinAppointmentsQuery()
+            ->with(['patient', 'queue', 'service'])
+            ->orderByDesc('deleted_at')
+            ->orderByDesc('appointment_date')
+            ->orderByDesc('time_slot')
+            ->get();
+    }
+
+    public function findRecycleBinAppointment(int $appointmentId): ?Appointment
+    {
+        return $this->recycleBinAppointmentsQuery()
+            ->with(['patient', 'queue', 'service'])
+            ->whereKey($appointmentId)
+            ->first();
     }
 
     private function normalizeStatus(string $status): ?string
@@ -470,6 +500,7 @@ class AppointmentService
     {
         return Appointment::with(['patient', 'queue', 'service'])
             ->where('patient_id', $patientId)
+            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
             ->orderBy('appointment_date')
             ->orderBy('time_slot')
             ->get();
@@ -555,5 +586,32 @@ class AppointmentService
                 (string) $appointment->appointment_date,
             ),
         ]);
+    }
+
+    private function recycleCancelledAppointment(Appointment $appointment): Appointment
+    {
+        if ((string) $appointment->status !== self::STATUS_CANCELLED) {
+            $appointment->forceFill([
+                'status' => self::STATUS_CANCELLED,
+            ])->save();
+        }
+
+        if (!$appointment->trashed()) {
+            $appointment->delete();
+        }
+
+        return $this->loadAppointmentForResponse((int) $appointment->id);
+    }
+
+    private function loadAppointmentForResponse(int $appointmentId): Appointment
+    {
+        return Appointment::withTrashed()
+            ->with(['patient', 'queue', 'service'])
+            ->findOrFail($appointmentId);
+    }
+
+    private function recycleBinAppointmentsQuery(): Builder
+    {
+        return Appointment::recycleBinEligible();
     }
 }

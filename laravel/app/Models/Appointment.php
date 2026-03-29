@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Appointment extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'patient_id',
         'service_id',
@@ -38,5 +42,11 @@ class Appointment extends Model
     public function patientNotifications()
     {
         return $this->hasMany(PatientNotification::class, 'appointment_id');
+    }
+
+    public function scopeRecycleBinEligible(Builder $query): Builder
+    {
+        return $query->onlyTrashed()
+            ->where('status', 'cancelled');
     }
 }

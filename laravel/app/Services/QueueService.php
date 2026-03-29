@@ -85,6 +85,7 @@ class QueueService
             ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->where('queues.queue_date', $queueDate)
+            ->whereNull('appointments.deleted_at')
             ->where('queues.is_called', true)
             ->whereIn('appointments.status', ['confirmed', 'completed'])
             ->orderByDesc('queues.queue_number')
@@ -105,6 +106,7 @@ class QueueService
             ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->where('queues.queue_date', $queueDate)
+            ->whereNull('appointments.deleted_at')
             ->where('queues.is_called', false)
             ->whereIn('appointments.status', self::ELIGIBLE_CALL_STATUSES)
             ->orderBy('queues.queue_number')
@@ -140,6 +142,7 @@ class QueueService
             $queue = Queue::query()
                 ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
                 ->where('queues.queue_date', $queueDate)
+                ->whereNull('appointments.deleted_at')
                 ->where('queues.is_called', false)
                 ->whereIn('appointments.status', self::ELIGIBLE_CALL_STATUSES)
                 ->orderBy('queues.queue_number')
@@ -197,6 +200,7 @@ class QueueService
                         ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
                         ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
                         ->where('queues.id', (int) $calledQueue->id)
+                        ->whereNull('appointments.deleted_at')
                         ->select([
                             'queues.queue_number',
                             'queues.is_called',
@@ -222,6 +226,7 @@ class QueueService
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->where('appointments.patient_id', $patientRecordId)
             ->where('queues.queue_date', $queueDate)
+            ->whereNull('appointments.deleted_at')
             ->whereIn('appointments.status', self::ACTIVE_DISPLAY_STATUSES)
             ->orderBy('queues.queue_number')
             ->select([
@@ -243,6 +248,7 @@ class QueueService
             ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
             ->where('queues.queue_date', $queueDate)
             ->where('queues.queue_number', '<', $queueNumber)
+            ->whereNull('appointments.deleted_at')
             ->whereIn('appointments.status', self::ELIGIBLE_CALL_STATUSES)
             ->count();
 

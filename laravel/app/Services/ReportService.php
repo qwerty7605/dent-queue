@@ -213,7 +213,7 @@ class ReportService
 
     private function newFilteredAppointmentsQuery(array $filters): Builder
     {
-        $query = Appointment::query()
+        $query = Appointment::withTrashed()
             ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id');
 
         if (!empty($filters['start_date'])) {

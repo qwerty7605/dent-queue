@@ -35,6 +35,7 @@ class AdminAppointmentListByDateApiTest extends TestCase
         $appointmentQueue1 = $this->createAppointment($patientB->id, $serviceB->id, $date, '09:00', 'confirmed');
         $appointmentQueue2 = $this->createAppointment($patientC->id, $serviceA->id, $date, '11:00', 'cancelled');
         $otherDateAppointment = $this->createAppointment($otherDatePatient->id, $serviceA->id, $otherDate, '08:00', 'pending');
+        $appointmentQueue2->delete();
 
         $this->createQueue($appointmentQueue3->id, $date, 3);
         $this->createQueue($appointmentQueue1->id, $date, 1);
@@ -47,24 +48,29 @@ class AdminAppointmentListByDateApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('date', $date)
-            ->assertJsonCount(3, 'appointments')
+            ->assertJsonCount(2, 'appointments')
             ->assertJsonPath('appointments.0.id', $appointmentQueue1->id)
             ->assertJsonPath('appointments.0.patient_name', trim($patientB->first_name . ' ' . $patientB->last_name))
             ->assertJsonPath('appointments.0.service_type', $serviceB->name)
             ->assertJsonPath('appointments.0.time', '09:00')
             ->assertJsonPath('appointments.0.status', 'Confirmed')
             ->assertJsonPath('appointments.0.queue_number', 1)
-            ->assertJsonPath('appointments.1.id', $appointmentQueue2->id)
-            ->assertJsonPath('appointments.1.queue_number', 2)
-            ->assertJsonPath('appointments.2.id', $appointmentQueue3->id)
-            ->assertJsonPath('appointments.2.queue_number', 3);
+            ->assertJsonPath('appointments.1.id', $appointmentQueue3->id)
+            ->assertJsonPath('appointments.1.queue_number', 3);
+
+        $appointmentIds = array_map(
+            fn (array $appointment): int => (int) ($appointment['id'] ?? 0),
+            $response->json('appointments', []),
+        );
+
+        $this->assertNotContains($appointmentQueue2->id, $appointmentIds);
 
         $appointmentDates = array_map(
             fn (array $appointment): string => (string) ($appointment['appointment_date'] ?? ''),
             $response->json('appointments', []),
         );
 
-        $this->assertSame([$date, $date, $date], $appointmentDates);
+        $this->assertSame([$date, $date], $appointmentDates);
     }
 
     public function test_admin_appointments_endpoint_requires_date_parameter(): void

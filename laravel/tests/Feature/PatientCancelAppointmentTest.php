@@ -34,6 +34,9 @@ class PatientCancelAppointmentTest extends TestCase
             'id' => $appointment->id,
             'status' => 'cancelled',
         ]);
+        $this->assertSoftDeleted('appointments', [
+            'id' => $appointment->id,
+        ]);
 
         Log::shouldHaveReceived('info')
             ->once()
@@ -62,6 +65,9 @@ class PatientCancelAppointmentTest extends TestCase
         $this->assertDatabaseHas('appointments', [
             'id' => $appointment->id,
             'status' => 'cancelled',
+        ]);
+        $this->assertSoftDeleted('appointments', [
+            'id' => $appointment->id,
         ]);
 
         Log::shouldHaveReceived('info')
@@ -94,6 +100,9 @@ class PatientCancelAppointmentTest extends TestCase
             'id' => $appointment->id,
             'patient_id' => (int) $patientRecord->id,
             'status' => 'cancelled',
+        ]);
+        $this->assertSoftDeleted('appointments', [
+            'id' => $appointment->id,
         ]);
 
         Log::shouldHaveReceived('info')
@@ -160,6 +169,20 @@ class PatientCancelAppointmentTest extends TestCase
             'id' => $appointment->id,
             'status' => 'cancelled',
         ]);
+    }
+
+    public function test_cancelled_appointment_is_removed_from_patient_active_appointments_list(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $appointment = $this->createAppointment($patient->id, 'pending');
+        Sanctum::actingAs($patient);
+
+        $this->patchJson('/api/v1/patient/appointments/' . $appointment->id . '/cancel')
+            ->assertOk();
+
+        $this->getJson('/api/v1/patient/appointments')
+            ->assertOk()
+            ->assertJsonCount(0, 'appointments');
     }
 
     private function createAppointment(int $patientId, string $status): Appointment
