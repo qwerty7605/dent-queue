@@ -366,6 +366,7 @@ class AppointmentController extends Controller
             'is_called' => (bool) ($appointment->queue?->is_called ?? false),
             'timestamp_created' => optional($appointment->created_at)?->toIso8601String(),
             'notes' => (string) $appointment->notes,
+            'recycle_bin' => $this->appointmentService->buildRecycleBinState($appointment),
         ];
     }
 
