@@ -54,6 +54,9 @@ class AppointmentStatusTransitionTest extends TestCase
             'id' => $appointment->id,
             'status' => 'cancelled',
         ]);
+        $this->assertSoftDeleted('appointments', [
+            'id' => $appointment->id,
+        ]);
     }
 
     public function test_pending_to_completed_transition_is_rejected(): void
@@ -114,6 +117,9 @@ class AppointmentStatusTransitionTest extends TestCase
         $this->assertDatabaseHas('appointments', [
             'id' => $appointment->id,
             'status' => 'cancelled',
+        ]);
+        $this->assertSoftDeleted('appointments', [
+            'id' => $appointment->id,
         ]);
     }
 
