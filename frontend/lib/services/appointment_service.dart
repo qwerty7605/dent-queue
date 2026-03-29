@@ -41,9 +41,11 @@ class AppointmentService {
     return response as Map<String, dynamic>;
   }
 
-  Future<List<Map<String, dynamic>>> getAdminMasterList() async {
+  Future<List<Map<String, dynamic>>> getAdminMasterList([
+    Map<String, String> filters = const <String, String>{},
+  ]) async {
     final response = await _baseService.getJson<dynamic>(
-      Endpoints.adminMasterList,
+      Endpoints.adminMasterList(filters),
       (data) => data,
     );
 

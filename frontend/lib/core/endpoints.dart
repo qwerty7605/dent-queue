@@ -26,12 +26,24 @@ class Endpoints {
   static String adminCalendarAppointmentDetails(int id) =>
       '$_base/admin/calendar/appointments/$id';
   static const adminDashboardStats = '$_base/admin/dashboard/stats';
-  static const adminReportsSummary = '$_base/admin/reports/summary';
-  static String adminReportsTrends(String trendType) =>
-      '$_base/admin/reports/trends?trend_type=${Uri.encodeQueryComponent(trendType)}';
+  static String adminReportsSummary([
+    Map<String, String> queryParameters = const <String, String>{},
+  ]) => _withQueryParameters('$_base/admin/reports/summary', queryParameters);
+  static String adminReportsTrends(
+    String trendType, [
+    Map<String, String> queryParameters = const <String, String>{},
+  ]) => _withQueryParameters('$_base/admin/reports/trends', <String, String>{
+    'trend_type': trendType,
+    ...queryParameters,
+  });
   static const adminProfileUpdate = '$_base/admin/profile';
   static const adminAppointments = '$_base/admin/appointments';
-  static const adminMasterList = '$_base/admin/appointments/master-list';
+  static String adminMasterList([
+    Map<String, String> queryParameters = const <String, String>{},
+  ]) => _withQueryParameters(
+    '$_base/admin/appointments/master-list',
+    queryParameters,
+  );
   static const adminClinicSettings = '$_base/admin/settings/clinic';
   static String adminTodayQueue([String? date]) => date == null || date.isEmpty
       ? '$_base/admin/queues/today'
@@ -47,4 +59,15 @@ class Endpoints {
       '$_base/admin/patients/search?query=${Uri.encodeQueryComponent(query)}';
   static String adminPatientDetail(String patientId) =>
       '$_base/admin/patients/${Uri.encodeComponent(patientId)}';
+
+  static String _withQueryParameters(
+    String path,
+    Map<String, String> queryParameters,
+  ) {
+    if (queryParameters.isEmpty) {
+      return path;
+    }
+
+    return Uri(path: path, queryParameters: queryParameters).toString();
+  }
 }

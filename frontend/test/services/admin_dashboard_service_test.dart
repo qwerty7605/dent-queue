@@ -22,6 +22,31 @@ void main() {
     adminDashboardService = AdminDashboardService(fakeBaseService);
   });
 
+  test('getReportSummary requests the summary endpoint with filters', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'data': <String, dynamic>{
+        'total_appointments': 2,
+        'pending_count': 0,
+        'approved_count': 2,
+        'completed_count': 0,
+        'cancelled_count': 0,
+      },
+    };
+
+    final Map<String, int> result = await adminDashboardService
+        .getReportSummary(<String, String>{
+          'status': 'Approved',
+          'booking_type': 'Online Booking',
+        });
+
+    expect(
+      fakeBaseService.lastPath,
+      '/api/v1/admin/reports/summary?status=Approved&booking_type=Online+Booking',
+    );
+    expect(result['total'], 2);
+    expect(result['approved'], 2);
+  });
+
   test(
     'getAppointmentTrends requests the trends endpoint and maps rows',
     () async {
@@ -41,11 +66,14 @@ void main() {
       };
 
       final List<Map<String, dynamic>> result = await adminDashboardService
-          .getAppointmentTrends('weekly');
+          .getAppointmentTrends('weekly', <String, String>{
+            'start_date': '2026-04-01',
+            'end_date': '2026-04-30',
+          });
 
       expect(
         fakeBaseService.lastPath,
-        '/api/v1/admin/reports/trends?trend_type=weekly',
+        '/api/v1/admin/reports/trends?trend_type=weekly&start_date=2026-04-01&end_date=2026-04-30',
       );
       expect(result, hasLength(2));
       expect(result.first['label'], '2026-W14');
