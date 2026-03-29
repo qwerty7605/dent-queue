@@ -2,18 +2,20 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\InteractsWithReportFilters;
 use App\Http\Controllers\Controller;
-use App\Services\ReportService;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
 use App\Models\User;
+use App\Services\ReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class AdminDashboardController extends Controller
 {
+    use InteractsWithReportFilters;
+
     /**
      * Get real-time stats for the admin dashboard.
      *
@@ -52,24 +54,13 @@ class AdminDashboardController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function reportSummary(): JsonResponse
+    public function reportSummary(Request $request, ReportService $reportService): JsonResponse
     {
-        $summary = DB::table('appointments')
-            ->selectRaw('COUNT(*) as total_appointments')
-            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count")
-            ->selectRaw("SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as approved_count")
-            ->selectRaw("SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_count")
-            ->selectRaw("SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_count")
-            ->first();
+        $filters = $this->validateReportFilters($request);
+        $summary = $reportService->getReportSummary($filters);
 
         return response()->json([
-            'data' => [
-                'total_appointments' => (int) ($summary->total_appointments ?? 0),
-                'pending_count' => (int) ($summary->pending_count ?? 0),
-                'approved_count' => (int) ($summary->approved_count ?? 0),
-                'completed_count' => (int) ($summary->completed_count ?? 0),
-                'cancelled_count' => (int) ($summary->cancelled_count ?? 0),
-            ]
+            'data' => $summary,
         ]);
     }
 
@@ -78,31 +69,12 @@ class AdminDashboardController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function statusDistribution(): JsonResponse
+    public function statusDistribution(Request $request, ReportService $reportService): JsonResponse
     {
-        $counts = DB::table('appointments')
-            ->select('status', DB::raw('count(*) as count'))
-            ->groupBy('status')
-            ->pluck('count', 'status')
-            ->all();
-
-        $statuses = [
-            'pending' => 'pending',
-            'confirmed' => 'approved',
-            'completed' => 'completed',
-            'cancelled' => 'cancelled',
-        ];
-
-        $data = [];
-        foreach ($statuses as $dbStatus => $label) {
-            $data[] = [
-                'status' => $label,
-                'count' => (int) ($counts[$dbStatus] ?? 0),
-            ];
-        }
+        $filters = $this->validateReportFilters($request);
 
         return response()->json([
-            'data' => $data
+            'data' => $reportService->getStatusDistribution($filters),
         ]);
     }
 
@@ -112,6 +84,7 @@ class AdminDashboardController extends Controller
     public function appointmentTrends(Request $request, ReportService $reportService): JsonResponse
     {
         $trendType = (string) $request->query('trend_type', 'daily');
+        $filters = $this->validateReportFilters($request);
 
         validator(
             ['trend_type' => $trendType],
@@ -125,7 +98,7 @@ class AdminDashboardController extends Controller
         )->validate();
 
         return response()->json([
-            'data' => $reportService->getAppointmentTrends($trendType),
+            'data' => $reportService->getAppointmentTrends($trendType, $filters),
         ]);
     }
 }
