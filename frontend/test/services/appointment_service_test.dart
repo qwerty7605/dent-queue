@@ -48,12 +48,20 @@ void main() {
         ],
       };
 
-      final result = await appointmentService.getAdminMasterList();
+      final result = await appointmentService.getAdminMasterList(
+        <String, String>{
+          'status': 'Approved',
+          'booking_type': 'Online Booking',
+        },
+      );
 
       expect(result.length, 1);
       expect(result[0]['patient_name'], 'John Doe');
       expect(result[0]['status'], 'Approved');
-      expect(fakeBaseService.lastPath, contains('master-list'));
+      expect(
+        fakeBaseService.lastPath,
+        '/api/v1/admin/appointments/master-list?status=Approved&booking_type=Online+Booking',
+      );
     },
   );
 

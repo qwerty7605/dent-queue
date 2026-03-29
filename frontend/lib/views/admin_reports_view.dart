@@ -38,6 +38,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   static const Color _reportAccent = Color(0xFF3F6341);
   static const Color _reportAccentSoft = Color(0xFF6A9A8B);
   static const Color _reportHighlight = Color(0xFFE8C355);
+  static const double _reportSectionRadius = 3;
   static const List<String> _reportStatuses = <String>[
     'Pending',
     'Approved',
@@ -71,8 +72,8 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   final Set<_TrendView> _loadedTrendViews = <_TrendView>{};
   _TrendView _selectedTrendView = _TrendView.daily;
 
-  // Dummy values based on acceptance criteria to ensure zero values do not break UI
-  Map<String, int> _reportStats = {
+  // Default zero state keeps the layout stable when the API returns no rows.
+  Map<String, int> _reportStats = <String, int>{
     'total': 0,
     'pending': 0,
     'approved': 0,
@@ -87,41 +88,70 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   }
 
   Future<void> _fetchData() async {
-    await Future.wait([
-      _fetchReportSummary(),
-      _fetchDetailedRecords(),
-      _loadTrendData(_selectedTrendView, forceRefresh: true),
-    ]);
+    final Map<String, String> filters = _activeReportFilters;
+
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _clearTrendCache();
+      });
+    }
+
+    try {
+      await Future.wait([
+        _fetchReportSummary(filters),
+        _fetchDetailedRecords(filters),
+        _loadTrendData(_selectedTrendView, filters: filters),
+      ]);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
-  Future<void> _fetchDetailedRecords() async {
+  Future<void> _fetchDetailedRecords([
+    Map<String, String> filters = const <String, String>{},
+  ]) async {
     try {
-      final records = await widget.appointmentService.getAdminMasterList();
+      final records = await widget.appointmentService.getAdminMasterList(
+        filters,
+      );
       if (!mounted) return;
       setState(() {
         _detailedRecords = records;
       });
     } catch (_) {
-      // Silently fail or handle error
+      if (!mounted) return;
+      setState(() {
+        _detailedRecords = <Map<String, dynamic>>[];
+      });
     }
   }
 
-  Future<void> _fetchReportSummary() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+  Future<void> _fetchReportSummary([
+    Map<String, String> filters = const <String, String>{},
+  ]) async {
     try {
-      final stats = await widget.adminDashboardService.getReportSummary();
+      final stats = await widget.adminDashboardService.getReportSummary(
+        filters,
+      );
       if (!mounted) return;
       setState(() {
         _reportStats = stats;
-        _isLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _isLoading = false;
+        _reportStats = <String, int>{
+          'total': 0,
+          'pending': 0,
+          'approved': 0,
+          'completed': 0,
+          'cancelled': 0,
+        };
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to load report summary')),
@@ -132,7 +162,11 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   Future<void> _loadTrendData(
     _TrendView view, {
     bool forceRefresh = false,
+    Map<String, String>? filters,
   }) async {
+    final Map<String, String> effectiveFilters =
+        filters ?? _activeReportFilters;
+
     if (!forceRefresh && _loadedTrendViews.contains(view)) {
       return;
     }
@@ -150,6 +184,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     try {
       final trendRows = await widget.adminDashboardService.getAppointmentTrends(
         view.name,
+        effectiveFilters,
       );
 
       if (!mounted) return;
@@ -168,6 +203,54 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         _isTrendLoading = false;
         _trendLoadError = 'Unable to load appointment trends.';
       });
+    }
+  }
+
+  Map<String, String> get _activeReportFilters {
+    final Map<String, String> filters = <String, String>{};
+
+    if (_appliedStartDate != null) {
+      filters['start_date'] = _formatReportFilterDate(_appliedStartDate);
+    }
+
+    if (_appliedEndDate != null) {
+      filters['end_date'] = _formatReportFilterDate(_appliedEndDate);
+    }
+
+    if (_appliedStatus != null) {
+      filters['status'] = _appliedStatus!;
+    }
+
+    if (_appliedBookingType != null) {
+      filters['booking_type'] = _appliedBookingType!;
+    }
+
+    return filters;
+  }
+
+  int get _activeFilterCount => _activeReportFilters.length;
+
+  String get _reportFilterStateTitle {
+    if (_hasAppliedReportFilters) {
+      return '$_activeFilterCount active filter${_activeFilterCount == 1 ? '' : 's'}';
+    }
+
+    return 'Showing all report data';
+  }
+
+  String get _reportFilterStateBody {
+    if (_hasAppliedReportFilters) {
+      return 'Cards, appointment trends, status distribution, and detailed records are showing the current filtered results.';
+    }
+
+    return 'No filters are active. Apply a date range, status, or booking type to narrow the report results.';
+  }
+
+  void _clearTrendCache() {
+    _loadedTrendViews.clear();
+
+    for (final _TrendView view in _TrendView.values) {
+      _appointmentTrends[view] = const <_AppointmentTrendPoint>[];
     }
   }
 
@@ -296,7 +379,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(_reportSectionRadius),
         border: const Border(
           top: BorderSide(color: _reportHighlight, width: 6),
         ),
@@ -327,7 +410,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF7E0),
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(_reportSectionRadius),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
@@ -339,7 +422,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                       ),
                       SizedBox(width: 8),
                       Text(
-                        'Prepared For API',
+                        'Filters Live',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
@@ -360,7 +443,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Stage a report window, appointment status, and booking channel before the filtered reports endpoints are connected.',
+                  'Filter report cards, appointment trends, status distribution, and detailed records by date range, status, and booking type.',
                   style: TextStyle(
                     fontSize: 15,
                     height: 1.5,
@@ -377,7 +460,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               children: [
                 OutlinedButton.icon(
                   key: const Key('report-filter-reset'),
-                  onPressed: _resetReportFilters,
+                  onPressed: () async {
+                    await _resetReportFilters();
+                  },
                   icon: const Icon(Icons.restart_alt),
                   label: const Text(
                     'Reset',
@@ -390,11 +475,16 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                       horizontal: 18,
                       vertical: 14,
                     ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(_reportSectionRadius),
+                    ),
                   ),
                 ),
                 FilledButton.icon(
                   key: const Key('report-filter-apply'),
-                  onPressed: _applyReportFilters,
+                  onPressed: () async {
+                    await _applyReportFilters();
+                  },
                   icon: const Icon(Icons.check_circle_outline),
                   label: const Text(
                     'Apply Filters',
@@ -406,6 +496,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                     padding: const EdgeInsets.symmetric(
                       horizontal: 18,
                       vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(_reportSectionRadius),
                     ),
                   ),
                 ),
@@ -498,7 +591,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FBF8),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(_reportSectionRadius),
                     border: Border.all(color: const Color(0xFFDCE7DE)),
                   ),
                   child: Column(
@@ -513,9 +606,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                           ),
                           const SizedBox(width: 10),
                           Text(
-                            _hasAppliedReportFilters
-                                ? 'Applied filters: ${_appliedFilterChips.length}'
-                                : 'No filters applied yet',
+                            _reportFilterStateTitle,
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
@@ -525,9 +616,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      const Text(
-                        'Selections are stored locally for now so the layout is ready when filtered report requests are added.',
-                        style: TextStyle(
+                      Text(
+                        _reportFilterStateBody,
+                        style: const TextStyle(
                           fontSize: 13,
                           height: 1.45,
                           fontWeight: FontWeight.w600,
@@ -551,11 +642,13 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                           ),
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(
+                              _reportSectionRadius,
+                            ),
                             border: Border.all(color: const Color(0xFFDCE7DE)),
                           ),
                           child: const Text(
-                            'Choose a date range, status, or booking type, then apply to preview the filter payload.',
+                            'All appointments are included in the current report view.',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -610,7 +703,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         InkWell(
           key: fieldKey,
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(_reportSectionRadius),
           child: InputDecorator(
             decoration: _reportFilterInputDecoration(
               hintText: placeholder,
@@ -703,15 +796,15 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       fillColor: const Color(0xFFF6F8F4),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(_reportSectionRadius),
         borderSide: const BorderSide(color: Color(0xFFD6DED8)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(_reportSectionRadius),
         borderSide: const BorderSide(color: Color(0xFFD6DED8)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(_reportSectionRadius),
         borderSide: const BorderSide(color: _reportAccent, width: 1.5),
       ),
     );
@@ -722,7 +815,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(_reportSectionRadius),
         border: Border.all(color: const Color(0xFFD6DED8)),
       ),
       child: RichText(
@@ -831,16 +924,18 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     });
   }
 
-  void _applyReportFilters() {
+  Future<void> _applyReportFilters() async {
     setState(() {
       _appliedStartDate = _draftStartDate;
       _appliedEndDate = _draftEndDate;
       _appliedStatus = _draftStatus;
       _appliedBookingType = _draftBookingType;
     });
+
+    await _fetchData();
   }
 
-  void _resetReportFilters() {
+  Future<void> _resetReportFilters() async {
     setState(() {
       _draftStartDate = null;
       _draftEndDate = null;
@@ -851,6 +946,8 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       _appliedStatus = null;
       _appliedBookingType = null;
     });
+
+    await _fetchData();
   }
 
   String _formatReportFilterDate(DateTime? value) {
@@ -890,7 +987,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(_reportSectionRadius),
         border: const Border(top: BorderSide(color: _reportAccent, width: 6)),
         boxShadow: [
           BoxShadow(
@@ -990,7 +1087,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(_reportSectionRadius),
                 gradient: const LinearGradient(
                   colors: <Color>[Color(0xFFF7FBF8), Color(0xFFFCFAF1)],
                   begin: Alignment.topLeft,
@@ -1010,7 +1107,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                         ),
                         decoration: BoxDecoration(
                           color: _reportAccent.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: BorderRadius.circular(
+                            _reportSectionRadius,
+                          ),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1053,7 +1152,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.74),
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: BorderRadius.circular(
+                                _reportSectionRadius,
+                              ),
                             ),
                             child: CustomPaint(
                               painter: _AppointmentTrendChartPainter(
@@ -1086,7 +1187,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.92),
-                                borderRadius: BorderRadius.circular(999),
+                                borderRadius: BorderRadius.circular(
+                                  _reportSectionRadius,
+                                ),
                                 border: Border.all(
                                   color: const Color(0xFFD7E2D8),
                                 ),
@@ -1156,7 +1259,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
     return Material(
       color: isSelected ? _reportAccent : const Color(0xFFF1F5F2),
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(_reportSectionRadius),
       child: InkWell(
         key: Key('appointment-trends-${view.name}'),
         onTap: () async {
@@ -1171,7 +1274,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
           await _loadTrendData(view);
         },
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(_reportSectionRadius),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           child: Row(
@@ -1250,7 +1353,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: emphasize ? const Color(0xFFFFF8E2) : const Color(0xFFF5F8F5),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(_reportSectionRadius),
         border: Border.all(
           color: emphasize ? const Color(0xFFE8D48E) : const Color(0xFFDDE7DF),
         ),
@@ -1422,6 +1525,23 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               padding: EdgeInsets.all(48.0),
               child: Center(
                 child: CircularProgressIndicator(color: Color(0xFF679B6A)),
+              ),
+            )
+          else if (_detailedRecords.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Center(
+                child: Text(
+                  _hasAppliedReportFilters
+                      ? 'No detailed records match the active filters.'
+                      : 'No detailed report records available yet.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF5E6C63),
+                  ),
+                ),
               ),
             )
           else

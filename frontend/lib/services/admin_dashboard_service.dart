@@ -26,9 +26,11 @@ class AdminDashboardService {
     return {'patients_count': 0, 'staff_count': 0, 'appointments_count': 0};
   }
 
-  Future<Map<String, int>> getReportSummary() async {
+  Future<Map<String, int>> getReportSummary([
+    Map<String, String> filters = const <String, String>{},
+  ]) async {
     final response = await _baseService.getJson<dynamic>(
-      Endpoints.adminReportsSummary,
+      Endpoints.adminReportsSummary(filters),
       (data) => data,
     );
 
@@ -56,10 +58,11 @@ class AdminDashboardService {
   }
 
   Future<List<Map<String, dynamic>>> getAppointmentTrends(
-    String trendType,
-  ) async {
+    String trendType, [
+    Map<String, String> filters = const <String, String>{},
+  ]) async {
     final response = await _baseService.getJson<dynamic>(
-      Endpoints.adminReportsTrends(trendType),
+      Endpoints.adminReportsTrends(trendType, filters),
       (data) => data,
     );
 

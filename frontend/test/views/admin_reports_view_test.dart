@@ -6,74 +6,192 @@ import 'package:frontend/services/base_service.dart';
 import 'package:frontend/views/admin_reports_view.dart';
 
 class _FakeBaseService extends Fake implements BaseService {
-  _FakeBaseService({Map<String, List<Map<String, dynamic>>>? trendsByType})
-    : trendsByType = trendsByType ?? _defaultTrendsByType;
+  _FakeBaseService({List<Map<String, dynamic>>? records})
+    : records = records ?? _defaultRecords;
 
-  static const Map<String, List<Map<String, dynamic>>> _defaultTrendsByType =
-      <String, List<Map<String, dynamic>>>{
-        'daily': <Map<String, dynamic>>[
-          <String, dynamic>{
-            'trend_type': 'daily',
-            'label': '2026-04-01',
-            'count': 4,
-          },
-          <String, dynamic>{
-            'trend_type': 'daily',
-            'label': '2026-04-02',
-            'count': 2,
-          },
-        ],
-        'weekly': <Map<String, dynamic>>[
-          <String, dynamic>{
-            'trend_type': 'weekly',
-            'label': '2026-W14',
-            'count': 9,
-          },
-          <String, dynamic>{
-            'trend_type': 'weekly',
-            'label': '2026-W15',
-            'count': 7,
-          },
-        ],
-        'monthly': <Map<String, dynamic>>[
-          <String, dynamic>{
-            'trend_type': 'monthly',
-            'label': '2026-04',
-            'count': 16,
-          },
-        ],
-      };
+  static const List<Map<String, dynamic>> _defaultRecords =
+      <Map<String, dynamic>>[
+        <String, dynamic>{
+          'date': '2026-04-01',
+          'status': 'Approved',
+          'booking_type': 'Online Booking',
+          'patient_name': 'Ava Stone',
+          'service': 'Dental Checkup',
+          'queue_number': '01',
+        },
+        <String, dynamic>{
+          'date': '2026-04-01',
+          'status': 'Pending',
+          'booking_type': 'Online Booking',
+          'patient_name': 'Noah Lane',
+          'service': 'Dental Checkup',
+          'queue_number': '02',
+        },
+        <String, dynamic>{
+          'date': '2026-04-02',
+          'status': 'Approved',
+          'booking_type': 'Online Booking',
+          'patient_name': 'Mia Cruz',
+          'service': 'Dental Checkup',
+          'queue_number': '03',
+        },
+        <String, dynamic>{
+          'date': '2026-04-08',
+          'status': 'Completed',
+          'booking_type': 'Walk-In Booking',
+          'patient_name': 'Uma Reed',
+          'service': 'Dental Cleaning',
+          'queue_number': '04',
+        },
+        <String, dynamic>{
+          'date': '2026-04-10',
+          'status': 'Pending',
+          'booking_type': 'Online Booking',
+          'patient_name': 'Leo Hart',
+          'service': 'Dental Checkup',
+          'queue_number': '05',
+        },
+        <String, dynamic>{
+          'date': '2026-05-03',
+          'status': 'Cancelled',
+          'booking_type': 'Walk-In Booking',
+          'patient_name': 'Kai West',
+          'service': 'Tooth Extraction',
+          'queue_number': '-',
+        },
+      ];
 
-  final Map<String, List<Map<String, dynamic>>> trendsByType;
+  final List<Map<String, dynamic>> records;
+  final List<String> requestedPaths = <String>[];
 
   @override
   Future<T> getJson<T>(String path, T Function(dynamic json) mapper) async {
+    requestedPaths.add(path);
+    final Uri uri = Uri.parse(path);
+    final List<Map<String, dynamic>> filteredRecords = _filterRecords(
+      uri.queryParameters,
+    );
+
     if (path.contains('reports/summary')) {
-      return mapper(<String, dynamic>{
-        'data': <String, dynamic>{
-          'total_appointments': 0,
-          'pending_count': 0,
-          'approved_count': 0,
-          'completed_count': 0,
-          'cancelled_count': 0,
-        },
-      });
+      return mapper(<String, dynamic>{'data': _buildSummary(filteredRecords)});
     }
 
     if (path.contains('reports/trends')) {
-      final String trendType =
-          Uri.parse(path).queryParameters['trend_type'] ?? 'daily';
+      final String trendType = uri.queryParameters['trend_type'] ?? 'daily';
 
       return mapper(<String, dynamic>{
-        'data': trendsByType[trendType] ?? const <Map<String, dynamic>>[],
+        'data': _buildTrends(filteredRecords, trendType),
       });
     }
 
     if (path.contains('master-list')) {
-      return mapper(<String, dynamic>{'data': <Map<String, dynamic>>[]});
+      return mapper(<String, dynamic>{
+        'data': filteredRecords.toList()
+          ..sort((Map<String, dynamic> a, Map<String, dynamic> b) {
+            return (b['date'] as String).compareTo(a['date'] as String);
+          }),
+      });
     }
 
     return mapper(<String, dynamic>{});
+  }
+
+  List<Map<String, dynamic>> _filterRecords(Map<String, String> query) {
+    return records.where((Map<String, dynamic> record) {
+      final String date = record['date'] as String;
+      final String status = (record['status'] as String).toLowerCase();
+      final String bookingType = (record['booking_type'] as String)
+          .toLowerCase();
+      final String? startDate = query['start_date'];
+      final String? endDate = query['end_date'];
+      final String? statusFilter = query['status']?.toLowerCase();
+      final String? bookingTypeFilter = query['booking_type']?.toLowerCase();
+
+      if (startDate != null && date.compareTo(startDate) < 0) {
+        return false;
+      }
+
+      if (endDate != null && date.compareTo(endDate) > 0) {
+        return false;
+      }
+
+      if (statusFilter != null && status != statusFilter) {
+        return false;
+      }
+
+      if (bookingTypeFilter != null && bookingType != bookingTypeFilter) {
+        return false;
+      }
+
+      return true;
+    }).toList();
+  }
+
+  Map<String, dynamic> _buildSummary(
+    List<Map<String, dynamic>> filteredRecords,
+  ) {
+    int countByStatus(String status) {
+      return filteredRecords
+          .where((Map<String, dynamic> record) => record['status'] == status)
+          .length;
+    }
+
+    return <String, dynamic>{
+      'total_appointments': filteredRecords.length,
+      'pending_count': countByStatus('Pending'),
+      'approved_count': countByStatus('Approved'),
+      'completed_count': countByStatus('Completed'),
+      'cancelled_count': countByStatus('Cancelled'),
+    };
+  }
+
+  List<Map<String, dynamic>> _buildTrends(
+    List<Map<String, dynamic>> filteredRecords,
+    String trendType,
+  ) {
+    final Map<String, int> buckets = <String, int>{};
+
+    for (final Map<String, dynamic> record in filteredRecords) {
+      final String label = _trendLabel(record['date'] as String, trendType);
+      buckets[label] = (buckets[label] ?? 0) + 1;
+    }
+
+    final List<String> labels = buckets.keys.toList()..sort();
+    return labels
+        .map(
+          (String label) => <String, dynamic>{
+            'trend_type': trendType,
+            'label': label,
+            'count': buckets[label] ?? 0,
+          },
+        )
+        .toList();
+  }
+
+  String _trendLabel(String date, String trendType) {
+    switch (trendType) {
+      case 'daily':
+        return date;
+      case 'weekly':
+        return _isoWeekLabel(DateTime.parse(date));
+      case 'monthly':
+        final DateTime parsedDate = DateTime.parse(date);
+        final String month = parsedDate.month.toString().padLeft(2, '0');
+        return '${parsedDate.year}-$month';
+      default:
+        return date;
+    }
+  }
+
+  String _isoWeekLabel(DateTime date) {
+    final DateTime target = date.add(Duration(days: 4 - date.weekday));
+    final DateTime firstThursday = DateTime(target.year, 1, 4);
+    final DateTime firstWeekStart = firstThursday.subtract(
+      Duration(days: firstThursday.weekday - 1),
+    );
+    final int weekNumber = 1 + target.difference(firstWeekStart).inDays ~/ 7;
+
+    return '${target.year}-W${weekNumber.toString().padLeft(2, '0')}';
   }
 }
 
@@ -110,8 +228,11 @@ void main() {
         find.byKey(const Key('report-filter-booking-type')),
         findsOneWidget,
       );
+      expect(find.text('Filters Live'), findsOneWidget);
+      expect(find.text('Prepared For API'), findsNothing);
       expect(find.text('Apply Filters'), findsOneWidget);
       expect(find.text('Reset'), findsOneWidget);
+      expect(find.textContaining('stored locally for now'), findsNothing);
 
       final Finder statusField = find.byKey(
         const Key('report-filter-status-field'),
@@ -165,6 +286,104 @@ void main() {
   );
 
   testWidgets(
+    'applies and resets report filters against backend-backed reports data',
+    (WidgetTester tester) async {
+      final _FakeBaseService baseService = _FakeBaseService();
+      final AdminDashboardService adminDashboardService = AdminDashboardService(
+        baseService,
+      );
+      final AppointmentService appointmentService = AppointmentService(
+        baseService,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AdminReportsView(
+              adminDashboardService: adminDashboardService,
+              appointmentService: appointmentService,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Uma Reed'), findsOneWidget);
+      expect(find.text('Kai West'), findsOneWidget);
+      expect(
+        baseService.requestedPaths,
+        contains('/api/v1/admin/reports/summary'),
+      );
+
+      final Finder statusField = find.byKey(
+        const Key('report-filter-status-field'),
+      );
+      await tester.ensureVisible(statusField);
+      await tester.tap(statusField);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('report-filter-status-option-approved')),
+      );
+      await tester.pumpAndSettle();
+
+      final Finder bookingTypeField = find.byKey(
+        const Key('report-filter-booking-type-field'),
+      );
+      await tester.ensureVisible(bookingTypeField);
+      await tester.tap(bookingTypeField);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(
+          const Key('report-filter-booking-type-option-online-booking'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final Finder applyButton = find.byKey(const Key('report-filter-apply'));
+      await tester.ensureVisible(applyButton);
+      await tester.tap(applyButton);
+      await tester.pumpAndSettle();
+
+      expect(
+        baseService.requestedPaths,
+        contains(
+          '/api/v1/admin/reports/summary?status=Approved&booking_type=Online+Booking',
+        ),
+      );
+      expect(
+        baseService.requestedPaths,
+        contains(
+          '/api/v1/admin/reports/trends?trend_type=daily&status=Approved&booking_type=Online+Booking',
+        ),
+      );
+      expect(
+        baseService.requestedPaths,
+        contains(
+          '/api/v1/admin/appointments/master-list?status=Approved&booking_type=Online+Booking',
+        ),
+      );
+      expect(find.text('Ava Stone'), findsOneWidget);
+      expect(find.text('Mia Cruz'), findsOneWidget);
+      expect(find.text('Uma Reed'), findsNothing);
+      expect(find.text('Kai West'), findsNothing);
+      expect(find.text('2026-04-10'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('report-filter-reset')));
+      await tester.pumpAndSettle();
+
+      expect(
+        baseService.requestedPaths.where(
+          (String path) => path == '/api/v1/admin/reports/summary',
+        ),
+        isNotEmpty,
+      );
+      expect(find.text('Uma Reed'), findsOneWidget);
+      expect(find.text('Kai West'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'loads appointment trends from the api and switches daily weekly monthly views',
     (WidgetTester tester) async {
       final BaseService baseService = _FakeBaseService();
@@ -191,7 +410,7 @@ void main() {
       expect(find.text('Appointment Trends'), findsOneWidget);
       expect(find.byKey(const Key('appointment-trends-chart')), findsOneWidget);
       expect(find.text('Daily view'), findsOneWidget);
-      expect(find.text('2026-04-01'), findsOneWidget);
+      expect(find.text('2026-04-01'), findsWidgets);
       expect(find.text('Live'), findsOneWidget);
 
       final Finder weeklyToggle = find.byKey(
@@ -222,9 +441,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final BaseService baseService = _FakeBaseService(
-      trendsByType: const <String, List<Map<String, dynamic>>>{
-        'daily': <Map<String, dynamic>>[],
-      },
+      records: const <Map<String, dynamic>>[],
     );
     final AdminDashboardService adminDashboardService = AdminDashboardService(
       baseService,
