@@ -2,17 +2,21 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\InteractsWithReportFilters;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
 use App\Models\Service;
 use App\Services\AppointmentService;
+use App\Services\ReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
 {
+    use InteractsWithReportFilters;
+
     public function __construct(protected AppointmentService $appointmentService)
     {
     }
@@ -68,9 +72,10 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function masterList(): JsonResponse
+    public function masterList(Request $request, ReportService $reportService): JsonResponse
     {
-        $appointments = $this->appointmentService->getMasterList();
+        $filters = $this->validateReportFilters($request);
+        $appointments = $reportService->getDetailedRecords($filters);
 
         return response()->json([
             'data' => $appointments,

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Appointment;
+use App\Models\PatientRecord;
 use App\Models\Role;
 use App\Models\Service;
 use App\Models\User;
@@ -67,7 +68,7 @@ class AdminMasterListApiTest extends TestCase
         $role = Role::firstOrCreate(['name' => $roleName]);
         $suffix = Str::lower($roleName) . '_' . Str::lower(Str::random(8));
 
-        return User::create([
+        $user = User::create([
             'first_name' => $roleName,
             'last_name' => 'User',
             'username' => $suffix,
@@ -79,5 +80,11 @@ class AdminMasterListApiTest extends TestCase
             'role_id' => $role->id,
             'is_active' => true,
         ]);
+
+        if ($roleName === 'Patient') {
+            PatientRecord::syncFromUser($user);
+        }
+
+        return $user;
     }
 }
