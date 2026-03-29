@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\PatientNotification;
 use App\Models\PatientRecord;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class NotificationService
@@ -14,10 +15,7 @@ class NotificationService
         $roleName = $this->resolveRoleName($user);
 
         if ($roleName === 'patient') {
-            $patientRecord = PatientRecord::resolveForUser($user);
-
-            return PatientNotification::query()
-                ->where('patient_id', (int) $patientRecord->id)
+            return $this->patientNotificationsQuery($user)
                 ->orderByDesc('created_at')
                 ->orderByDesc('id')
                 ->get()
@@ -29,6 +27,55 @@ class NotificationService
         }
 
         return collect();
+    }
+
+    public function unreadCountForUser(User $user): int
+    {
+        if ($this->resolveRoleName($user) !== 'patient') {
+            return 0;
+        }
+
+        return $this->patientNotificationsQuery($user)
+            ->whereNull('read_at')
+            ->count();
+    }
+
+    public function canAccessNotification(User $user, PatientNotification $notification): bool
+    {
+        if ($this->resolveRoleName($user) !== 'patient') {
+            return false;
+        }
+
+        $patientRecord = PatientRecord::resolveForUser($user);
+
+        return (int) $notification->patient_id === (int) $patientRecord->id;
+    }
+
+    public function markNotificationAsRead(PatientNotification $notification): PatientNotification
+    {
+        if ($notification->read_at === null) {
+            $notification->forceFill([
+                'read_at' => now(),
+            ])->save();
+        }
+
+        return $notification->fresh() ?? $notification;
+    }
+
+    public function markAllAsReadForUser(User $user): int
+    {
+        if ($this->resolveRoleName($user) !== 'patient') {
+            return 0;
+        }
+
+        $timestamp = now();
+
+        return $this->patientNotificationsQuery($user)
+            ->whereNull('read_at')
+            ->update([
+                'read_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ]);
     }
 
     public function formatNotification(PatientNotification $notification): array
@@ -63,5 +110,13 @@ class NotificationService
         $user->loadMissing('role');
 
         return mb_strtolower((string) optional($user->role)->name);
+    }
+
+    private function patientNotificationsQuery(User $user): Builder
+    {
+        $patientRecord = PatientRecord::resolveForUser($user);
+
+        return PatientNotification::query()
+            ->where('patient_id', (int) $patientRecord->id);
     }
 }
