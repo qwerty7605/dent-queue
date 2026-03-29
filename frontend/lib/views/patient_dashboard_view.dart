@@ -9,6 +9,7 @@ import '../widgets/book_appointment_dialog.dart';
 import '../widgets/edit_profile_dialog.dart';
 import '../widgets/appointment_details_dialog.dart';
 import 'notifications_view.dart';
+import 'recycle_bin_view.dart';
 
 class PatientDashboardView extends StatefulWidget {
   const PatientDashboardView({
@@ -100,10 +101,11 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
         _messageType = 'error';
       });
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isJoiningQueue = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isJoiningQueue = false;
+        });
+      }
     }
   }
 
@@ -265,6 +267,30 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => const NotificationsView(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 32),
+                leading: const Icon(
+                  Icons.restore_from_trash_outlined,
+                  color: Color(0xFF679B6A),
+                ),
+                title: const Text(
+                  'Recycle Bin',
+                  style: TextStyle(
+                    color: Color(0xFF679B6A),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const RecycleBinView(role: RecycleBinRole.patient),
                     ),
                   );
                 },
