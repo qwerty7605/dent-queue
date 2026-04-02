@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../core/file_download.dart';
 import '../core/mobile_typography.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
@@ -43,6 +44,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   static const Color _reportAccent = Color(0xFF3F6341);
   static const Color _reportAccentSoft = Color(0xFF6A9A8B);
   static const Color _reportHighlight = Color(0xFFE8C355);
+  static const Color _exportButtonColor = Color(0xFF2E7D32);
   static const double _reportSectionRadius = 3;
   static const List<String> _reportStatuses = <String>[
     'Pending',
@@ -57,6 +59,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
   bool _isLoading = true;
   bool _isTrendLoading = true;
+  bool _isExporting = false;
   String? _trendLoadError;
   List<Map<String, dynamic>> _detailedRecords = [];
   DateTime? _draftStartDate;
@@ -278,15 +281,110 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
+  Future<void> _exportCsv() async {
+    return _exportReport(ReportExportFormat.csv);
+  }
+
+  Future<void> _exportReport(ReportExportFormat format) async {
+    if (_isExporting) {
+      return;
+    }
+
+    setState(() {
+      _isExporting = true;
+    });
+
+    try {
+      final exportFile = await widget.adminDashboardService
+          .exportDetailedRecords(format, _activeReportFilters);
+      final savedPath = await saveDownloadedFile(
+        filename: exportFile.filename,
+        bytes: exportFile.bytes,
+        mimeType: exportFile.contentType,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final String formatLabel = format.label;
+      final message = savedPath == null
+          ? '$formatLabel export started.'
+          : '$formatLabel exported to $savedPath';
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to export report ${format.label}.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildExportButton() {
+    if (_isExporting) {
+      return FilledButton.icon(
+        onPressed: null,
+        icon: const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        ),
+        label: const Text('Exporting...'),
+        style: FilledButton.styleFrom(
+          backgroundColor: _exportButtonColor,
+          foregroundColor: Colors.white,
+        ),
+      );
+    }
+
+    return PopupMenuButton<ReportExportFormat>(
+      key: const Key('report-export-button'),
+      onSelected: _exportReport,
+      itemBuilder: (BuildContext context) => ReportExportFormat.values
+          .map(
+            (ReportExportFormat format) => PopupMenuItem<ReportExportFormat>(
+              key: Key('report-export-option-${format.queryValue}'),
+              value: format,
+              child: Text('Export ${format.label}'),
+            ),
+          )
+          .toList(),
+      child: FilledButton.icon(
+        onPressed: null,
+        icon: const Icon(Icons.download_outlined),
+        label: const Text('Export'),
+        style: FilledButton.styleFrom(
+          backgroundColor: _exportButtonColor,
+          foregroundColor: Colors.white,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool isPhone = MobileTypography.isPhone(context);
+
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
+        if (isPhone)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
                 widget.embedded ? 'Detailed Report' : 'Reports',
                 style: TextStyle(
                   fontSize: MobileTypography.pageTitle(context),
@@ -294,21 +392,66 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   color: Colors.black,
                 ),
               ),
-            ),
-            OutlinedButton.icon(
-              onPressed: _isLoading || _isTrendLoading ? null : _fetchData,
-              icon: const Icon(Icons.refresh),
-              label: const Text(
-                'Refresh',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _isLoading || _isTrendLoading
+                        ? null
+                        : _fetchData,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text(
+                      'Refresh',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF679B6A),
+                      side: const BorderSide(color: Color(0xFF679B6A)),
+                    ),
+                  ),
+                  _buildExportButton(),
+                ],
               ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF679B6A),
-                side: const BorderSide(color: Color(0xFF679B6A)),
+            ],
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.embedded ? 'Detailed Report' : 'Reports',
+                  style: TextStyle(
+                    fontSize: MobileTypography.pageTitle(context),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _isLoading || _isTrendLoading
+                        ? null
+                        : _fetchData,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text(
+                      'Refresh',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF679B6A),
+                      side: const BorderSide(color: Color(0xFF679B6A)),
+                    ),
+                  ),
+                  _buildExportButton(),
+                ],
+              ),
+            ],
+          ),
         SizedBox(height: MobileTypography.isPhone(context) ? 24 : 48),
         Wrap(
           spacing: 32,
@@ -1491,6 +1634,8 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   }
 
   Widget _buildDetailedReportTable() {
+    final bool isPhone = MediaQuery.of(context).size.width < 800;
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -1510,15 +1655,30 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(24.0),
-            child: Text(
-              'Detailed Records',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Detailed Records',
+                  style: TextStyle(
+                    fontSize: MobileTypography.sectionTitle(context),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Rows are grouped by status and ordered from the earliest appointment IDs upward within each status.',
+                  style: TextStyle(
+                    fontSize: MobileTypography.bodySmall(context),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF5E6C63),
+                    height: 1.45,
+                  ),
+                ),
+              ],
             ),
           ),
           const Divider(height: 1),
@@ -1551,72 +1711,96 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               scrollDirection: Axis.horizontal,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minWidth: MediaQuery.of(context).size.width - 400,
+                  minWidth: isPhone
+                      ? 860
+                      : MediaQuery.of(context).size.width - 400,
                 ),
-                child: DataTable(
-                  headingRowHeight: 64,
-                  dataRowMinHeight: 64,
-                  dataRowMaxHeight: 64,
-                  columns: const [
-                    DataColumn(
-                      label: Text(
-                        'Date',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Patient',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Booking Type',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Service',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Queue No.',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Status',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                  rows: _detailedRecords.map((record) {
-                    return DataRow(
-                      cells: [
-                        DataCell(Text(record['date']?.toString() ?? '-')),
-                        DataCell(
-                          Text(record['patient_name']?.toString() ?? '-'),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: DataTableTheme(
+                      data: DataTableThemeData(
+                        headingRowColor: WidgetStateProperty.all(
+                          const Color(0xFFF4F8F4),
                         ),
-                        DataCell(
-                          Text(record['booking_type']?.toString() ?? '-'),
+                        headingTextStyle: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF29412B),
+                          fontSize: 14,
                         ),
-                        DataCell(Text(record['service']?.toString() ?? '-')),
-                        DataCell(
-                          Text(record['queue_number']?.toString() ?? '-'),
+                        dataTextStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155),
                         ),
-                        DataCell(
-                          _buildStatusBadge(
-                            record['status']?.toString() ?? 'Pending',
-                          ),
+                        dividerThickness: 0.6,
+                      ),
+                      child: DataTable(
+                        headingRowHeight: 58,
+                        dataRowMinHeight: 68,
+                        dataRowMaxHeight: 76,
+                        horizontalMargin: 18,
+                        columnSpacing: isPhone ? 22 : 32,
+                        border: TableBorder.all(
+                          color: const Color(0xFFE6ECE6),
+                          width: 0.75,
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                      ],
-                    );
-                  }).toList(),
+                        columns: const [
+                          DataColumn(label: Text('Date')),
+                          DataColumn(label: Text('Patient')),
+                          DataColumn(label: Text('Booking Type')),
+                          DataColumn(label: Text('Service')),
+                          DataColumn(label: Text('Queue No.')),
+                          DataColumn(label: Text('Status')),
+                        ],
+                        rows: _detailedRecords.map((record) {
+                          return DataRow(
+                            cells: [
+                              DataCell(Text(record['date']?.toString() ?? '-')),
+                              DataCell(
+                                SizedBox(
+                                  width: isPhone ? 160 : 220,
+                                  child: Text(
+                                    record['patient_name']?.toString() ?? '-',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: 130,
+                                  child: Text(
+                                    record['booking_type']?.toString() ?? '-',
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: isPhone ? 150 : 190,
+                                  child: Text(
+                                    record['service']?.toString() ?? '-',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                Text(record['queue_number']?.toString() ?? '-'),
+                              ),
+                              DataCell(
+                                _buildStatusBadge(
+                                  record['status']?.toString() ?? 'Pending',
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
