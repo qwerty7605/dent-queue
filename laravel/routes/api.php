@@ -28,36 +28,40 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
-        // Admin/Staff routes
-        Route::prefix('admin')->middleware('role:admin,staff')->group(function () {
+        Route::prefix('admin')->group(function () {
+            Route::middleware('role:admin,staff,intern')->group(function () {
+                Route::get('/dashboard/stats', [AdminDashboardController::class, 'stats']);
+                Route::get('/appointments', [AppointmentController::class, 'indexAdmin']);
+                Route::get('/appointments/master-list', [AppointmentController::class, 'masterList']);
+                Route::get('/calendar/appointments', [AppointmentController::class, 'calendarAppointments']);
+                Route::get('/calendar/appointments/{appointment}', [AppointmentController::class, 'calendarAppointmentDetails']);
+                Route::get('/queues/today', [QueueController::class, 'index']);
+                Route::get('/reports/summary', [AdminDashboardController::class, 'reportSummary']);
+                Route::get('/reports/trends', [AdminDashboardController::class, 'appointmentTrends']);
+                Route::get('/reports/status-distribution', [AdminDashboardController::class, 'statusDistribution']);
+            });
+
+            Route::middleware('role:admin,staff')->group(function () {
             Route::put('/profile', [AdminProfileController::class, 'update']);
-            Route::get('/dashboard/stats', [AdminDashboardController::class, 'stats']);
             Route::get('/patients', [PatientRecordController::class, 'index']);
             Route::get('/patients/search', [PatientRecordController::class, 'search']);
             Route::get('/patients/{patientId}', [PatientRecordController::class, 'show']);
             Route::delete('/patients/{patientId}', [PatientRecordController::class, 'destroy']);
             Route::apiResource('services', ServiceController::class);
             Route::apiResource('staff', AdminStaffController::class);
-            Route::get('/appointments', [AppointmentController::class, 'indexAdmin']);
-            Route::get('/appointments/master-list', [AppointmentController::class, 'masterList']);
             Route::post('/appointments', [AppointmentController::class, 'storeAdmin']);
             Route::post('/appointments/walk-in', [AppointmentController::class, 'storeWalkIn']);
             Route::post('/appointments/follow-up', [AppointmentController::class, 'storeFollowUp']);
             Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus']);
             Route::patch('/appointments/{id}/restore', [AppointmentController::class, 'restore']);
             Route::get('/appointments/recycle-bin', [AppointmentController::class, 'recycleBin']);
-            Route::get('/calendar/appointments', [AppointmentController::class, 'calendarAppointments']);
-            Route::get('/calendar/appointments/{appointment}', [AppointmentController::class, 'calendarAppointmentDetails']);
-            Route::get('/queues/today', [QueueController::class, 'index']);
             Route::post('/queues/call-next', [QueueController::class, 'callNext']);
-            Route::get('/reports/summary', [AdminDashboardController::class, 'reportSummary']);
-            Route::get('/reports/trends', [AdminDashboardController::class, 'appointmentTrends']);
-            Route::get('/reports/status-distribution', [AdminDashboardController::class, 'statusDistribution']);
             Route::apiResource('reports', ReportController::class);
 
             Route::middleware('role:admin')->group(function () {
                 Route::get('/settings/clinic', [AdminClinicSettingsController::class, 'show']);
                 Route::put('/settings/clinic', [AdminClinicSettingsController::class, 'update']);
+            });
             });
         });
 
