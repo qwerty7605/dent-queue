@@ -21,7 +21,7 @@ class AuthController extends Controller
             'first_name' => 'required|string|max:100',
             'middle_name' => 'nullable|string|max:100',
             'last_name' => 'required|string|max:100',
-            'username' => 'required|string|max:50|unique:users,username',
+            'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', 'unique:users,username'],
             'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
             'phone_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
@@ -31,6 +31,7 @@ class AuthController extends Controller
         ], [
             'phone_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
+            'username.regex' => 'Username may only contain letters, numbers, dots, hyphens, and underscores.',
         ]);
 
         if (array_key_exists('contact_number', $data) && !array_key_exists('phone_number', $data)) {

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../core/app_form_validators.dart';
 import '../core/api_client.dart';
 import '../core/config.dart';
 import '../core/token_storage.dart';
@@ -264,9 +265,14 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     );
   }
 
-  InputDecoration _inputDecoration() {
+  InputDecoration _inputDecoration({String? helperText}) {
     return InputDecoration(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      helperText: helperText,
+      helperStyle: const TextStyle(
+        color: Color(0xFF7E8CA0),
+        fontWeight: FontWeight.w600,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -301,6 +307,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
               padding: const EdgeInsets.all(24.0),
               child: Form(
                 key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,13 +434,16 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _firstNameController,
+                      inputFormatters: AppFormValidators.nameInputFormatters(),
                       decoration: _inputDecoration(),
                       style: const TextStyle(
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
                       ),
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Required' : null,
+                      validator: (value) => AppFormValidators.requiredName(
+                        value,
+                        fieldLabel: 'First name',
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -442,10 +452,15 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _middleNameController,
+                      inputFormatters: AppFormValidators.nameInputFormatters(),
                       decoration: _inputDecoration(),
                       style: const TextStyle(
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
+                      ),
+                      validator: (value) => AppFormValidators.optionalName(
+                        value,
+                        fieldLabel: 'Middle name',
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -455,13 +470,16 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _lastNameController,
+                      inputFormatters: AppFormValidators.nameInputFormatters(),
                       decoration: _inputDecoration(),
                       style: const TextStyle(
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
                       ),
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Required' : null,
+                      validator: (value) => AppFormValidators.requiredName(
+                        value,
+                        fieldLabel: 'Last name',
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -470,13 +488,22 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _addressController,
-                      decoration: _inputDecoration(),
+                      inputFormatters: AppFormValidators.maxLengthInputFormatters(
+                        AppFormValidators.addressMaxLength,
+                      ),
+                      decoration: _inputDecoration(
+                        helperText:
+                            'Up to ${AppFormValidators.addressMaxLength} characters',
+                      ),
                       style: const TextStyle(
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
                       ),
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Required' : null,
+                      validator: (value) => AppFormValidators.address(
+                        value,
+                        fieldLabel: 'Address',
+                        required: true,
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -485,11 +512,18 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _genderController,
-                      decoration: _inputDecoration(),
+                      inputFormatters: AppFormValidators.maxLengthInputFormatters(
+                        10,
+                      ),
+                      decoration: _inputDecoration(
+                        helperText: 'Male, female, or other',
+                      ),
                       style: const TextStyle(
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
                       ),
+                      validator: (value) =>
+                          AppFormValidators.gender(value, required: false),
                     ),
                     const SizedBox(height: 16),
 
@@ -498,19 +532,18 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _contactNumberController,
+                      inputFormatters:
+                          AppFormValidators.contactNumberInputFormatters(),
                       keyboardType: TextInputType.phone,
-                      decoration: _inputDecoration(),
+                      decoration: _inputDecoration(
+                        helperText: 'Use an 11-digit PH mobile number',
+                      ),
                       style: const TextStyle(
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) return 'Required';
-                        if (!RegExp(r'^09\d{9}$').hasMatch(value.trim())) {
-                          return 'Enter an 11-digit number starting with 09';
-                        }
-                        return null;
-                      },
+                      validator: (value) =>
+                          AppFormValidators.contactNumber(value),
                     ),
                     const SizedBox(height: 32),
 

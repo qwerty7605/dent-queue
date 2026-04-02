@@ -173,6 +173,27 @@ class AdminStaffApiTest extends TestCase
             ->assertJsonPath('errors.contact_number.0', 'Contact number must be a valid 11-digit mobile number starting with 09.');
     }
 
+    public function test_admin_cannot_create_staff_with_invalid_username_format(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->postJson('/api/v1/admin/staff', [
+            'first_name' => 'New',
+            'last_name' => 'Staff',
+            'gender' => 'female',
+            'address' => 'Staff House 1',
+            'contact_number' => '09123456789',
+            'role' => 'staff',
+            'username' => 'bad staff',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['username'])
+            ->assertJsonPath('errors.username.0', 'Username may only contain letters, numbers, dots, hyphens, and underscores.');
+    }
+
     public function test_admin_can_create_intern_even_if_role_row_was_missing(): void
     {
         $this->internRole->delete();

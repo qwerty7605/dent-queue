@@ -8,12 +8,15 @@ import '../core/token_storage.dart';
 import '../services/appointment_service.dart';
 import '../services/base_service.dart';
 import '../services/notification_service.dart';
+import '../services/patient_record_service.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 import '../widgets/appointment_success_dialog.dart';
 import '../widgets/edit_profile_dialog.dart';
 import 'staff_calendar_view.dart';
 import 'notifications_view.dart';
 import 'recycle_bin_view.dart';
+import 'staff_patient_records_view.dart';
+import 'staff_walk_in_view.dart';
 
 enum _StaffTab { appointments, walkIn, calendar, records, profile }
 
@@ -46,6 +49,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   late final BaseService _baseService;
   late final AppointmentService _appointmentService;
   late final NotificationService _notificationService;
+  late final PatientRecordService _patientRecordService;
   late Map<String, dynamic> _localUserInfo;
 
   late DateTime _selectedDate;
@@ -73,6 +77,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     _appointmentService =
         widget.appointmentService ?? AppointmentService(_baseService);
     _notificationService = NotificationService(_baseService);
+    _patientRecordService = PatientRecordService(_baseService);
     _localUserInfo = widget.userInfo != null
         ? Map<String, dynamic>.from(widget.userInfo!)
         : <String, dynamic>{};
@@ -409,11 +414,28 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       body: SafeArea(
         child: switch (_selectedTab) {
           _StaffTab.appointments => _buildAppointmentsTab(),
-          _StaffTab.walkIn => _buildReadOnlyPlaceholder(),
+          _StaffTab.walkIn => _isReadOnlyAccount
+              ? _buildReadOnlyPlaceholder()
+              : StaffWalkInView(
+                  appointmentService: _appointmentService,
+                  onWalkInSuccess: () {
+                    if (mounted) {
+                      setState(() {
+                        _selectedTab = _StaffTab.appointments;
+                      });
+                    }
+                    _loadAppointmentsForSelectedDate(showLoader: false);
+                  },
+                ),
           _StaffTab.calendar => StaffCalendarView(
             appointmentService: _appointmentService,
           ),
-          _StaffTab.records => _buildReadOnlyPlaceholder(),
+          _StaffTab.records => _isReadOnlyAccount
+              ? _buildReadOnlyPlaceholder()
+              : StaffPatientRecordsView(
+                  patientRecordService: _patientRecordService,
+                  appointmentService: _appointmentService,
+                ),
           _StaffTab.profile => _buildProfileTab(profileImageUrl),
         },
       ),
@@ -465,7 +487,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         ],
       ),
       actions: [
-        if (!widget.readOnly)
+        if (!_isReadOnlyAccount)
           IconButton(
             icon: _buildNotificationIcon(_unreadNotificationCount),
             onPressed: _openNotifications,
@@ -1996,7 +2018,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
   String _resolvedRole(Map<String, dynamic>? userInfo) {
     if (userInfo == null) {
-      return widget.readOnly ? 'intern' : 'staff';
+      return 'staff';
     }
 
     final dynamic directRole = userInfo['role'];
@@ -2018,7 +2040,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       return roleName;
     }
 
-    return widget.readOnly ? 'intern' : 'staff';
+    return 'staff';
   }
 
   Widget _buildNotificationIcon(int unreadCount) {

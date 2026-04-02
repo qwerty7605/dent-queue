@@ -107,6 +107,24 @@ class AuthControllerTest extends TestCase
             ->assertJsonPath('errors.contact_number.0', 'Contact number must be a valid 11-digit mobile number starting with 09.');
     }
 
+    public function test_registration_rejects_invalid_username_format(): void
+    {
+        Role::create(['name' => 'Patient']);
+
+        $response = $this->postJson('/api/v1/auth/register', [
+            'first_name' => 'Jane',
+            'last_name' => 'Smith',
+            'email' => 'jane@example.com',
+            'username' => 'jane smith',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['username'])
+            ->assertJsonPath('errors.username.0', 'Username may only contain letters, numbers, dots, hyphens, and underscores.');
+    }
+
     public function test_user_can_logout(): void
     {
         $role = Role::create(['name' => 'Patient']);

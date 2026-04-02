@@ -75,9 +75,40 @@ class QueueNowServingApiTest extends TestCase
         ]);
     }
 
+    public function test_patient_today_queue_snapshot_auto_generates_missing_queue_entry(): void
+    {
+        $service = $this->createService('Root Canal');
+        $patient = $this->createUserWithRole('Patient');
+        $date = now()->format('Y-m-d');
+        $appointment = $this->createAppointment(
+            $this->patientRecordId($patient),
+            $service->id,
+            $date,
+            '13:00',
+            'confirmed',
+        );
+
+        Sanctum::actingAs($patient);
+
+        $response = $this->getJson('/api/v1/patient/queues/today');
+
+        $response->assertOk()
+            ->assertJsonPath('date', $date)
+            ->assertJsonPath('patient_queue.appointment_id', $appointment->id)
+            ->assertJsonPath('patient_queue.queue_number', 1)
+            ->assertJsonPath('patient_queue.is_now_serving', false);
+
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $appointment->id,
+            'queue_date' => $date,
+            'queue_number' => 1,
+            'is_called' => false,
+        ]);
+    }
+
     public function test_staff_call_next_skips_non_approved_appointments_and_advances_queue(): void
     {
-        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'UTC'));
+        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'Asia/Manila'));
         $staff = $this->createUserWithRole('Staff');
         $service = $this->createService('Teeth Cleaning');
         $date = '2026-03-23';
@@ -123,7 +154,7 @@ class QueueNowServingApiTest extends TestCase
 
     public function test_staff_cannot_call_next_before_8_am(): void
     {
-        Carbon::setTestNow(Carbon::parse('2026-03-23 07:59:00', 'UTC'));
+        Carbon::setTestNow(Carbon::parse('2026-03-23 07:59:00', 'Asia/Manila'));
         $staff = $this->createUserWithRole('Staff');
         Sanctum::actingAs($staff);
 
@@ -138,7 +169,7 @@ class QueueNowServingApiTest extends TestCase
 
     public function test_staff_cannot_call_next_for_a_future_queue_date(): void
     {
-        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'UTC'));
+        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'Asia/Manila'));
         $staff = $this->createUserWithRole('Staff');
         Sanctum::actingAs($staff);
 
@@ -153,7 +184,7 @@ class QueueNowServingApiTest extends TestCase
 
     public function test_staff_cannot_call_next_until_current_called_appointment_is_completed(): void
     {
-        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'UTC'));
+        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'Asia/Manila'));
         $staff = $this->createUserWithRole('Staff');
         $service = $this->createService('Teeth Cleaning');
         $date = '2026-03-23';

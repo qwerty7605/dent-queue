@@ -52,10 +52,11 @@ class AdminStaffController extends Controller
             'address' => 'nullable|string|max:255',
             'contact_number' => ['required', 'regex:/^09\d{9}$/'],
             'role' => 'required|string|in:staff,intern',
-            'username' => 'required|string|max:50|unique:users,username',
+            'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', 'unique:users,username'],
             'password' => 'required|string|min:8|confirmed',
         ], [
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
+            'username.regex' => 'Username may only contain letters, numbers, dots, hyphens, and underscores.',
         ]);
 
         $normalizedRole = Str::lower((string) $data['role']);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/mobile_typography.dart';
@@ -33,11 +35,15 @@ class PatientDashboardView extends StatefulWidget {
 
 enum _PatientAppointmentFilter { all, pending, approved, completed, cancelled }
 
-class _PatientDashboardViewState extends State<PatientDashboardView> {
+class _PatientDashboardViewState extends State<PatientDashboardView>
+    with WidgetsBindingObserver {
+  static const Duration _queueRefreshInterval = Duration(seconds: 10);
+
   int _selectedIndex = 0; // 0 for Appointments, 1 for Profile
 
   late final AppointmentService _appointmentService;
   late final NotificationService _notificationService;
+  Timer? _queueRefreshTimer;
   List<Map<String, dynamic>> _appointments = [];
   List<Map<String, dynamic>> _cancelledAppointments = [];
   Map<String, dynamic>? _todayQueueStatus;
@@ -51,6 +57,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _localUserInfo = widget.userInfo ?? {};
     _appointmentService =
         widget.appointmentService ??
@@ -62,6 +69,22 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     );
     _loadAppointments();
     _loadUnreadNotificationCount();
+    _startQueueAutoRefresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _queueRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadUnreadNotificationCount();
+      _refreshAppointmentsSilently();
+    }
   }
 
   Future<void> _loadUnreadNotificationCount() async {
@@ -87,11 +110,13 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     );
     if (!mounted) return;
     await _loadUnreadNotificationCount();
+    await _refreshAppointmentsSilently();
   }
 
   Future<void> _loadAppointments({
     bool showLoader = true,
     bool forceRefresh = false,
+    bool notifyOnError = true,
   }) async {
     final bool hasVisibleContent =
         _appointments.isNotEmpty ||
@@ -135,7 +160,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
         setState(() {
           _isLoadingAppointments = false;
         });
-        _showStatusMessage('Unable to refresh appointments right now.');
+        if (notifyOnError) {
+          _showStatusMessage('Unable to refresh appointments right now.');
+        }
         return;
       }
 
@@ -153,6 +180,26 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
 
   Future<void> _refreshAppointmentsAndQueue() {
     return _loadAppointments(showLoader: false, forceRefresh: true);
+  }
+
+  Future<void> _refreshAppointmentsSilently() {
+    return _loadAppointments(
+      showLoader: false,
+      forceRefresh: true,
+      notifyOnError: false,
+    );
+  }
+
+  void _startQueueAutoRefresh() {
+    _queueRefreshTimer?.cancel();
+    _queueRefreshTimer = Timer.periodic(_queueRefreshInterval, (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _loadUnreadNotificationCount();
+      _refreshAppointmentsSilently();
+    });
   }
 
   void _showStatusMessage(String message) {
@@ -320,12 +367,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                 ),
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationsView(),
-                    ),
-                  );
+                  _openNotifications();
                 },
               ),
               ListTile(
@@ -1283,9 +1325,15 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   Widget _buildTodayQueuePanel() {
     final nowServing =
         _todayQueueStatus?['now_serving'] as Map<String, dynamic>?;
-    final nextUp = _todayQueueStatus?['next_up'] as Map<String, dynamic>?;
     final patientQueue =
         _todayQueueStatus?['patient_queue'] as Map<String, dynamic>?;
+    final bool isPatientEffectivelyNext =
+        patientQueue != null &&
+        patientQueue['is_now_serving'] != true &&
+        (patientQueue['people_ahead'] ?? 0) == 0;
+    final nextUp =
+        _todayQueueStatus?['next_up'] as Map<String, dynamic>? ??
+        (isPatientEffectivelyNext ? patientQueue : null);
     final bool isPatientNextUp =
         patientQueue != null &&
         nextUp != null &&
@@ -1335,7 +1383,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                   label: 'NEXT UP',
                   value: _formatQueueNumber(nextUp?['queue_number']),
                   caption:
-                      nextUp?['patient_name']?.toString() ?? 'No one in line',
+                      isPatientNextUp
+                      ? 'You are next in line'
+                      : nextUp?['patient_name']?.toString() ?? 'No one in line',
                   color: const Color(0xFF0F766E),
                   backgroundColor: const Color(0xFFEFFCFB),
                 ),
