@@ -1,5 +1,19 @@
+import 'dart:typed_data';
+
 import '../core/endpoints.dart';
 import 'base_service.dart';
+
+class ReportExportFile {
+  const ReportExportFile({
+    required this.filename,
+    required this.bytes,
+    required this.contentType,
+  });
+
+  final String filename;
+  final Uint8List bytes;
+  final String contentType;
+}
 
 class AdminDashboardService {
   AdminDashboardService(this._baseService);
@@ -82,5 +96,44 @@ class AdminDashboardService {
     }
 
     return const <Map<String, dynamic>>[];
+  }
+
+  Future<ReportExportFile> exportDetailedRecordsCsv([
+    Map<String, String> filters = const <String, String>{},
+  ]) async {
+    final response = await _baseService.getRaw(
+      Endpoints.adminReportsExport(filters),
+      headers: const <String, String>{'Accept': 'text/csv'},
+    );
+
+    return ReportExportFile(
+      filename: _extractFilename(response.headers['content-disposition']),
+      bytes: response.bodyBytes,
+      contentType: response.headers['content-type'] ?? 'text/csv',
+    );
+  }
+
+  String _extractFilename(String? contentDisposition) {
+    if (contentDisposition == null || contentDisposition.isEmpty) {
+      return 'report-records.csv';
+    }
+
+    final encodedMatch = RegExp(
+      r'''filename\*=UTF-8''([^;]+)''',
+      caseSensitive: false,
+    ).firstMatch(contentDisposition);
+    if (encodedMatch != null) {
+      return Uri.decodeComponent(encodedMatch.group(1)!).replaceAll('"', '');
+    }
+
+    final filenameMatch = RegExp(
+      r'filename="?([^";]+)"?',
+      caseSensitive: false,
+    ).firstMatch(contentDisposition);
+    if (filenameMatch != null) {
+      return filenameMatch.group(1)!.trim();
+    }
+
+    return 'report-records.csv';
   }
 }

@@ -152,7 +152,56 @@ class ReportService
 
     public function getDetailedRecords(array $filters = []): array
     {
-        $appointments = $this->newFilteredAppointmentsQuery($filters)
+        $appointments = $this->getDetailedRecordRows($filters);
+
+        return $appointments
+            ->map(function ($appointment): array {
+                $record = $this->mapDetailedRecord($appointment);
+
+                return [
+                    'appointment_id' => $record['appointment_id'],
+                    'patient_name' => $record['patient_name'],
+                    'service' => $record['service_type'],
+                    'service_type' => $record['service_type'],
+                    'date' => $record['appointment_date'],
+                    'appointment_date' => $record['appointment_date'],
+                    'appointment_time' => $record['appointment_time'],
+                    'contact' => $record['contact'],
+                    'status' => $record['status'],
+                    'booking_type' => $record['booking_type'],
+                    'queue_number' => $record['queue_number'],
+                    'created_at' => $record['created_at'],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    public function getDetailedRecordsForExport(array $filters = []): array
+    {
+        return $this->getDetailedRecordRows($filters)
+            ->map(function ($appointment): array {
+                $record = $this->mapDetailedRecord($appointment);
+
+                return [
+                    'appointment_id' => $record['appointment_id'],
+                    'patient_name' => $record['patient_name'],
+                    'service_type' => $record['service_type'],
+                    'appointment_date' => $record['appointment_date'],
+                    'appointment_time' => $record['appointment_time'],
+                    'status' => $record['status'],
+                    'booking_type' => $record['booking_type'],
+                    'queue_number' => $record['queue_number'],
+                    'created_at' => $record['created_at'],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function getDetailedRecordRows(array $filters)
+    {
+        return $this->newFilteredAppointmentsQuery($filters)
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id')
             ->orderByDesc('appointments.appointment_date')
@@ -164,6 +213,8 @@ class ReportService
                 'patient_records.last_name',
                 'services.name as service_type',
                 'appointments.appointment_date',
+                'appointments.time_slot',
+                'appointments.created_at',
                 'patient_records.contact_number as contact',
                 'appointments.status',
                 'appointments.notes',
@@ -171,44 +222,52 @@ class ReportService
                 'queues.queue_number',
             ])
             ->get();
+    }
 
-        return $appointments
-            ->map(function ($appointment): array {
-                $middleName = $appointment->middle_name !== null && $appointment->middle_name !== ''
-                    ? ' ' . mb_substr((string) $appointment->middle_name, 0, 1) . '.'
-                    : '';
+    private function mapDetailedRecord(object $appointment): array
+    {
+        $middleName = $appointment->middle_name !== null && $appointment->middle_name !== ''
+            ? ' ' . mb_substr((string) $appointment->middle_name, 0, 1) . '.'
+            : '';
 
-                $patientName = trim(sprintf(
-                    '%s%s %s',
-                    (string) $appointment->first_name,
-                    $middleName,
-                    (string) $appointment->last_name,
-                ));
+        $patientName = trim(sprintf(
+            '%s%s %s',
+            (string) $appointment->first_name,
+            $middleName,
+            (string) $appointment->last_name,
+        ));
 
-                $bookingType = $this->isWalkInAppointment(
-                    $appointment->user_id,
-                    $appointment->notes !== null ? (string) $appointment->notes : null,
-                )
-                    ? self::BOOKING_TYPE_WALK_IN
-                    : self::BOOKING_TYPE_ONLINE;
+        $bookingType = $this->isWalkInAppointment(
+            $appointment->user_id,
+            $appointment->notes !== null ? (string) $appointment->notes : null,
+        )
+            ? self::BOOKING_TYPE_WALK_IN
+            : self::BOOKING_TYPE_ONLINE;
 
-                return [
-                    'appointment_id' => (int) $appointment->appointment_id,
-                    'patient_name' => $patientName,
-                    'service' => $appointment->service_type !== null
-                        ? (string) $appointment->service_type
-                        : 'Unknown Service',
-                    'date' => (string) $appointment->appointment_date,
-                    'contact' => (string) $appointment->contact,
-                    'status' => $this->formatStatusLabel((string) $appointment->status),
-                    'booking_type' => $bookingType,
-                    'queue_number' => $appointment->queue_number
-                        ? str_pad((string) $appointment->queue_number, 2, '0', STR_PAD_LEFT)
-                        : '-',
-                ];
-            })
-            ->values()
-            ->all();
+        $appointmentDate = Carbon::parse((string) $appointment->appointment_date)->format('Y-m-d');
+        $appointmentTime = $this->formatAppointmentTime(
+            $appointment->time_slot !== null ? (string) $appointment->time_slot : null,
+        );
+        $createdAt = $appointment->created_at !== null
+            ? Carbon::parse((string) $appointment->created_at)->format('Y-m-d H:i:s')
+            : '-';
+
+        return [
+            'appointment_id' => (int) $appointment->appointment_id,
+            'patient_name' => $patientName,
+            'service_type' => $appointment->service_type !== null
+                ? (string) $appointment->service_type
+                : 'Unknown Service',
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => $appointmentTime,
+            'contact' => (string) $appointment->contact,
+            'status' => $this->formatStatusLabel((string) $appointment->status),
+            'booking_type' => $bookingType,
+            'queue_number' => $appointment->queue_number
+                ? str_pad((string) $appointment->queue_number, 2, '0', STR_PAD_LEFT)
+                : '-',
+            'created_at' => $createdAt,
+        ];
     }
 
     private function newFilteredAppointmentsQuery(array $filters): Builder
@@ -290,5 +349,24 @@ class ReportService
         $normalized = str_replace(['-', '_'], ' ', Str::lower(trim($value)));
 
         return trim((string) preg_replace('/\s+/', ' ', $normalized));
+    }
+
+    private function formatAppointmentTime(?string $timeSlot): string
+    {
+        if ($timeSlot === null || trim($timeSlot) === '') {
+            return '-';
+        }
+
+        $normalized = trim($timeSlot);
+
+        foreach (['H:i:s', 'H:i'] as $format) {
+            try {
+                return Carbon::createFromFormat($format, $normalized)->format('g:i A');
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return $normalized;
     }
 }

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../core/file_download.dart';
 import '../core/mobile_typography.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
@@ -57,6 +58,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
   bool _isLoading = true;
   bool _isTrendLoading = true;
+  bool _isExporting = false;
   String? _trendLoadError;
   List<Map<String, dynamic>> _detailedRecords = [];
   DateTime? _draftStartDate;
@@ -278,15 +280,64 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
+  Future<void> _exportCsv() async {
+    if (_isExporting) {
+      return;
+    }
+
+    setState(() {
+      _isExporting = true;
+    });
+
+    try {
+      final exportFile = await widget.adminDashboardService
+          .exportDetailedRecordsCsv(_activeReportFilters);
+      final savedPath = await saveDownloadedFile(
+        filename: exportFile.filename,
+        bytes: exportFile.bytes,
+        mimeType: exportFile.contentType,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final message = savedPath == null
+          ? 'CSV export started.'
+          : 'CSV exported to $savedPath';
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to export report CSV.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool isPhone = MobileTypography.isPhone(context);
+
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
+        if (isPhone)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
                 widget.embedded ? 'Detailed Report' : 'Reports',
                 style: TextStyle(
                   fontSize: MobileTypography.pageTitle(context),
@@ -294,21 +345,100 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   color: Colors.black,
                 ),
               ),
-            ),
-            OutlinedButton.icon(
-              onPressed: _isLoading || _isTrendLoading ? null : _fetchData,
-              icon: const Icon(Icons.refresh),
-              label: const Text(
-                'Refresh',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _isLoading || _isTrendLoading
+                        ? null
+                        : _fetchData,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text(
+                      'Refresh',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF679B6A),
+                      side: const BorderSide(color: Color(0xFF679B6A)),
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _isExporting ? null : _exportCsv,
+                    icon: _isExporting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.download_outlined),
+                    label: Text(_isExporting ? 'Exporting...' : 'Export CSV'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _reportAccent,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
               ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF679B6A),
-                side: const BorderSide(color: Color(0xFF679B6A)),
+            ],
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.embedded ? 'Detailed Report' : 'Reports',
+                  style: TextStyle(
+                    fontSize: MobileTypography.pageTitle(context),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _isLoading || _isTrendLoading
+                        ? null
+                        : _fetchData,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text(
+                      'Refresh',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF679B6A),
+                      side: const BorderSide(color: Color(0xFF679B6A)),
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _isExporting ? null : _exportCsv,
+                    icon: _isExporting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.download_outlined),
+                    label: Text(_isExporting ? 'Exporting...' : 'Export CSV'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _reportAccent,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         SizedBox(height: MobileTypography.isPhone(context) ? 24 : 48),
         Wrap(
           spacing: 32,

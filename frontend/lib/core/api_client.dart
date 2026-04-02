@@ -34,7 +34,9 @@ class ApiClient {
   String _normalizeBaseUrl(String raw) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return trimmed;
-    return trimmed.endsWith('/') ? trimmed.substring(0, trimmed.length - 1) : trimmed;
+    return trimmed.endsWith('/')
+        ? trimmed.substring(0, trimmed.length - 1)
+        : trimmed;
   }
 
   List<String> _baseUrlCandidates() {
@@ -68,7 +70,8 @@ class ApiClient {
 
     add(AppConfig.baseUrl);
 
-    if (!AppConfig.hasManualBaseUrl && defaultTargetPlatform != TargetPlatform.android) {
+    if (!AppConfig.hasManualBaseUrl &&
+        defaultTargetPlatform != TargetPlatform.android) {
       add(AppConfig.localhostBaseUrl);
     }
 
@@ -77,6 +80,13 @@ class ApiClient {
 
   Future<dynamic> get(String path) async {
     return _send('GET', path);
+  }
+
+  Future<http.Response> getRaw(
+    String path, {
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    return _sendRaw('GET', path, headers: headers);
   }
 
   Future<dynamic> post(String path, {Object? body}) async {
@@ -232,6 +242,59 @@ class ApiClient {
     throw lastNetworkError ?? ApiException(message: 'Cannot reach server');
   }
 
+  Future<http.Response> _sendRaw(
+    String method,
+    String path, {
+    Map<String, String> headers = const <String, String>{},
+    Object? body,
+  }) async {
+    final requestHeaders = <String, String>{
+      ...await _buildHeaders(),
+      ...headers,
+    };
+    final baseUrls = _baseUrlCandidates();
+    ApiException? lastNetworkError;
+
+    for (var i = 0; i < baseUrls.length; i++) {
+      final baseUrl = baseUrls[i];
+      final url = '$baseUrl$path';
+      final uri = Uri.parse(url);
+
+      try {
+        final response = await _performRequest(
+          method: method,
+          uri: uri,
+          headers: requestHeaders,
+          body: body,
+        );
+
+        debugPrint('API RAW $method $url -> ${response.statusCode}');
+
+        _throwIfErrorResponse(response);
+        _activeBaseUrl = baseUrl;
+        return response;
+      } on TimeoutException {
+        lastNetworkError = ApiException(
+          message: 'Request timed out: $url (${_networkHint(url)})',
+        );
+      } on SocketException {
+        lastNetworkError = ApiException(
+          message: 'Cannot reach server: $url (${_networkHint(url)})',
+        );
+      } on FormatException {
+        throw ApiException(message: 'Invalid server response');
+      } on ApiException {
+        rethrow;
+      }
+
+      if (i < baseUrls.length - 1) {
+        debugPrint('API RAW $method fallback -> ${baseUrls[i + 1]}$path');
+      }
+    }
+
+    throw lastNetworkError ?? ApiException(message: 'Cannot reach server');
+  }
+
   Future<http.Response> _performRequest({
     required String method,
     required Uri uri,
@@ -261,11 +324,17 @@ class ApiClient {
   }
 
   dynamic _parseResponse(http.Response response) {
+    _throwIfErrorResponse(response);
+
+    if (response.body.isEmpty) {
+      return null;
+    }
+    return jsonDecode(response.body) as dynamic;
+  }
+
+  void _throwIfErrorResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) {
-        return null;
-      }
-      return jsonDecode(response.body) as dynamic;
+      return;
     }
 
     String message = 'Request failed';

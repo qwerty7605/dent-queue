@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
+
 import '../core/api_client.dart';
 import '../core/api_exception.dart';
 
@@ -72,8 +74,23 @@ class BaseService {
     required T Function(dynamic json) mapper,
   }) async {
     try {
-      final json = await _apiClient.postMultipart(path, fields: fields, files: files);
+      final json = await _apiClient.postMultipart(
+        path,
+        fields: fields,
+        files: files,
+      );
       return mapper(json);
+    } on ApiException {
+      rethrow;
+    }
+  }
+
+  Future<http.Response> getRaw(
+    String path, {
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    try {
+      return await _apiClient.getRaw(path, headers: headers);
     } on ApiException {
       rethrow;
     }

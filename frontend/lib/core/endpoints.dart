@@ -50,6 +50,9 @@ class Endpoints {
     'trend_type': trendType,
     ...queryParameters,
   });
+  static String adminReportsExport([
+    Map<String, String> queryParameters = const <String, String>{},
+  ]) => _withQueryParameters('$_base/admin/reports/export', queryParameters);
   static const adminProfileUpdate = '$_base/admin/profile';
   static const adminAppointments = '$_base/admin/appointments';
   static String adminMasterList([

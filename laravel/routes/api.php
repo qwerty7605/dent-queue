@@ -42,26 +42,27 @@ Route::prefix('v1')->group(function () {
             });
 
             Route::middleware('role:admin,staff')->group(function () {
-            Route::put('/profile', [AdminProfileController::class, 'update']);
-            Route::get('/patients', [PatientRecordController::class, 'index']);
-            Route::get('/patients/search', [PatientRecordController::class, 'search']);
-            Route::get('/patients/{patientId}', [PatientRecordController::class, 'show']);
-            Route::delete('/patients/{patientId}', [PatientRecordController::class, 'destroy']);
-            Route::apiResource('services', ServiceController::class);
-            Route::apiResource('staff', AdminStaffController::class);
-            Route::post('/appointments', [AppointmentController::class, 'storeAdmin']);
-            Route::post('/appointments/walk-in', [AppointmentController::class, 'storeWalkIn']);
-            Route::post('/appointments/follow-up', [AppointmentController::class, 'storeFollowUp']);
-            Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus']);
-            Route::patch('/appointments/{id}/restore', [AppointmentController::class, 'restore']);
-            Route::get('/appointments/recycle-bin', [AppointmentController::class, 'recycleBin']);
-            Route::post('/queues/call-next', [QueueController::class, 'callNext']);
-            Route::apiResource('reports', ReportController::class);
+                Route::put('/profile', [AdminProfileController::class, 'update']);
+                Route::get('/patients', [PatientRecordController::class, 'index']);
+                Route::get('/patients/search', [PatientRecordController::class, 'search']);
+                Route::get('/patients/{patientId}', [PatientRecordController::class, 'show']);
+                Route::delete('/patients/{patientId}', [PatientRecordController::class, 'destroy']);
+                Route::apiResource('services', ServiceController::class);
+                Route::apiResource('staff', AdminStaffController::class);
+                Route::post('/appointments', [AppointmentController::class, 'storeAdmin']);
+                Route::post('/appointments/walk-in', [AppointmentController::class, 'storeWalkIn']);
+                Route::post('/appointments/follow-up', [AppointmentController::class, 'storeFollowUp']);
+                Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus']);
+                Route::patch('/appointments/{id}/restore', [AppointmentController::class, 'restore']);
+                Route::get('/appointments/recycle-bin', [AppointmentController::class, 'recycleBin']);
+                Route::post('/queues/call-next', [QueueController::class, 'callNext']);
+                Route::apiResource('reports', ReportController::class)->only(['index']);
 
-            Route::middleware('role:admin')->group(function () {
-                Route::get('/settings/clinic', [AdminClinicSettingsController::class, 'show']);
-                Route::put('/settings/clinic', [AdminClinicSettingsController::class, 'update']);
-            });
+                Route::middleware('role:admin')->group(function () {
+                    Route::get('/reports/export', [ReportController::class, 'exportCsv']);
+                    Route::get('/settings/clinic', [AdminClinicSettingsController::class, 'show']);
+                    Route::put('/settings/clinic', [AdminClinicSettingsController::class, 'update']);
+                });
             });
         });
 
