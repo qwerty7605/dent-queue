@@ -48,6 +48,7 @@ class QueueNotificationApiTest extends TestCase
 
     public function test_it_generates_queue_notifications_when_calling_next_patient()
     {
+        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'Asia/Manila'));
         $service = $this->createService();
         $patient1 = $this->createPatient();
         $patient2 = $this->createPatient();
@@ -107,10 +108,13 @@ class QueueNotificationApiTest extends TestCase
         
         // Total notifications: 1 for pt1 (now serving), 2 for pt2 (next up -> now serving).
         $this->assertDatabaseCount('patient_notifications', 3);
+
+        Carbon::setTestNow();
     }
 
     public function test_it_prevents_duplicate_queue_notifications()
     {
+        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'Asia/Manila'));
         $service = $this->createService();
         $patient1 = $this->createPatient();
         $today = Carbon::today()->toDateString();
@@ -153,5 +157,7 @@ class QueueNotificationApiTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('patient_notifications', 1);
+
+        Carbon::setTestNow();
     }
 }

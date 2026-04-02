@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_form_validators.dart';
 import '../core/api_exception.dart';
 import '../core/mobile_typography.dart';
 import '../services/auth_service.dart';
@@ -238,6 +239,7 @@ class _RegisterViewState extends State<RegisterView> {
                         ),
                         child: Form(
                           key: _formKey,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -382,13 +384,14 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'First Name',
           child: TextFormField(
             controller: _firstNameController,
+            inputFormatters: AppFormValidators.nameInputFormatters(),
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
             decoration: _inputDecoration(hintText: 'Enter First Name'),
             validator: (val) =>
-                val == null || val.trim().isEmpty ? 'Required' : null,
+                AppFormValidators.requiredName(val, fieldLabel: 'First name'),
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -397,11 +400,14 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Middle Name',
           child: TextFormField(
             controller: _middleNameController,
+            inputFormatters: AppFormValidators.nameInputFormatters(),
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
             decoration: _inputDecoration(hintText: 'Enter Middle Name'),
+            validator: (val) =>
+                AppFormValidators.optionalName(val, fieldLabel: 'Middle name'),
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -410,13 +416,14 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Last Name',
           child: TextFormField(
             controller: _lastNameController,
+            inputFormatters: AppFormValidators.nameInputFormatters(),
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
             decoration: _inputDecoration(hintText: 'Enter Last Name'),
             validator: (val) =>
-                val == null || val.trim().isEmpty ? 'Required' : null,
+                AppFormValidators.requiredName(val, fieldLabel: 'Last name'),
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _nextStep(),
           ),
@@ -475,21 +482,19 @@ class _RegisterViewState extends State<RegisterView> {
               Expanded(
                 child: TextFormField(
                   controller: _contactNumberController,
+                  inputFormatters:
+                      AppFormValidators.contactNumberInputFormatters(),
                   keyboardType: TextInputType.phone,
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     color: Colors.black87,
                   ),
-                  decoration: _inputDecoration(hintText: '09XXXXXXXXX'),
+                  decoration: _inputDecoration(
+                    hintText: '09XXXXXXXXX',
+                    helperText: 'Use an 11-digit PH mobile number',
+                  ),
                   textInputAction: TextInputAction.next,
-                  validator: (value) {
-                    final trimmed = value?.trim() ?? '';
-                    if (trimmed.isEmpty) return 'Required';
-                    if (!RegExp(r'^09\d{9}$').hasMatch(trimmed)) {
-                      return 'Enter an 11-digit number starting with 09';
-                    }
-                    return null;
-                  },
+                  validator: AppFormValidators.contactNumber,
                 ),
               ),
             ],
@@ -520,7 +525,8 @@ class _RegisterViewState extends State<RegisterView> {
                 _gender = val;
               });
             },
-            validator: (val) => val == null ? 'Required' : null,
+            validator: (val) =>
+                AppFormValidators.gender(val, required: true),
           ),
         ),
         const SizedBox(height: 16),
@@ -528,11 +534,20 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Location',
           child: TextFormField(
             controller: _locationController,
+            inputFormatters: AppFormValidators.maxLengthInputFormatters(
+              AppFormValidators.addressMaxLength,
+            ),
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
-            decoration: _inputDecoration(hintText: 'Enter Location'),
+            decoration: _inputDecoration(
+              hintText: 'Enter Location',
+              helperText:
+                  'Up to ${AppFormValidators.addressMaxLength} characters',
+            ),
+            validator: (value) =>
+                AppFormValidators.address(value, fieldLabel: 'Location'),
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -541,21 +556,16 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Email',
           child: TextFormField(
             controller: _emailController,
+            inputFormatters: AppFormValidators.maxLengthInputFormatters(
+              AppFormValidators.emailMaxLength,
+            ),
             keyboardType: TextInputType.emailAddress,
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
             decoration: _inputDecoration(hintText: 'Enter Email'),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Email is required';
-              }
-              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(value)) {
-                return 'Invalid email';
-              }
-              return null;
-            },
+            validator: AppFormValidators.email,
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _nextStep(),
           ),
@@ -588,13 +598,16 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Username',
           child: TextFormField(
             controller: _usernameController,
+            inputFormatters: AppFormValidators.usernameInputFormatters(),
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
-            decoration: _inputDecoration(hintText: 'Enter your Username'),
-            validator: (val) =>
-                val == null || val.trim().isEmpty ? 'Required' : null,
+            decoration: _inputDecoration(
+              hintText: 'Enter your Username',
+              helperText: 'Letters, numbers, dots, hyphens, underscores',
+            ),
+            validator: AppFormValidators.username,
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -620,6 +633,8 @@ class _RegisterViewState extends State<RegisterView> {
             ),
             decoration: _inputDecoration(
               hintText: 'Enter your Password',
+              helperText:
+                  'Minimum ${AppFormValidators.passwordMinLength} characters',
               suffixIcon: IconButton(
                 icon: Icon(
                   _showPassword ? Icons.visibility_off : Icons.visibility,
@@ -632,8 +647,7 @@ class _RegisterViewState extends State<RegisterView> {
                 },
               ),
             ),
-            validator: (val) =>
-                val == null || val.length < 8 ? 'Min 8 chars' : null,
+            validator: AppFormValidators.password,
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -663,9 +677,10 @@ class _RegisterViewState extends State<RegisterView> {
                 },
               ),
             ),
-            validator: (val) => val != _passwordController.text
-                ? 'Passwords do not match'
-                : null,
+            validator: (val) => AppFormValidators.confirmPassword(
+              val,
+              _passwordController.text,
+            ),
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _register(),
           ),
@@ -737,6 +752,7 @@ class _RegisterViewState extends State<RegisterView> {
   InputDecoration _inputDecoration({
     required String hintText,
     Widget? suffixIcon,
+    String? helperText,
   }) {
     return InputDecoration(
       hintText: hintText,
@@ -749,6 +765,11 @@ class _RegisterViewState extends State<RegisterView> {
       fillColor: const Color(0xFFFFF0F5),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       suffixIcon: suffixIcon,
+      helperText: helperText,
+      helperStyle: const TextStyle(
+        color: Color(0xFFE5EFE1),
+        fontWeight: FontWeight.w600,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,

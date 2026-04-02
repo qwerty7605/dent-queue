@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../core/app_form_validators.dart';
 import '../core/api_exception.dart';
 import '../core/mobile_typography.dart';
 
@@ -135,6 +137,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
         height: dialogHeight,
         child: Form(
           key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(30),
             child: DecoratedBox(
@@ -321,7 +324,9 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
           label: 'First Name',
           child: _buildTextField(
             controller: _firstNameController,
-            validator: _requiredValidator,
+            validator: (value) =>
+                AppFormValidators.requiredName(value, fieldLabel: 'First name'),
+            inputFormatters: AppFormValidators.nameInputFormatters(),
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -330,6 +335,9 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
           label: 'Middle Name',
           child: _buildTextField(
             controller: _middleNameController,
+            validator: (value) =>
+                AppFormValidators.optionalName(value, fieldLabel: 'Middle name'),
+            inputFormatters: AppFormValidators.nameInputFormatters(),
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -338,7 +346,9 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
           label: 'Last Name',
           child: _buildTextField(
             controller: _lastNameController,
-            validator: _requiredValidator,
+            validator: (value) =>
+                AppFormValidators.requiredName(value, fieldLabel: 'Last name'),
+            inputFormatters: AppFormValidators.nameInputFormatters(),
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _nextStep(),
           ),
@@ -364,7 +374,8 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
                 _selectedGender = value;
               });
             },
-            validator: (String? value) => value == null ? 'Required' : null,
+            validator: (String? value) =>
+                AppFormValidators.gender(value, required: true),
           ),
         ),
         const SizedBox(height: 24),
@@ -414,15 +425,11 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
               Expanded(
                 child: _buildTextField(
                   controller: _contactController,
+                  inputFormatters:
+                      AppFormValidators.contactNumberInputFormatters(),
                   keyboardType: TextInputType.phone,
-                  validator: (String? value) {
-                    final String trimmed = value?.trim() ?? '';
-                    if (trimmed.isEmpty) return 'Required';
-                    if (!RegExp(r'^09\d{9}$').hasMatch(trimmed)) {
-                      return 'Enter an 11-digit number starting with 09';
-                    }
-                    return null;
-                  },
+                  validator: AppFormValidators.contactNumber,
+                  helperText: 'Use an 11-digit PH mobile number',
                   textInputAction: TextInputAction.next,
                 ),
               ),
@@ -434,7 +441,14 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
           label: 'Address',
           child: _buildTextField(
             controller: _addressController,
+            inputFormatters: AppFormValidators.maxLengthInputFormatters(
+              AppFormValidators.addressMaxLength,
+            ),
             maxLines: 2,
+            validator: (value) =>
+                AppFormValidators.address(value, fieldLabel: 'Address'),
+            helperText:
+                'Up to ${AppFormValidators.addressMaxLength} characters',
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _nextStep(),
           ),
@@ -481,7 +495,9 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
           label: 'Username',
           child: _buildTextField(
             controller: _usernameController,
-            validator: _requiredValidator,
+            validator: AppFormValidators.username,
+            inputFormatters: AppFormValidators.usernameInputFormatters(),
+            helperText: 'Letters, numbers, dots, hyphens, underscores',
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -490,12 +506,9 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
           label: 'Password',
           child: _buildTextField(
             controller: _passwordController,
-            validator: (String? value) {
-              final String text = value ?? '';
-              if (text.isEmpty) return 'Required';
-              if (text.length < 8) return 'Min 8 chars';
-              return null;
-            },
+            validator: AppFormValidators.password,
+            helperText:
+                'Minimum ${AppFormValidators.passwordMinLength} characters',
             obscureText: !_showPassword,
             textInputAction: TextInputAction.next,
             suffixIcon: IconButton(
@@ -516,12 +529,10 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
           label: 'Confirm Password',
           child: _buildTextField(
             controller: _confirmPasswordController,
-            validator: (String? value) {
-              if (value != _passwordController.text) {
-                return 'Passwords do not match';
-              }
-              return null;
-            },
+            validator: (String? value) => AppFormValidators.confirmPassword(
+              value,
+              _passwordController.text,
+            ),
             obscureText: !_showConfirmPassword,
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _handleSubmit(),
@@ -659,10 +670,13 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
     TextInputAction? textInputAction,
     void Function(String)? onFieldSubmitted,
     Widget? suffixIcon,
+    List<TextInputFormatter>? inputFormatters,
+    String? helperText,
   }) {
     return TextFormField(
       controller: controller,
       validator: validator,
+      inputFormatters: inputFormatters,
       keyboardType: keyboardType,
       obscureText: obscureText,
       maxLines: obscureText ? 1 : maxLines,
@@ -672,7 +686,10 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
         fontWeight: FontWeight.w700,
         color: Colors.black87,
       ),
-      decoration: _inputDecoration(suffixIcon: suffixIcon),
+      decoration: _inputDecoration(
+        suffixIcon: suffixIcon,
+        helperText: helperText,
+      ),
     );
   }
 
@@ -712,12 +729,17 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
     );
   }
 
-  InputDecoration _inputDecoration({Widget? suffixIcon}) {
+  InputDecoration _inputDecoration({Widget? suffixIcon, String? helperText}) {
     return InputDecoration(
       filled: true,
       fillColor: const Color(0xFFFFF0F5),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       suffixIcon: suffixIcon,
+      helperText: helperText,
+      helperStyle: TextStyle(
+        color: Colors.white.withValues(alpha: 0.78),
+        fontWeight: FontWeight.w600,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,
@@ -750,13 +772,6 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
         color: const Color(0xFFD4AF37),
       ),
     );
-  }
-
-  String? _requiredValidator(String? value) {
-    if ((value?.trim() ?? '').isEmpty) {
-      return 'Required';
-    }
-    return null;
   }
 
   String get _previewName {

@@ -171,6 +171,16 @@ class QueueService
             ? Carbon::createFromFormat('Y-m-d', $date)->toDateString()
             : Carbon::today(config('app.timezone'))->toDateString();
 
+        $hasActiveAppointmentsForDate = Appointment::query()
+            ->whereDate('appointment_date', $queueDate)
+            ->whereNull('deleted_at')
+            ->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+            ->exists();
+
+        if ($hasActiveAppointmentsForDate) {
+            $this->syncQueueNumbersForDate($queueDate);
+        }
+
         $nowServing = Queue::query()
             ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
             ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
