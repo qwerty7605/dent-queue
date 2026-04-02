@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_exception.dart';
+import '../core/mobile_typography.dart';
 import '../services/auth_service.dart';
 
 class LoginView extends StatefulWidget {
@@ -74,10 +75,15 @@ class _LoginViewState extends State<LoginView> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width >= 880;
-    
+    final horizontalPadding = isDesktop
+        ? 32.0
+        : (size.width < 380 ? 20.0 : 24.0);
+    final panelVerticalPadding = isDesktop ? 32.0 : 28.0;
+
     // Placeholder image resembling a dental clinic
-    const bgImageUrl = 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&auto=format&fit=crop';
-    
+    const bgImageUrl =
+        'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&auto=format&fit=crop';
+
     return Scaffold(
       backgroundColor: const Color(0xFF356042),
       body: Row(
@@ -119,7 +125,7 @@ class _LoginViewState extends State<LoginView> {
                       ),
                     ),
                   ),
-                
+
                 Align(
                   alignment: Alignment.bottomCenter,
                   child: Container(
@@ -133,18 +139,23 @@ class _LoginViewState extends State<LoginView> {
                               topLeft: Radius.circular(30),
                               topRight: Radius.circular(30),
                             ),
-                      boxShadow: isDesktop ? null : [
-                        const BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 10,
-                          offset: Offset(0, -5),
-                        )
-                      ]
+                      boxShadow: isDesktop
+                          ? null
+                          : [
+                              const BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 10,
+                                offset: Offset(0, -5),
+                              ),
+                            ],
                     ),
                     child: SafeArea(
                       top: isDesktop,
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
+                          vertical: panelVerticalPadding,
+                        ),
                         child: Form(
                           key: _formKey,
                           child: Column(
@@ -156,16 +167,22 @@ class _LoginViewState extends State<LoginView> {
                                   Image.network(
                                     'https://api.builder.io/api/v1/image/assets/TEMP/f92c034757dbd92e4f4b2bb61cf4019eb03b031b?width=384',
                                     height: 86,
-                                    errorBuilder: (_, error, stackTrace) => const Icon(Icons.shield, color: Colors.white, size: 86),
+                                    errorBuilder: (_, error, stackTrace) =>
+                                        const Icon(
+                                          Icons.shield,
+                                          color: Colors.white,
+                                          size: 86,
+                                        ),
                                   ),
                                   const SizedBox(width: 16),
-                                  const Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'SMART',
                                         style: TextStyle(
-                                          fontSize: 36,
+                                          fontSize: isDesktop ? 36 : 32,
                                           fontWeight: FontWeight.w900,
                                           color: Color(0xFFD4AF37),
                                           height: 1.1,
@@ -174,37 +191,37 @@ class _LoginViewState extends State<LoginView> {
                                       Text(
                                         'DentQueue',
                                         style: TextStyle(
-                                          fontSize: 26,
+                                          fontSize: isDesktop ? 26 : 24,
                                           fontWeight: FontWeight.w800,
                                           color: Colors.white,
                                           height: 1.1,
                                         ),
                                       ),
                                     ],
-                                  )
+                                  ),
                                 ],
                               ),
-                              const SizedBox(height: 48),
-                              
-                              const Text(
+                              SizedBox(height: isDesktop ? 48 : 36),
+
+                              Text(
                                 'Welcome Back!',
                                 style: TextStyle(
-                                  fontSize: 26,
+                                  fontSize: MobileTypography.pageTitle(context),
                                   fontWeight: FontWeight.w800,
                                   color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              const Text(
+                              const SizedBox(height: 10),
+                              Text(
                                 'Please login to your account',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: MobileTypography.body(context),
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(height: 36),
-                              
+                              SizedBox(height: isDesktop ? 36 : 28),
+
                               if (_loginError != null)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 16),
@@ -217,7 +234,7 @@ class _LoginViewState extends State<LoginView> {
                                     textAlign: TextAlign.center,
                                   ),
                                 ),
-                              
+
                               TextFormField(
                                 controller: _usernameController,
                                 onChanged: (_) => _clearLoginError(),
@@ -227,13 +244,19 @@ class _LoginViewState extends State<LoginView> {
                                 ),
                                 decoration: _inputDecoration(
                                   hintText: 'Enter your Username',
-                                  suffixIcon: const Icon(Icons.email, color: Color(0xFF5E8E69)),
+                                  suffixIcon: const Icon(
+                                    Icons.email,
+                                    color: Color(0xFF5E8E69),
+                                  ),
                                 ),
-                                validator: (val) => val == null || val.trim().isEmpty ? 'Username is required' : null,
+                                validator: (val) =>
+                                    val == null || val.trim().isEmpty
+                                    ? 'Username is required'
+                                    : null,
                                 textInputAction: TextInputAction.next,
                               ),
                               const SizedBox(height: 16),
-                              
+
                               TextFormField(
                                 controller: _passwordController,
                                 onChanged: (_) => _clearLoginError(),
@@ -246,8 +269,10 @@ class _LoginViewState extends State<LoginView> {
                                   hintText: 'Enter your Password',
                                   suffixIcon: IconButton(
                                     icon: Icon(
-                                      _showPassword ? Icons.lock_open : Icons.lock, 
-                                      color: const Color(0xFF5E8E69)
+                                      _showPassword
+                                          ? Icons.lock_open
+                                          : Icons.lock,
+                                      color: const Color(0xFF5E8E69),
                                     ),
                                     onPressed: () {
                                       setState(() {
@@ -256,38 +281,44 @@ class _LoginViewState extends State<LoginView> {
                                     },
                                   ),
                                 ),
-                                validator: (val) => val == null || val.isEmpty ? 'Password is required' : null,
+                                validator: (val) => val == null || val.isEmpty
+                                    ? 'Password is required'
+                                    : null,
                                 onFieldSubmitted: (_) => _login(),
                                 textInputAction: TextInputAction.done,
                               ),
                               const SizedBox(height: 16),
-                              
+
                               Wrap(
                                 alignment: WrapAlignment.center,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Dont have an account? ',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 14,
+                                      fontSize: MobileTypography.bodySmall(
+                                        context,
+                                      ),
                                     ),
                                   ),
                                   GestureDetector(
                                     onTap: widget.onSwitchToRegister,
-                                    child: const Text(
+                                    child: Text(
                                       'Click here',
                                       style: TextStyle(
                                         color: Color(0xFFD4AF37),
                                         fontWeight: FontWeight.w800,
-                                        fontSize: 14,
+                                        fontSize: MobileTypography.bodySmall(
+                                          context,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 36),
-                              
+                              SizedBox(height: isDesktop ? 36 : 28),
+
                               SizedBox(
                                 width: double.infinity,
                                 height: 52,
@@ -303,16 +334,19 @@ class _LoginViewState extends State<LoginView> {
                                   ),
                                   child: _submitting
                                       ? const SizedBox(
-                                          width: 20, height: 20,
+                                          width: 20,
+                                          height: 20,
                                           child: CircularProgressIndicator(
-                                            strokeWidth: 2, 
-                                            color: Colors.black
-                                          )
+                                            strokeWidth: 2,
+                                            color: Colors.black,
+                                          ),
                                         )
-                                      : const Text(
+                                      : Text(
                                           'Sign In',
                                           style: TextStyle(
-                                            fontSize: 18,
+                                            fontSize: MobileTypography.button(
+                                              context,
+                                            ),
                                             fontWeight: FontWeight.w900,
                                           ),
                                         ),
@@ -333,13 +367,16 @@ class _LoginViewState extends State<LoginView> {
     );
   }
 
-  InputDecoration _inputDecoration({required String hintText, Widget? suffixIcon}) {
+  InputDecoration _inputDecoration({
+    required String hintText,
+    Widget? suffixIcon,
+  }) {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(
         color: Color(0xFF9EAFAA),
         fontWeight: FontWeight.w700,
-        fontSize: 15,
+        fontSize: 16,
       ),
       filled: true,
       fillColor: const Color(0xFFFFF0F5),
@@ -364,6 +401,7 @@ class _LoginViewState extends State<LoginView> {
       errorStyle: const TextStyle(
         color: Color(0xFFFFA0A0),
         fontWeight: FontWeight.w700,
+        fontSize: 13,
       ),
     );
   }

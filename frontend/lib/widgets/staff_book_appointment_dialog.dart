@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../core/api_exception.dart';
+import '../core/mobile_typography.dart';
 import '../services/appointment_service.dart';
 import 'appointment_success_dialog.dart';
 
@@ -20,7 +21,8 @@ class StaffBookAppointmentDialog extends StatefulWidget {
       _StaffBookAppointmentDialogState();
 }
 
-class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog> {
+class _StaffBookAppointmentDialogState
+    extends State<StaffBookAppointmentDialog> {
   final _formKey = GlobalKey<FormState>();
 
   String? _selectedService = 'Dental Check-up';
@@ -136,13 +138,18 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
         _isSubmitting = false;
         _apiErrorMessage = _resolveApiError(e);
       });
-      
+
       if (_apiErrorMessage!.contains('This schedule is already booked')) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('This schedule is already booked', style: TextStyle(fontWeight: FontWeight.bold)),
-            content: const Text('Sorry, the selected date and time are no longer available. Please choose another schedule.'),
+            title: const Text(
+              'This schedule is already booked',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: const Text(
+              'Sorry, the selected date and time are no longer available. Please choose another schedule.',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -180,9 +187,7 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 0,
       backgroundColor: Colors.white,
       child: ConstrainedBox(
@@ -226,12 +231,12 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
   Widget _buildHeader() {
     return Stack(
       children: [
-        const Align(
+        Align(
           alignment: Alignment.center,
           child: Text(
             'Book Appointment',
             style: TextStyle(
-              fontSize: 22,
+              fontSize: MobileTypography.sectionTitle(context),
               fontWeight: FontWeight.w900,
               color: Color(0xFF1E293B),
             ),
@@ -241,11 +246,7 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
           alignment: Alignment.centerRight,
           child: GestureDetector(
             onTap: () => Navigator.of(context).pop(),
-            child: const Icon(
-              Icons.close,
-              color: Color(0xFF94A3B8),
-              size: 24,
-            ),
+            child: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 24),
           ),
         ),
       ],
@@ -258,7 +259,7 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: FontWeight.w800,
           color: Color(0xFF64748B),
           letterSpacing: 0.5,
@@ -281,7 +282,7 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
               child: Text(
                 service,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF1E293B),
                 ),
@@ -317,7 +318,7 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
               _apiErrorMessage!,
               style: const TextStyle(
                 color: Colors.redAccent,
-                fontSize: 14,
+                fontSize: 15,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -336,9 +337,10 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
           controller: _dateController,
           readOnly: true,
           onTap: _pickDate,
-          validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+          validator: (value) =>
+              value == null || value.isEmpty ? 'Required' : null,
           style: const TextStyle(
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
             color: Color(0xFF1E293B),
           ),
@@ -360,9 +362,10 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
           controller: _timeController,
           readOnly: true,
           onTap: _pickTime,
-          validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+          validator: (value) =>
+              value == null || value.isEmpty ? 'Required' : null,
           style: const TextStyle(
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
             color: Color(0xFF1E293B),
           ),
@@ -384,13 +387,11 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
           controller: _notesController,
           maxLines: 4,
           style: const TextStyle(
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w500,
             color: Color(0xFF1E293B),
           ),
-          decoration: _inputDecoration(
-            hint: 'Any concerns?',
-          ),
+          decoration: _inputDecoration(hint: 'Any concerns?'),
         ),
       ],
     );
@@ -419,10 +420,10 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
                   color: Colors.white,
                 ),
               )
-            : const Text(
+            : Text(
                 'Confirm Booking',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: MobileTypography.button(context),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -436,12 +437,9 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
       hintStyle: const TextStyle(
         color: Color(0xFF9CA3AF),
         fontWeight: FontWeight.w500,
-        fontSize: 15,
+        fontSize: 16,
       ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -463,11 +461,7 @@ class _StaffBookAppointmentDialogState extends State<StaffBookAppointmentDialog>
         borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
       ),
       suffixIcon: suffixIcon != null
-          ? Icon(
-              suffixIcon,
-              color: const Color(0xFF475569),
-              size: 20,
-            )
+          ? Icon(suffixIcon, color: const Color(0xFF475569), size: 20)
           : null,
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../services/base_service.dart';
 import '../services/appointment_service.dart';
@@ -57,19 +58,22 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
       try {
         final payload = {
           'service_id': int.parse(_selectedService!),
-          'appointment_date': '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
-          'time_slot': '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+          'appointment_date':
+              '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
+          'time_slot':
+              '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
           'notes': _notesController.text.trim(),
         };
         await _appointmentService.createAppointment(payload);
-        
+
         if (!mounted) return;
         setState(() => _isLoading = false);
 
         await showAppointmentSuccessDialog(
           context,
           title: 'Appointment Booked\nSuccessfully!',
-          message: 'Your appointment request has been successfully submitted and scheduled.',
+          message:
+              'Your appointment request has been successfully submitted and scheduled.',
         );
 
         if (!mounted) return;
@@ -84,7 +88,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('This schedule is already booked'),
-              content: const Text('Sorry, the selected date and time are no longer available. Please choose another schedule.'),
+              content: const Text(
+                'Sorry, the selected date and time are no longer available. Please choose another schedule.',
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
@@ -96,12 +102,17 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
           return;
         }
 
-        if (e.toString().contains('already have a booking for this time slot')) {
+        if (e.toString().contains(
+          'already have a booking for this time slot',
+        )) {
           errorMessage = 'You already have a booking for this time slot.';
-        } else if (e.toString().contains('already have a booking for this date')) {
+        } else if (e.toString().contains(
+          'already have a booking for this date',
+        )) {
           errorMessage = 'You already have a booking for this date.';
         } else if (e.toString().contains('daily limit')) {
-          errorMessage = 'The daily limit of 50 patients has been reached for this date.';
+          errorMessage =
+              'The daily limit of 50 patients has been reached for this date.';
         } else if (e.toString().contains('Sunday')) {
           errorMessage = 'Sunday bookings are not allowed.';
         } else if (e.toString().contains('Past dates')) {
@@ -120,7 +131,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
     return Text(
       text,
       style: const TextStyle(
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: FontWeight.w800,
         color: Color(0xFF7E8CA0),
         letterSpacing: 0.5,
@@ -149,12 +160,12 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const SizedBox(width: 24), // Balance the close button
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'Book Appointment',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: MobileTypography.sectionTitle(context),
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF2C3E50),
                         ),
@@ -167,7 +178,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                
+
                 if (_apiErrorMessage != null)
                   Container(
                     width: double.infinity,
@@ -176,19 +187,25 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFF1F1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: Colors.redAccent.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             _apiErrorMessage!,
                             style: const TextStyle(
                               color: Colors.redAccent,
-                              fontSize: 14,
+                              fontSize: 15,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -202,7 +219,10 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -213,15 +233,25 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF679B6A), width: 2),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF679B6A),
+                        width: 2,
+                      ),
                     ),
                     errorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: const BorderSide(color: Colors.redAccent),
                     ),
                   ),
-                  hint: const Text('Select Service', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16)),
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF1E293B), size: 28),
+                  hint: const Text(
+                    'Select Service',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16),
+                  ),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: Color(0xFF1E293B),
+                    size: 28,
+                  ),
                   isExpanded: true,
                   initialValue: _selectedService,
                   items: _services.map((service) {
@@ -229,7 +259,10 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                       value: service['id'].toString(),
                       child: Text(
                         service['name'].toString(),
-                        style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+                        style: const TextStyle(
+                          color: Color(0xFF2C3E50),
+                          fontSize: 16,
+                        ),
                       ),
                     );
                   }).toList(),
@@ -249,15 +282,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      flex: 12,
-                      child: _buildDateField(),
-                    ),
+                    Expanded(flex: 12, child: _buildDateField()),
                     const SizedBox(width: 8),
-                    Expanded(
-                      flex: 11,
-                      child: _buildTimeField(),
-                    ),
+                    Expanded(flex: 11, child: _buildTimeField()),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -270,7 +297,10 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   maxLines: 4,
                   decoration: InputDecoration(
                     hintText: 'Any concerns?',
-                    hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 16),
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 16,
+                    ),
                     contentPadding: const EdgeInsets.all(16),
                     alignLabelWithHint: true,
                     border: OutlineInputBorder(
@@ -283,14 +313,20 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF679B6A), width: 2),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF679B6A),
+                        width: 2,
+                      ),
                     ),
                     errorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: const BorderSide(color: Colors.redAccent),
                     ),
                   ),
-                  style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+                  style: const TextStyle(
+                    color: Color(0xFF2C3E50),
+                    fontSize: 16,
+                  ),
                   validator: (value) => null, // Optional field
                 ),
                 const SizedBox(height: 32),
@@ -309,7 +345,14 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                       elevation: 0,
                     ),
                     child: _isLoading
-                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
                         : const Text(
                             'Confirm Booking',
                             style: TextStyle(
@@ -341,13 +384,16 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
               onTap: () async {
                 final now = DateTime.now();
                 final bool isSunday = now.weekday == DateTime.sunday;
-                final initial = isSunday ? now.add(const Duration(days: 1)) : now;
+                final initial = isSunday
+                    ? now.add(const Duration(days: 1))
+                    : now;
                 final picked = await showDatePicker(
                   context: context,
                   initialDate: initial,
                   firstDate: now,
                   lastDate: now.add(const Duration(days: 365)),
-                  selectableDayPredicate: (DateTime val) => val.weekday != DateTime.sunday,
+                  selectableDayPredicate: (DateTime val) =>
+                      val.weekday != DateTime.sunday,
                   builder: (context, child) {
                     return Theme(
                       data: Theme.of(context).copyWith(
@@ -358,7 +404,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                         ),
                         textButtonTheme: TextButtonThemeData(
                           style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF679B6A), // button text color
+                            foregroundColor: const Color(
+                              0xFF679B6A,
+                            ), // button text color
                           ),
                         ),
                       ),
@@ -375,7 +423,10 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
               },
               child: InputDecorator(
                 decoration: InputDecoration(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -389,7 +440,11 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                     borderSide: const BorderSide(color: Colors.redAccent),
                   ),
                   errorText: state.errorText,
-                  suffixIcon: const Icon(Icons.calendar_today_outlined, color: Color(0xFF1E293B), size: 18),
+                  suffixIcon: const Icon(
+                    Icons.calendar_today_outlined,
+                    color: Color(0xFF1E293B),
+                    size: 18,
+                  ),
                 ),
                 isEmpty: _selectedDate == null,
                 child: Text(
@@ -397,7 +452,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                       ? 'dd/mm/yyyy'
                       : '${_selectedDate!.day.toString().padLeft(2, '0')}/${_selectedDate!.month.toString().padLeft(2, '0')}/${_selectedDate!.year}',
                   style: TextStyle(
-                    color: _selectedDate == null ? const Color(0xFF94A3B8) : const Color(0xFF2C3E50),
+                    color: _selectedDate == null
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF2C3E50),
                     fontSize: 14,
                   ),
                 ),
@@ -413,16 +470,18 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
     return FormField<TimeOfDay>(
       validator: (val) {
         if (_selectedTime == null) return 'Required';
-        
+
         // Final validation before submit just in case
         if (_selectedDate != null) {
           final now = DateTime.now();
-          final isToday = _selectedDate!.year == now.year &&
-                          _selectedDate!.month == now.month &&
-                          _selectedDate!.day == now.day;
-                          
+          final isToday =
+              _selectedDate!.year == now.year &&
+              _selectedDate!.month == now.month &&
+              _selectedDate!.day == now.day;
+
           if (isToday) {
-            final double timeInDouble = _selectedTime!.hour + _selectedTime!.minute / 60.0;
+            final double timeInDouble =
+                _selectedTime!.hour + _selectedTime!.minute / 60.0;
             final double nowInDouble = now.hour + now.minute / 60.0;
             if (timeInDouble <= nowInDouble) {
               return 'Invalid Time';
@@ -440,7 +499,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
             InkWell(
               onTap: () async {
                 if (_selectedDate == null) {
-                  setState(() => _apiErrorMessage = 'Please select a date first');
+                  setState(
+                    () => _apiErrorMessage = 'Please select a date first',
+                  );
                   return;
                 }
 
@@ -455,54 +516,80 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                           onPrimary: Colors.white, // header text color
                           onSurface: Color(0xFF2C3E50), // dial numbers
                           surface: Colors.white, // dial background
-                          surfaceContainerHighest: Color(0xFFE2E8F0), // unselected boxes background 
+                          surfaceContainerHighest: Color(
+                            0xFFE2E8F0,
+                          ), // unselected boxes background
                         ),
                         timePickerTheme: TimePickerThemeData(
-                          dayPeriodColor: WidgetStateColor.resolveWith((states) => 
-                            states.contains(WidgetState.selected) ? const Color(0xFF679B6A) : Colors.transparent),
-                          dayPeriodTextColor: WidgetStateColor.resolveWith((states) => 
-                            states.contains(WidgetState.selected) ? Colors.white : const Color(0xFF2C3E50)),
-                          hourMinuteColor: WidgetStateColor.resolveWith((states) => 
-                            states.contains(WidgetState.selected) ? const Color(0xFF679B6A) : const Color(0xFFE2E8F0)),
-                          hourMinuteTextColor: WidgetStateColor.resolveWith((states) => 
-                            states.contains(WidgetState.selected) ? Colors.white : const Color(0xFF2C3E50)),
+                          dayPeriodColor: WidgetStateColor.resolveWith(
+                            (states) => states.contains(WidgetState.selected)
+                                ? const Color(0xFF679B6A)
+                                : Colors.transparent,
+                          ),
+                          dayPeriodTextColor: WidgetStateColor.resolveWith(
+                            (states) => states.contains(WidgetState.selected)
+                                ? Colors.white
+                                : const Color(0xFF2C3E50),
+                          ),
+                          hourMinuteColor: WidgetStateColor.resolveWith(
+                            (states) => states.contains(WidgetState.selected)
+                                ? const Color(0xFF679B6A)
+                                : const Color(0xFFE2E8F0),
+                          ),
+                          hourMinuteTextColor: WidgetStateColor.resolveWith(
+                            (states) => states.contains(WidgetState.selected)
+                                ? Colors.white
+                                : const Color(0xFF2C3E50),
+                          ),
                           dialHandColor: const Color(0xFF679B6A),
                         ),
                         textButtonTheme: TextButtonThemeData(
                           style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF679B6A), // button text color
+                            foregroundColor: const Color(
+                              0xFF679B6A,
+                            ), // button text color
                           ),
                         ),
                       ),
                       child: MediaQuery(
-                        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+                        data: MediaQuery.of(
+                          context,
+                        ).copyWith(alwaysUse24HourFormat: false),
                         child: child!,
                       ),
                     );
                   },
                 );
-                
+
                 if (picked != null) {
-                  final double timeInDouble = picked.hour + picked.minute / 60.0;
-                  
+                  final double timeInDouble =
+                      picked.hour + picked.minute / 60.0;
+
                   // Rule 1: Prevent time selection outside 7:30 AM (7.5) - 6:00 PM (18.0)
                   if (timeInDouble < 7.5 || timeInDouble > 18.0) {
                     if (!mounted) return;
-                    setState(() => _apiErrorMessage = 'Please select a time between 7:30 AM and 6:00 PM');
+                    setState(
+                      () => _apiErrorMessage =
+                          'Please select a time between 7:30 AM and 6:00 PM',
+                    );
                     return;
                   }
 
                   // Rule 2: If selecting today, prevent selecting past time
                   final now = DateTime.now();
-                  final isToday = _selectedDate!.year == now.year &&
-                                  _selectedDate!.month == now.month &&
-                                  _selectedDate!.day == now.day;
-                                  
+                  final isToday =
+                      _selectedDate!.year == now.year &&
+                      _selectedDate!.month == now.month &&
+                      _selectedDate!.day == now.day;
+
                   if (isToday) {
                     final double nowInDouble = now.hour + now.minute / 60.0;
                     if (timeInDouble <= nowInDouble) {
                       if (!mounted) return;
-                      setState(() => _apiErrorMessage = 'Cannot book an appointment in the past');
+                      setState(
+                        () => _apiErrorMessage =
+                            'Cannot book an appointment in the past',
+                      );
                       return;
                     }
                   }
@@ -515,7 +602,10 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
               },
               child: InputDecorator(
                 decoration: InputDecoration(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -529,7 +619,11 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                     borderSide: const BorderSide(color: Colors.redAccent),
                   ),
                   errorText: state.errorText,
-                  suffixIcon: const Icon(Icons.access_time_outlined, color: Color(0xFF1E293B), size: 18),
+                  suffixIcon: const Icon(
+                    Icons.access_time_outlined,
+                    color: Color(0xFF1E293B),
+                    size: 18,
+                  ),
                 ),
                 isEmpty: _selectedTime == null,
                 child: Text(
@@ -537,7 +631,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                       ? '--:-- --'
                       : '${_selectedTime!.hourOfPeriod == 0 ? 12 : _selectedTime!.hourOfPeriod}:${_selectedTime!.minute.toString().padLeft(2, '0')} ${_selectedTime!.period == DayPeriod.am ? 'AM' : 'PM'}',
                   style: TextStyle(
-                    color: _selectedTime == null ? const Color(0xFF94A3B8) : const Color(0xFF2C3E50),
+                    color: _selectedTime == null
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF2C3E50),
                     fontSize: 14,
                   ),
                 ),

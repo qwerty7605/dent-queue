@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/api_exception.dart';
+import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../models/app_notification.dart';
 import '../services/base_service.dart';
@@ -311,7 +312,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                  fontSize: MobileTypography.caption(context),
                 ),
               ),
             ),
@@ -355,7 +356,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                 _loadError ?? 'Unable to load notifications right now.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF334155),
                 ),
@@ -406,20 +407,20 @@ class _NotificationsViewState extends State<NotificationsView> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'No notifications yet',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: MobileTypography.sectionTitle(context),
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF1E293B),
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'You currently have no updates or reminders. Check back later!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: MobileTypography.bodySmall(context),
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF64748B),
                   height: 1.5,
@@ -514,7 +515,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                                   child: Text(
                                     notification.title,
                                     style: TextStyle(
-                                      fontSize: 15,
+                                      fontSize: MobileTypography.body(context),
                                       fontWeight: isRead
                                           ? FontWeight.w700
                                           : FontWeight.w900,
@@ -543,7 +544,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                             Text(
                               notification.message,
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: MobileTypography.bodySmall(context),
                                 color: isRead
                                     ? const Color(0xFF64748B)
                                     : const Color(0xFF334155),
@@ -556,8 +557,8 @@ class _NotificationsViewState extends State<NotificationsView> {
                             const SizedBox(height: 10),
                             Text(
                               _formatDate(notification.createdAt),
-                              style: const TextStyle(
-                                fontSize: 11,
+                              style: TextStyle(
+                                fontSize: MobileTypography.caption(context),
                                 color: Color(0xFF94A3B8),
                                 fontWeight: FontWeight.w600,
                               ),
@@ -609,7 +610,7 @@ class _NotificationsViewState extends State<NotificationsView> {
             child: Text(
               summary,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFF0F172A),
               ),

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../core/mobile_typography.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
 
@@ -287,8 +288,8 @@ class _AdminReportsViewState extends State<AdminReportsView> {
             Expanded(
               child: Text(
                 widget.embedded ? 'Detailed Report' : 'Reports',
-                style: const TextStyle(
-                  fontSize: 32,
+                style: TextStyle(
+                  fontSize: MobileTypography.pageTitle(context),
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
                 ),
@@ -308,7 +309,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
             ),
           ],
         ),
-        const SizedBox(height: 48),
+        SizedBox(height: MobileTypography.isPhone(context) ? 24 : 48),
         Wrap(
           spacing: 32,
           runSpacing: 32,
@@ -369,7 +370,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(40.0),
+      padding: MobileTypography.screenPadding(context),
       child: content,
     );
   }
@@ -425,7 +426,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                       Text(
                         'Filters Live',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w800,
                           color: Color(0xFF8A6B10),
                         ),
@@ -434,19 +435,19 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Report Filters',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: MobileTypography.sectionTitle(context),
                     fontWeight: FontWeight.w900,
                     color: Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'Filter report cards, appointment trends, status distribution, and detailed records by date range, status, and booking type.',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: MobileTypography.bodySmall(context),
                     height: 1.5,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF5E6C63),

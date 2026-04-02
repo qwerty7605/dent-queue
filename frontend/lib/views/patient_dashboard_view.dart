@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/api_client.dart';
+import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../services/base_service.dart';
 import '../services/appointment_service.dart';
@@ -71,9 +72,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       final list = await _appointmentService.getPatientAppointments();
       List<Map<String, dynamic>> recycleBinAppointments;
       try {
-        recycleBinAppointments = await _appointmentService.getRecycleBinAppointments(
-          false,
-        );
+        recycleBinAppointments = await _appointmentService
+            .getRecycleBinAppointments(false);
       } catch (_) {
         recycleBinAppointments = [];
       }
@@ -178,9 +178,6 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
             profilePicture == '/storage/')) {
       profilePicture = null;
     }
-    final String paddedId =
-        userInfo['id']?.toString().padLeft(4, '0') ?? '0002';
-
     return Scaffold(
       backgroundColor: const Color(
         0xFFF4F5ED,
@@ -201,7 +198,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                   children: [
                     CircleAvatar(
                       radius: 24,
-                      backgroundColor: Colors.white.withOpacity(0.2),
+                      backgroundColor: Colors.white.withValues(alpha: 0.2),
                       backgroundImage: profilePicture != null
                           ? NetworkImage('${AppConfig.baseUrl}$profilePicture')
                           : null,
@@ -234,7 +231,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                             'PATIENT ACCOUNT',
                             style: TextStyle(
                               color: Color(0xFFE8C355),
-                              fontSize: 11,
+                              fontSize: 13,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 0.5,
                             ),
@@ -489,7 +486,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                         name,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
+                          fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -497,7 +494,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                         'PATIENT',
                         style: TextStyle(
                           color: Colors.orange,
-                          fontSize: 9,
+                          fontSize: 12,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.5,
                         ),
@@ -586,11 +583,11 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                 ),
               ),
             const SizedBox(height: 24),
-            const Center(
+            Center(
               child: Text(
                 'PATIENT DASHBOARD',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: MobileTypography.sectionTitle(context),
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
                   color: Colors.black87,
@@ -1118,8 +1115,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 10,
+                style: TextStyle(
+                  fontSize: MobileTypography.caption(context),
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF7E8CA0),
                   letterSpacing: 0.5,
@@ -1128,8 +1125,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
               const SizedBox(height: 4),
               Text(
                 value,
-                style: const TextStyle(
-                  fontSize: 16,
+                style: TextStyle(
+                  fontSize: MobileTypography.body(context),
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF2C3E50),
                 ),
@@ -1184,7 +1181,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
             Text(
               count,
               style: TextStyle(
-                fontSize: 20,
+                fontSize: MobileTypography.sectionTitle(context),
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
@@ -1193,7 +1190,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
             Text(
               title,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: MobileTypography.label(context),
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
@@ -1218,7 +1215,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
@@ -1234,10 +1231,10 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Today\'s Queue',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: MobileTypography.label(context),
               fontWeight: FontWeight.w800,
               color: Color(0xFF1E293B),
             ),
@@ -1279,7 +1276,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                     ? const Color(0xFF16A34A)
                     : const Color(0xFF475569),
                 fontWeight: FontWeight.w700,
-                fontSize: 11,
+                fontSize: MobileTypography.caption(context),
               ),
             ),
           ] else if (hasActiveTodayAppointment) ...[
@@ -1322,7 +1319,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     required Color backgroundColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(9),
@@ -1333,7 +1330,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
           Text(
             label,
             style: TextStyle(
-              fontSize: 8,
+              fontSize: MobileTypography.caption(context),
               fontWeight: FontWeight.w900,
               color: color,
               letterSpacing: 0.4,
@@ -1343,7 +1340,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
           Text(
             '#$value',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: MobileTypography.cardTitle(context),
               fontWeight: FontWeight.w900,
               color: color,
               height: 1,
@@ -1354,8 +1351,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
             caption,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 10,
+            style: TextStyle(
+              fontSize: MobileTypography.caption(context),
               fontWeight: FontWeight.w600,
               color: Color(0xFF475569),
             ),

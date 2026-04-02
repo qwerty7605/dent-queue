@@ -40,12 +40,51 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    final baseTextTheme = GoogleFonts.nunitoTextTheme();
+
     return MaterialApp(
       title: 'Frontend',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
         useMaterial3: true,
-        textTheme: GoogleFonts.nunitoTextTheme(),
+        textTheme: baseTextTheme.copyWith(
+          headlineMedium: baseTextTheme.headlineMedium?.copyWith(
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+          ),
+          titleLarge: baseTextTheme.titleLarge?.copyWith(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+          ),
+          titleMedium: baseTextTheme.titleMedium?.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+          bodyLarge: baseTextTheme.bodyLarge?.copyWith(
+            fontSize: 16,
+            height: 1.45,
+          ),
+          bodyMedium: baseTextTheme.bodyMedium?.copyWith(
+            fontSize: 15,
+            height: 1.45,
+          ),
+          bodySmall: baseTextTheme.bodySmall?.copyWith(
+            fontSize: 13,
+            height: 1.4,
+          ),
+          labelLarge: baseTextTheme.labelLarge?.copyWith(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+          labelMedium: baseTextTheme.labelMedium?.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+          ),
+          labelSmall: baseTextTheme.labelSmall?.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         fontFamily: GoogleFonts.nunito().fontFamily,
       ),
       home: AuthSwitcherView(

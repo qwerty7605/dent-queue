@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../core/api_exception.dart';
+import '../core/mobile_typography.dart';
 import '../models/recycle_bin_entry.dart';
 import '../services/appointment_service.dart';
 
@@ -57,7 +58,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
     try {
       final rawEntries = await widget.appointmentService!
           .getRecycleBinAppointments(widget.role == RecycleBinRole.staff);
-      
+
       final List<RecycleBinEntry> parsed = rawEntries.map((json) {
         final rb = json['recycle_bin'] as Map<String, dynamic>? ?? {};
 
@@ -65,10 +66,9 @@ class _RecycleBinViewState extends State<RecycleBinView> {
         DateTime apptAt = DateTime.now();
         try {
           final dateStr = json['appointment_date']?.toString() ?? '';
-          final timeStr =
-              (json['appointment_time']?.toString() ?? '10:00 AM')
-                  .split(' - ')
-                  .first;
+          final timeStr = (json['appointment_time']?.toString() ?? '10:00 AM')
+              .split(' - ')
+              .first;
           if (dateStr.isNotEmpty) {
             final format = DateFormat('yyyy-MM-dd h:mm a');
             apptAt = format.parse('$dateStr $timeStr');
@@ -87,11 +87,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
 
         final today = DateTime.now();
         final startOfToday = DateTime(today.year, today.month, today.day);
-        final appointmentDay = DateTime(
-          apptAt.year,
-          apptAt.month,
-          apptAt.day,
-        );
+        final appointmentDay = DateTime(apptAt.year, apptAt.month, apptAt.day);
         final isPastAppointment = appointmentDay.isBefore(startOfToday);
 
         return RecycleBinEntry(
@@ -138,10 +134,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(e.message), backgroundColor: Colors.red),
       );
     } catch (e) {
       if (!mounted) return;
@@ -164,44 +157,61 @@ class _RecycleBinViewState extends State<RecycleBinView> {
       return Scaffold(
         backgroundColor: const Color(0xFFF4F5ED),
         appBar: _buildAppBar(),
-        body: const Center(child: CircularProgressIndicator(color: Color(0xFF679B6A))),
+        body: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF679B6A)),
+        ),
       );
     }
 
     final resolvedEntries = _entries ?? [];
-    final int recoverableCount = resolvedEntries.where((e) => e.isRestorable).length;
+    final int recoverableCount = resolvedEntries
+        .where((e) => e.isRestorable)
+        .length;
     final int expiredCount = resolvedEntries.length - recoverableCount;
-    final bool usingPreviewData = widget.appointmentService == null && widget.entries == null;
+    final bool usingPreviewData =
+        widget.appointmentService == null && widget.entries == null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5ED),
       appBar: _buildAppBar(),
       body: _errorMessage != null
-          ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)))
+          ? Center(
+              child: Text(
+                _errorMessage!,
+                style: const TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            )
           : resolvedEntries.isEmpty
-              ? _buildEmptyState()
-              : Stack(
+          ? _buildEmptyState()
+          : Stack(
+              children: [
+                ListView(
+                  key: const Key('recycle-bin-list'),
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
                   children: [
-                    ListView(
-                      key: const Key('recycle-bin-list'),
-                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
-                      children: [
-                        _buildHeroCard(
-                          recoverableCount: recoverableCount,
-                          expiredCount: expiredCount,
-                          usingPreviewData: usingPreviewData,
-                        ),
-                        const SizedBox(height: 16),
-                        ...resolvedEntries.map(_buildEntryCard),
-                      ],
+                    _buildHeroCard(
+                      recoverableCount: recoverableCount,
+                      expiredCount: expiredCount,
+                      usingPreviewData: usingPreviewData,
                     ),
-                    if (_isRestoring)
-                      Container(
-                        color: Colors.black.withOpacity(0.1),
-                        child: const Center(child: CircularProgressIndicator(color: Color(0xFF679B6A))),
-                      ),
+                    const SizedBox(height: 16),
+                    ...resolvedEntries.map(_buildEntryCard),
                   ],
                 ),
+                if (_isRestoring)
+                  Container(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF679B6A),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 
@@ -235,7 +245,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -271,7 +281,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                       style: const TextStyle(
                         color: Color(0xFF0F172A),
                         fontWeight: FontWeight.w900,
-                        fontSize: 18,
+                        fontSize: 20,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -281,7 +291,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                           : 'Review cancelled appointments, confirm what can still be restored, and flag what has already expired.',
                       style: const TextStyle(
                         color: Color(0xFF475569),
-                        fontSize: 13,
+                        fontSize: 14,
                         height: 1.45,
                         fontWeight: FontWeight.w600,
                       ),
@@ -314,7 +324,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                       'Preview data is showing the recycle bin layout until the backend retrieval API is connected.',
                       style: TextStyle(
                         color: Color(0xFF7C5A00),
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -373,7 +383,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
             value,
             style: TextStyle(
               color: textColor,
-              fontSize: 22,
+              fontSize: 24,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -382,7 +392,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
             label,
             style: TextStyle(
               color: textColor,
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -409,7 +419,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -427,9 +437,9 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                   children: [
                     Text(
                       entry.service,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Color(0xFF0F172A),
-                        fontSize: 17,
+                        fontSize: MobileTypography.cardTitle(context),
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -501,7 +511,8 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                 label: 'Moved To Bin',
                 value: dateFormatter.format(entry.deletedAt),
               ),
-              if (widget.role == RecycleBinRole.staff && entry.patientName != null)
+              if (widget.role == RecycleBinRole.staff &&
+                  entry.patientName != null)
                 _buildDetailBlock(label: 'Patient', value: entry.patientName!),
             ],
           ),
@@ -519,7 +530,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                 entry.notes!,
                 style: const TextStyle(
                   color: Color(0xFF475569),
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   height: 1.4,
                 ),
@@ -549,7 +560,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                   'Restore Area',
                   style: TextStyle(
                     color: Color(0xFF0F172A),
-                    fontSize: 13,
+                    fontSize: 15,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -558,9 +569,9 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                   entry.isRestorable
                       ? _restoreWindowCopy(entry.expiresAt, dateFormatter)
                       : 'This cancelled appointment is no longer restorable, but it stays visible here for history and recovery validation.',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Color(0xFF475569),
-                    fontSize: 12,
+                    fontSize: MobileTypography.bodySmall(context),
                     fontWeight: FontWeight.w600,
                     height: 1.45,
                   ),
@@ -617,7 +628,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
         label,
         style: TextStyle(
           color: textColor,
-          fontSize: 11,
+          fontSize: 13,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -632,9 +643,9 @@ class _RecycleBinViewState extends State<RecycleBinView> {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: Color(0xFF94A3B8),
-              fontSize: 11,
+              fontSize: MobileTypography.caption(context),
               fontWeight: FontWeight.w700,
               letterSpacing: 0.2,
             ),
@@ -642,9 +653,9 @@ class _RecycleBinViewState extends State<RecycleBinView> {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               color: Color(0xFF0F172A),
-              fontSize: 13,
+              fontSize: MobileTypography.bodySmall(context),
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -669,7 +680,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 14,
                       offset: const Offset(0, 6),
                     ),
@@ -682,11 +693,11 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'Recycle Bin is empty',
                 style: TextStyle(
                   color: Color(0xFF0F172A),
-                  fontSize: 22,
+                  fontSize: MobileTypography.sectionTitle(context),
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -696,9 +707,9 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                     ? 'Cancelled appointments will appear here if they are eligible.'
                     : 'Cancelled appointments will appear here.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Color(0xFF64748B),
-                  fontSize: 14,
+                  fontSize: MobileTypography.bodySmall(context),
                   fontWeight: FontWeight.w600,
                   height: 1.5,
                 ),

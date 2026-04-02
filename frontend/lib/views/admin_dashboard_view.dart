@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/mobile_typography.dart';
 import '../models/admin_ui_notification.dart';
 import '../widgets/admin_layout.dart';
 import 'admin_patients_view.dart';
@@ -228,19 +229,19 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
   Widget _buildDashboardContent() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(40.0),
+      padding: MobileTypography.screenPadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text(
+          Text(
             'Dashboard',
             style: TextStyle(
-              fontSize: 32,
+              fontSize: MobileTypography.pageTitle(context),
               fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
           ),
-          const SizedBox(height: 48),
+          SizedBox(height: MobileTypography.isPhone(context) ? 24 : 48),
 
           Wrap(
             spacing: 32,
@@ -298,8 +299,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     required Color darkColor,
   }) {
     return Container(
-      width: 480,
-      height: 198,
+      width: MediaQuery.of(context).size.width < 640 ? double.infinity : 480,
+      height: MediaQuery.of(context).size.width < 640 ? 188 : 198,
       decoration: BoxDecoration(
         color: mainColor,
         borderRadius: BorderRadius.circular(8),
@@ -329,8 +330,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       if (value.isNotEmpty)
                         Text(
                           value,
-                          style: const TextStyle(
-                            fontSize: 48,
+                          style: TextStyle(
+                            fontSize: MobileTypography.stat(context),
                             fontWeight: FontWeight.w900,
                             color: Colors.black87,
                           ),
@@ -338,8 +339,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       if (value.isEmpty) const SizedBox(height: 24),
                       Text(
                         title,
-                        style: const TextStyle(
-                          fontSize: 20,
+                        style: TextStyle(
+                          fontSize: MobileTypography.cardTitle(context),
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
                         ),
@@ -379,12 +380,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
+                  children: [
                     Text(
                       'More Info',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: MobileTypography.button(context),
                         fontWeight: FontWeight.bold,
                       ),
                     ),

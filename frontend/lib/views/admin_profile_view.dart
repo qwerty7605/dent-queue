@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../core/api_client.dart';
 import '../services/base_service.dart';
@@ -25,10 +26,12 @@ class _AdminProfileViewState extends State<AdminProfileView> {
   final TextEditingController _lastNameController = TextEditingController();
 
   final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController(text: '********');
+  final TextEditingController _passwordController = TextEditingController(
+    text: '********',
+  );
 
   late AdminProfileService _adminProfileService;
-  
+
   bool _isEditingUsername = false;
   bool _isEditingPassword = false;
   bool _isEditingProfile = false;
@@ -91,20 +94,31 @@ class _AdminProfileViewState extends State<AdminProfileView> {
 
     try {
       final payload = <String, dynamic>{};
-      
-      if (_firstNameController.text.isNotEmpty) payload['first_name'] = _firstNameController.text;
-      if (_lastNameController.text.isNotEmpty) payload['last_name'] = _lastNameController.text;
-      if (_usernameController.text.isNotEmpty) payload['username'] = _usernameController.text;
 
-      if (_isEditingPassword && _passwordController.text.isNotEmpty && _passwordController.text != '********') {
+      if (_firstNameController.text.isNotEmpty) {
+        payload['first_name'] = _firstNameController.text;
+      }
+      if (_lastNameController.text.isNotEmpty) {
+        payload['last_name'] = _lastNameController.text;
+      }
+      if (_usernameController.text.isNotEmpty) {
+        payload['username'] = _usernameController.text;
+      }
+
+      if (_isEditingPassword &&
+          _passwordController.text.isNotEmpty &&
+          _passwordController.text != '********') {
         payload['password'] = _passwordController.text;
       }
 
       final response = await _adminProfileService.updateProfile(payload);
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Profile updated successfully!'),
+          backgroundColor: Colors.green,
+        ),
       );
 
       setState(() {
@@ -117,11 +131,13 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       if (widget.onProfileUpdated != null && response['user'] != null) {
         widget.onProfileUpdated!(response['user'] as Map<String, dynamic>);
       }
-
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) {
@@ -134,17 +150,19 @@ class _AdminProfileViewState extends State<AdminProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    final isPhone = MobileTypography.isPhone(context);
+
     return Padding(
-      padding: const EdgeInsets.all(40.0),
+      padding: MobileTypography.screenPadding(context),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Admin Profile',
                 style: TextStyle(
-                  fontSize: 32,
+                  fontSize: MobileTypography.pageTitle(context),
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
                 ),
@@ -159,24 +177,30 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF679B6A),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
                   ),
                   icon: const Icon(Icons.edit, size: 20),
-                  label: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: Text(
+                    'Edit Profile',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: MobileTypography.button(context),
+                    ),
+                  ),
                 ),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: isPhone ? 16 : 24),
           Expanded(
             child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: const Border(
-                  top: BorderSide(
-                    color: Color(0xFF679B6A),
-                    width: 6.0,
-                  ),
+                  top: BorderSide(color: Color(0xFF679B6A), width: 6.0),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -192,26 +216,67 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                   // Interactive Form content
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24.0),
+                      padding: EdgeInsets.all(isPhone ? 16.0 : 24.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Personal Information',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                            style: TextStyle(
+                              fontSize: MobileTypography.sectionTitle(context),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
                           ),
                           const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(child: _buildTextField('First name', 'Enter First name', _firstNameController, readOnly: !_isEditingProfile)),
-                              const SizedBox(width: 24),
-                              Expanded(child: _buildTextField('Last Name', 'Enter Last name', _lastNameController, readOnly: !_isEditingProfile)),
-                            ],
-                          ),
+                          if (isPhone)
+                            Column(
+                              children: [
+                                _buildTextField(
+                                  'First name',
+                                  'Enter First name',
+                                  _firstNameController,
+                                  readOnly: !_isEditingProfile,
+                                ),
+                                const SizedBox(height: 16),
+                                _buildTextField(
+                                  'Last Name',
+                                  'Enter Last name',
+                                  _lastNameController,
+                                  readOnly: !_isEditingProfile,
+                                ),
+                              ],
+                            )
+                          else
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTextField(
+                                    'First name',
+                                    'Enter First name',
+                                    _firstNameController,
+                                    readOnly: !_isEditingProfile,
+                                  ),
+                                ),
+                                const SizedBox(width: 24),
+                                Expanded(
+                                  child: _buildTextField(
+                                    'Last Name',
+                                    'Enter Last name',
+                                    _lastNameController,
+                                    readOnly: !_isEditingProfile,
+                                  ),
+                                ),
+                              ],
+                            ),
                           const SizedBox(height: 32),
-                          const Text(
+                          Text(
                             'Account Information',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                            style: TextStyle(
+                              fontSize: MobileTypography.sectionTitle(context),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
                           ),
                           const SizedBox(height: 16),
 
@@ -222,7 +287,9 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                 child: _buildAccountField(
                                   'Username',
                                   _usernameController,
-                                  _isEditingUsername ? 'LOCK' : 'CHANGE USERNAME',
+                                  _isEditingUsername
+                                      ? 'LOCK'
+                                      : 'CHANGE USERNAME',
                                   readOnly: !_isEditingUsername,
                                   onActionTap: () {
                                     setState(() {
@@ -243,7 +310,9 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                 child: _buildAccountField(
                                   'Password',
                                   _passwordController,
-                                  _isEditingPassword ? 'LOCK' : 'CHANGE PASSWORD',
+                                  _isEditingPassword
+                                      ? 'LOCK'
+                                      : 'CHANGE PASSWORD',
                                   obscureText: !_isEditingPassword,
                                   readOnly: !_isEditingPassword,
                                   onActionTap: () {
@@ -259,21 +328,46 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                 ),
                               ),
                               const Spacer(flex: 1),
-                              if (_isEditingProfile || _isEditingUsername || _isEditingPassword)
+                              if (_isEditingProfile ||
+                                  _isEditingUsername ||
+                                  _isEditingPassword)
                                 ElevatedButton.icon(
                                   onPressed: _isLoading ? null : _saveChanges,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF436B46),
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 16,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                   ),
-                                  label: _isLoading 
-                                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                      : const Text('Save Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                  icon: _isLoading ? const SizedBox.shrink() : const Icon(Icons.download_for_offline, size: 24),
+                                  label: _isLoading
+                                      ? const SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          'Save Changes',
+                                          style: TextStyle(
+                                            fontSize: MobileTypography.button(
+                                              context,
+                                            ),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                  icon: _isLoading
+                                      ? const SizedBox.shrink()
+                                      : const Icon(
+                                          Icons.download_for_offline,
+                                          size: 24,
+                                        ),
                                 ),
                             ],
                           ),
@@ -290,13 +384,22 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     );
   }
 
-  Widget _buildTextField(String label, String hint, TextEditingController controller, {bool readOnly = false}) {
+  Widget _buildTextField(
+    String label,
+    String hint,
+    TextEditingController controller, {
+    bool readOnly = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+            fontSize: MobileTypography.label(context),
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -307,18 +410,30 @@ class _AdminProfileViewState extends State<AdminProfileView> {
             fillColor: Colors.green.withValues(alpha: 0.05),
             hintText: hint,
             hintStyle: const TextStyle(color: Colors.black38),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
+              borderSide: BorderSide(
+                color: readOnly ? Colors.black26 : const Color(0xFF436B46),
+                width: readOnly ? 1.0 : 2.0,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
+              borderSide: BorderSide(
+                color: readOnly ? Colors.black26 : const Color(0xFF436B46),
+                width: readOnly ? 1.0 : 2.0,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Color(0xFF679B6A), width: 2.0),
+              borderSide: const BorderSide(
+                color: Color(0xFF679B6A),
+                width: 2.0,
+              ),
             ),
           ),
         ),
@@ -327,35 +442,56 @@ class _AdminProfileViewState extends State<AdminProfileView> {
   }
 
   Widget _buildAccountField(
-      String label, TextEditingController controller, String actionText,
-      {bool obscureText = false, bool readOnly = true, required VoidCallback onActionTap}) {
+    String label,
+    TextEditingController controller,
+    String actionText, {
+    bool obscureText = false,
+    bool readOnly = true,
+    required VoidCallback onActionTap,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+            fontSize: MobileTypography.label(context),
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           obscureText: obscureText,
           readOnly: readOnly,
-           decoration: InputDecoration(
+          decoration: InputDecoration(
             filled: !readOnly,
             fillColor: Colors.green.withValues(alpha: 0.05),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
+              borderSide: BorderSide(
+                color: readOnly ? Colors.black26 : const Color(0xFF436B46),
+                width: readOnly ? 1.0 : 2.0,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(color: readOnly ? Colors.black26 : const Color(0xFF436B46), width: readOnly ? 1.0 : 2.0),
+              borderSide: BorderSide(
+                color: readOnly ? Colors.black26 : const Color(0xFF436B46),
+                width: readOnly ? 1.0 : 2.0,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Color(0xFF679B6A), width: 2.0),
+              borderSide: const BorderSide(
+                color: Color(0xFF679B6A),
+                width: 2.0,
+              ),
             ),
             suffixIcon: TextButton(
               onPressed: onActionTap,
@@ -367,6 +503,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                 style: const TextStyle(
                   color: Color(0xFF436B46),
                   fontWeight: FontWeight.bold,
+                  fontSize: 13,
                 ),
               ),
             ),
