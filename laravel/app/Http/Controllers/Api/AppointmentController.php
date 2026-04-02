@@ -9,6 +9,7 @@ use App\Models\PatientRecord;
 use App\Models\Service;
 use App\Services\AppointmentService;
 use App\Services\ReportService;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -120,6 +121,8 @@ class AppointmentController extends Controller
      */
     public function storeAdmin(Request $request): JsonResponse
     {
+        $this->forbidInternWrites($request);
+
         $payload = $request->validate([
             'patient_id' => ['required', 'integer', 'exists:patient_records,id'],
             'service_type' => ['required', 'string', 'exists:services,name'],
@@ -174,6 +177,8 @@ class AppointmentController extends Controller
      */
     public function storeWalkIn(Request $request): JsonResponse
     {
+        $this->forbidInternWrites($request);
+
         if ($request->filled('surname') && !$request->filled('last_name')) {
             $request->merge([
                 'last_name' => $request->input('surname'),
@@ -257,6 +262,8 @@ class AppointmentController extends Controller
      */
     public function storeFollowUp(Request $request): JsonResponse
     {
+        $this->forbidInternWrites($request);
+
         $payload = $this->validateBookingPayload($request, true);
         $appointment = $this->appointmentService->createAppointment($payload);
 
@@ -270,6 +277,8 @@ class AppointmentController extends Controller
 
     public function updateStatus(Request $request, Appointment $appointment): JsonResponse
     {
+        $this->forbidInternWrites($request);
+
         $payload = $request->validate([
             'status' => ['required', 'string'],
         ]);
@@ -309,6 +318,8 @@ class AppointmentController extends Controller
 
     public function restore(Request $request, $id): JsonResponse
     {
+        $this->forbidInternWrites($request);
+
         $user = $request->user();
         if ($user->role === null) {
             $user->load('role');
@@ -464,5 +475,16 @@ class AppointmentController extends Controller
         }
 
         return $patientRecord;
+    }
+
+    private function forbidInternWrites(Request $request): void
+    {
+        $roleName = strtolower((string) optional($request->user()?->role)->name);
+
+        if ($roleName === 'intern') {
+            throw new HttpResponseException(response()->json([
+                'message' => 'Intern accounts have read-only access.',
+            ], 403));
+        }
     }
 }

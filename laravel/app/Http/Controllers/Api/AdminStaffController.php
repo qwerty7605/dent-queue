@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -41,6 +42,8 @@ class AdminStaffController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $this->forbidInternWrites($request);
+
         $data = $request->validate([
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
@@ -92,6 +95,8 @@ class AdminStaffController extends Controller
      */
     public function destroy(string $id): JsonResponse
     {
+        $this->forbidInternWrites(request());
+
         $user = User::findOrFail($id);
 
         // Security check: ensure the user being deactivated is a staff or intern account.
@@ -106,5 +111,16 @@ class AdminStaffController extends Controller
         return response()->json([
             'message' => ucfirst((string) $roleName) . ' account successfully removed.'
         ]);
+    }
+
+    private function forbidInternWrites(Request $request): void
+    {
+        $roleName = strtolower((string) optional($request->user()?->role)->name);
+
+        if ($roleName === 'intern') {
+            throw new HttpResponseException(response()->json([
+                'message' => 'Intern accounts have read-only access.',
+            ], 403));
+        }
     }
 }

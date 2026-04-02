@@ -27,6 +27,7 @@ class StaffDashboardView extends StatefulWidget {
     required this.tokenStorage,
     required this.onLogout,
     required this.loggingOut,
+    this.readOnly = false,
     this.appointmentService,
     this.patientRecordService,
   });
@@ -35,6 +36,7 @@ class StaffDashboardView extends StatefulWidget {
   final TokenStorage tokenStorage;
   final VoidCallback onLogout;
   final bool loggingOut;
+  final bool readOnly;
   final AppointmentService? appointmentService;
   final PatientRecordService? patientRecordService;
 
@@ -60,6 +62,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   bool _isCallingNext = false;
   String? _appointmentsLoadError;
   final int _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
+
+  String get _accountRoleLabel => widget.readOnly ? 'Intern' : 'Staff';
+  String get _accountRoleTag => widget.readOnly ? 'INTERN' : 'STAFF';
 
   @override
   void initState() {
@@ -106,9 +111,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       final list = await _appointmentService.getAdminAppointmentsByDate(date);
       List<Map<String, dynamic>> recycleBinAppointments;
       try {
-        recycleBinAppointments = await _appointmentService.getRecycleBinAppointments(
-          true,
-        );
+        recycleBinAppointments = await _appointmentService
+            .getRecycleBinAppointments(true);
       } catch (_) {
         recycleBinAppointments = [];
       }
@@ -270,8 +274,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       context: context,
       builder: (_) => StaffAppointmentDetailsDialog(
         appointment: appointment,
-        onStatusUpdate: (nextStatus) =>
-            _updateAppointmentStatus(appointment, nextStatus),
+        showStatusActions: !widget.readOnly,
+        onStatusUpdate: widget.readOnly
+            ? null
+            : (nextStatus) => _updateAppointmentStatus(appointment, nextStatus),
       ),
     );
   }
@@ -330,6 +336,11 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Future<void> _openEditProfileDialog() async {
+    if (widget.readOnly) {
+      _showStatusMessage('Intern accounts are view-only.');
+      return;
+    }
+
     if (_localUserInfo['id'] == null) {
       _showStatusMessage('Unable to edit profile right now.');
       return;
@@ -365,22 +376,11 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       body: SafeArea(
         child: switch (_selectedTab) {
           _StaffTab.appointments => _buildAppointmentsTab(),
-          _StaffTab.walkIn => StaffWalkInView(
-            appointmentService: _appointmentService,
-            onWalkInSuccess: () {
-              setState(() {
-                _selectedTab = _StaffTab.appointments;
-              });
-              _loadAppointmentsForSelectedDate();
-            },
-          ),
+          _StaffTab.walkIn => _buildReadOnlyPlaceholder(),
           _StaffTab.calendar => StaffCalendarView(
             appointmentService: _appointmentService,
           ),
-          _StaffTab.records => StaffPatientRecordsView(
-            patientRecordService: _patientRecordService,
-            appointmentService: _appointmentService,
-          ),
+          _StaffTab.records => _buildReadOnlyPlaceholder(),
           _StaffTab.profile => _buildProfileTab(profileImageUrl),
         },
       ),
@@ -432,15 +432,16 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.notifications_none, color: Colors.white),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const NotificationsView()),
-            );
-          },
-        ),
+        if (!widget.readOnly)
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsView()),
+              );
+            },
+          ),
         Padding(
           padding: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
           child: InkWell(
@@ -475,8 +476,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const Text(
-                            'STAFF',
+                          Text(
+                            _accountRoleTag,
                             style: TextStyle(
                               color: Color(0xFFE8C355),
                               fontSize: 9,
@@ -559,8 +560,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        const Text(
-                          'STAFF ACCOUNT',
+                        Text(
+                          '$_accountRoleTag ACCOUNT',
                           style: TextStyle(
                             color: Color(0xFFE8C355),
                             fontWeight: FontWeight.w900,
@@ -598,28 +599,30 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 Navigator.pop(context);
               },
             ),
-            _buildDrawerItem(
-              icon: Icons.directions_walk,
-              title: 'Walk-in',
-              selected: _selectedTab == _StaffTab.walkIn,
-              onTap: () {
-                setState(() {
-                  _selectedTab = _StaffTab.walkIn;
-                });
-                Navigator.pop(context);
-              },
-            ),
-            _buildDrawerItem(
-              icon: Icons.search,
-              title: 'Records',
-              selected: _selectedTab == _StaffTab.records,
-              onTap: () {
-                setState(() {
-                  _selectedTab = _StaffTab.records;
-                });
-                Navigator.pop(context);
-              },
-            ),
+            if (!widget.readOnly)
+              _buildDrawerItem(
+                icon: Icons.directions_walk,
+                title: 'Walk-in',
+                selected: _selectedTab == _StaffTab.walkIn,
+                onTap: () {
+                  setState(() {
+                    _selectedTab = _StaffTab.walkIn;
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            if (!widget.readOnly)
+              _buildDrawerItem(
+                icon: Icons.search,
+                title: 'Records',
+                selected: _selectedTab == _StaffTab.records,
+                onTap: () {
+                  setState(() {
+                    _selectedTab = _StaffTab.records;
+                  });
+                  Navigator.pop(context);
+                },
+              ),
             _buildDrawerItem(
               icon: Icons.calendar_month_outlined,
               title: 'Calendar',
@@ -631,35 +634,41 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 Navigator.pop(context);
               },
             ),
-            _buildDrawerItem(
-              icon: Icons.notifications_none,
-              title: 'Notifications',
-              selected: false,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const NotificationsView()),
-                );
-              },
-            ),
-            _buildDrawerItem(
-              icon: Icons.restore_from_trash_outlined,
-              title: 'Recycle Bin',
-              selected: false,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RecycleBinView(
-                      role: RecycleBinRole.staff,
-                      appointmentService: _appointmentService,
+            if (!widget.readOnly)
+              _buildDrawerItem(
+                icon: Icons.notifications_none,
+                title: 'Notifications',
+                selected: false,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsView(),
                     ),
-                  ),
-                ).then((_) => _loadAppointmentsForSelectedDate(showLoader: false));
-              },
-            ),
+                  );
+                },
+              ),
+            if (!widget.readOnly)
+              _buildDrawerItem(
+                icon: Icons.restore_from_trash_outlined,
+                title: 'Recycle Bin',
+                selected: false,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RecycleBinView(
+                        role: RecycleBinRole.staff,
+                        appointmentService: _appointmentService,
+                      ),
+                    ),
+                  ).then(
+                    (_) => _loadAppointmentsForSelectedDate(showLoader: false),
+                  );
+                },
+              ),
             const Spacer(),
             ListTile(
               contentPadding: const EdgeInsets.symmetric(
@@ -762,7 +771,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Staff Account\nID: $accountId',
+              '$_accountRoleLabel Account\nID: $accountId',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 14,
@@ -823,9 +832,11 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: () async {
-                        await _openEditProfileDialog();
-                      },
+                      onPressed: widget.readOnly
+                          ? null
+                          : () async {
+                              await _openEditProfileDialog();
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF356042),
                         elevation: 0,
@@ -833,8 +844,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: const Text(
-                        'Edit Profile',
+                      child: Text(
+                        widget.readOnly ? 'View Only' : 'Edit Profile',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -918,9 +929,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Center(
+                    Center(
                       child: Text(
-                        'STAFF DASHBOARD',
+                        '$_accountRoleTag DASHBOARD',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.w900,
@@ -1235,7 +1246,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: (_isCallingNext || _isLoadingAppointments)
+              onPressed:
+                  (widget.readOnly || _isCallingNext || _isLoadingAppointments)
                   ? null
                   : _callNextPatient,
               icon: _isCallingNext
@@ -1245,7 +1257,11 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.campaign_outlined, size: 18),
-              label: Text(_isCallingNext ? 'Calling...' : 'Call Next'),
+              label: Text(
+                widget.readOnly
+                    ? 'View Only Queue'
+                    : (_isCallingNext ? 'Calling...' : 'Call Next'),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF356042),
                 foregroundColor: Colors.white,
@@ -1377,6 +1393,38 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyPlaceholder() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 420),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_outline, size: 36, color: Color(0xFF64748B)),
+              SizedBox(height: 12),
+              Text(
+                'This section is not available for intern accounts.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1684,19 +1732,26 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               tab: _StaffTab.appointments,
             ),
             _buildNavItem(
-              icon: Icons.directions_walk,
-              label: 'Walk In',
-              tab: _StaffTab.walkIn,
-            ),
-            _buildNavItem(
               icon: Icons.calendar_month_outlined,
               label: 'Calendar',
               tab: _StaffTab.calendar,
             ),
+            if (!widget.readOnly)
+              _buildNavItem(
+                icon: Icons.directions_walk,
+                label: 'Walk In',
+                tab: _StaffTab.walkIn,
+              ),
+            if (!widget.readOnly)
+              _buildNavItem(
+                icon: Icons.search,
+                label: 'Records',
+                tab: _StaffTab.records,
+              ),
             _buildNavItem(
-              icon: Icons.search,
-              label: 'Records',
-              tab: _StaffTab.records,
+              icon: Icons.person_outline,
+              label: 'Profile',
+              tab: _StaffTab.profile,
             ),
           ],
         ),
@@ -1844,7 +1899,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   String _resolveDisplayName(Map<String, dynamic>? userInfo) {
-    if (userInfo == null) return 'Staff';
+    if (userInfo == null) return _accountRoleLabel;
 
     final direct = userInfo['name']?.toString().trim() ?? '';
     if (direct.isNotEmpty) return direct;
@@ -1855,7 +1910,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       userInfo['last_name']?.toString().trim() ?? '',
     ].where((part) => part.isNotEmpty).toList();
 
-    if (parts.isEmpty) return 'Staff';
+    if (parts.isEmpty) return _accountRoleLabel;
     return parts.join(' ');
   }
 

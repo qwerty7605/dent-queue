@@ -71,15 +71,8 @@ class _DashboardViewState extends State<DashboardView> {
 
     final name = _userInfo?['name']?.toString() ?? 'User';
     final email = _userInfo?['email']?.toString() ?? '-';
-    
-    String roleStr = 'user';
-    final roleDynamic = _userInfo?['role'];
-    if (roleDynamic is String) {
-      roleStr = roleDynamic;
-    } else if (roleDynamic is Map) {
-      roleStr = roleDynamic['name']?.toString() ?? 'user';
-    }
-    final role = roleStr.toLowerCase();
+
+    final role = _resolveRole(_userInfo);
 
     if (role == 'patient') {
       return PatientDashboardView(
@@ -89,12 +82,13 @@ class _DashboardViewState extends State<DashboardView> {
       );
     }
 
-    if (role == 'staff') {
+    if (role == 'staff' || role == 'intern') {
       return StaffDashboardView(
         userInfo: _userInfo,
         tokenStorage: widget.tokenStorage,
         onLogout: () => _logout(),
         loggingOut: _loggingOut,
+        readOnly: role == 'intern',
       );
     }
 
@@ -147,5 +141,46 @@ class _DashboardViewState extends State<DashboardView> {
   String _capitalize(String value) {
     if (value.isEmpty) return value;
     return value[0].toUpperCase() + value.substring(1);
+  }
+
+  String _resolveRole(Map<String, dynamic>? userInfo) {
+    if (userInfo == null) {
+      return 'user';
+    }
+
+    final roleDynamic = userInfo['role'];
+    if (roleDynamic is String && roleDynamic.trim().isNotEmpty) {
+      return roleDynamic.trim().toLowerCase();
+    }
+
+    if (roleDynamic is Map) {
+      final roleName = roleDynamic['name']?.toString().trim().toLowerCase();
+      if (roleName != null && roleName.isNotEmpty) {
+        return roleName;
+      }
+    }
+
+    final roleName = userInfo['role_name']?.toString().trim().toLowerCase();
+    if (roleName != null && roleName.isNotEmpty) {
+      return roleName;
+    }
+
+    final roles = userInfo['roles'];
+    if (roles is List) {
+      for (final role in roles) {
+        if (role is String && role.trim().isNotEmpty) {
+          return role.trim().toLowerCase();
+        }
+
+        if (role is Map) {
+          final nestedRoleName = role['name']?.toString().trim().toLowerCase();
+          if (nestedRoleName != null && nestedRoleName.isNotEmpty) {
+            return nestedRoleName;
+          }
+        }
+      }
+    }
+
+    return 'user';
   }
 }

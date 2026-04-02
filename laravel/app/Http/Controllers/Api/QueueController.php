@@ -80,6 +80,13 @@ class QueueController extends Controller
      */
     public function callNext(Request $request): JsonResponse
     {
+        $roleName = strtolower((string) optional($request->user()?->role)->name);
+        if ($roleName === 'intern') {
+            return response()->json([
+                'message' => 'Intern accounts have read-only access.',
+            ], 403);
+        }
+
         $payload = $request->validate([
             'date' => ['sometimes', 'date_format:Y-m-d'],
         ]);

@@ -70,6 +70,60 @@ class InternRoleAccessTest extends TestCase
         }
     }
 
+    public function test_intern_can_access_allowed_read_only_modules(): void
+    {
+        $intern = $this->createUserWithRole('Intern');
+        Sanctum::actingAs($intern);
+
+        $date = now()->format('Y-m-d');
+
+        $allowedEndpoints = [
+            ['uri' => '/api/v1/admin/dashboard/stats'],
+            ['uri' => '/api/v1/admin/appointments?date=' . $date],
+            ['uri' => '/api/v1/admin/appointments/master-list'],
+            ['uri' => '/api/v1/admin/calendar/appointments?date=' . $date],
+            ['uri' => '/api/v1/admin/queues/today?date=' . $date],
+            ['uri' => '/api/v1/admin/reports/summary'],
+            ['uri' => '/api/v1/admin/reports/trends?trend_type=daily'],
+            ['uri' => '/api/v1/admin/reports/status-distribution'],
+        ];
+
+        foreach ($allowedEndpoints as $endpoint) {
+            $this->getJson($endpoint['uri'])->assertOk();
+        }
+    }
+
+    public function test_intern_cannot_perform_write_actions_on_admin_modules(): void
+    {
+        $intern = $this->createUserWithRole('Intern');
+        Sanctum::actingAs($intern);
+
+        $writeEndpoints = [
+            ['method' => 'postJson', 'uri' => '/api/v1/admin/appointments', 'payload' => []],
+            ['method' => 'postJson', 'uri' => '/api/v1/admin/appointments/walk-in', 'payload' => []],
+            ['method' => 'postJson', 'uri' => '/api/v1/admin/appointments/follow-up', 'payload' => []],
+            ['method' => 'patchJson', 'uri' => '/api/v1/admin/appointments/1/restore', 'payload' => []],
+            ['method' => 'postJson', 'uri' => '/api/v1/admin/queues/call-next', 'payload' => []],
+            ['method' => 'postJson', 'uri' => '/api/v1/admin/staff', 'payload' => []],
+            ['method' => 'putJson', 'uri' => '/api/v1/admin/settings/clinic', 'payload' => []],
+        ];
+
+        foreach ($writeEndpoints as $endpoint) {
+            $method = $endpoint['method'];
+
+            $response = $this->{$method}($endpoint['uri'], $endpoint['payload']);
+
+            $response->assertForbidden();
+            $this->assertContains(
+                data_get($response->json(), 'message'),
+                [
+                    'Intern accounts have read-only access.',
+                    'You do not have permission to perform this action.',
+                ],
+            );
+        }
+    }
+
     private function createUserWithRole(string $roleName): User
     {
         $role = Role::firstOrCreate(['name' => $roleName]);
