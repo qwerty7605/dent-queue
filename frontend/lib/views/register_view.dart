@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_exception.dart';
+import '../core/mobile_typography.dart';
 import '../services/auth_service.dart';
 
 class RegisterView extends StatefulWidget {
@@ -156,6 +157,9 @@ class _RegisterViewState extends State<RegisterView> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width >= 880;
+    final horizontalPadding = isDesktop
+        ? 32.0
+        : (size.width < 380 ? 20.0 : 24.0);
 
     const bgImageUrl =
         'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&auto=format&fit=crop';
@@ -228,9 +232,9 @@ class _RegisterViewState extends State<RegisterView> {
                     child: SafeArea(
                       top: isDesktop,
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 32,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
+                          vertical: 28,
                         ),
                         child: Form(
                           key: _formKey,
@@ -251,14 +255,14 @@ class _RegisterViewState extends State<RegisterView> {
                                         ),
                                   ),
                                   const SizedBox(width: 16),
-                                  const Column(
+                                  Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'SMART',
                                         style: TextStyle(
-                                          fontSize: 36,
+                                          fontSize: isDesktop ? 36 : 32,
                                           fontWeight: FontWeight.w900,
                                           color: Color(0xFFD4AF37),
                                           height: 1.1,
@@ -267,7 +271,7 @@ class _RegisterViewState extends State<RegisterView> {
                                       Text(
                                         'DentQueue',
                                         style: TextStyle(
-                                          fontSize: 26,
+                                          fontSize: isDesktop ? 26 : 24,
                                           fontWeight: FontWeight.w800,
                                           color: Colors.white,
                                           height: 1.1,
@@ -277,7 +281,7 @@ class _RegisterViewState extends State<RegisterView> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 36),
+                              SizedBox(height: isDesktop ? 36 : 28),
 
                               Row(
                                 children: [
@@ -291,11 +295,13 @@ class _RegisterViewState extends State<RegisterView> {
                                       padding: EdgeInsets.zero,
                                       alignment: Alignment.centerLeft,
                                     ),
-                                  const Expanded(
+                                  Expanded(
                                     child: Text(
                                       'Create an Account',
                                       style: TextStyle(
-                                        fontSize: 24,
+                                        fontSize: MobileTypography.pageTitle(
+                                          context,
+                                        ),
                                         fontWeight: FontWeight.w800,
                                         color: Colors.white,
                                       ),
@@ -317,22 +323,27 @@ class _RegisterViewState extends State<RegisterView> {
                                     crossAxisAlignment:
                                         WrapCrossAlignment.center,
                                     children: [
-                                      const Text(
+                                      Text(
                                         'Already have an account? ',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w700,
-                                          fontSize: 14,
+                                          fontSize: MobileTypography.bodySmall(
+                                            context,
+                                          ),
                                         ),
                                       ),
                                       GestureDetector(
                                         onTap: widget.onSwitchToLogin,
-                                        child: const Text(
+                                        child: Text(
                                           'Sign in',
                                           style: TextStyle(
                                             color: Color(0xFFD4AF37),
                                             fontWeight: FontWeight.w800,
-                                            fontSize: 14,
+                                            fontSize:
+                                                MobileTypography.bodySmall(
+                                                  context,
+                                                ),
                                           ),
                                         ),
                                       ),
@@ -358,10 +369,10 @@ class _RegisterViewState extends State<RegisterView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Enter your Name',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: MobileTypography.sectionTitle(context),
             fontWeight: FontWeight.w600,
             color: Color(0xFFD4AF37),
           ),
@@ -424,10 +435,10 @@ class _RegisterViewState extends State<RegisterView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Basic Information',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: MobileTypography.sectionTitle(context),
             fontWeight: FontWeight.w600,
             color: Color(0xFFD4AF37),
           ),
@@ -537,10 +548,12 @@ class _RegisterViewState extends State<RegisterView> {
             ),
             decoration: _inputDecoration(hintText: 'Enter Email'),
             validator: (value) {
-              if (value == null || value.trim().isEmpty)
+              if (value == null || value.trim().isEmpty) {
                 return 'Email is required';
-              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(value))
+              }
+              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(value)) {
                 return 'Invalid email';
+              }
               return null;
             },
             textInputAction: TextInputAction.done,

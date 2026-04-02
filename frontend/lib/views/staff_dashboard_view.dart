@@ -3,15 +3,13 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/api_exception.dart';
 import '../core/config.dart';
+import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../services/appointment_service.dart';
 import '../services/base_service.dart';
-import '../services/patient_record_service.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 import '../widgets/appointment_success_dialog.dart';
 import '../widgets/edit_profile_dialog.dart';
-import 'staff_walk_in_view.dart';
-import 'staff_patient_records_view.dart';
 import 'staff_calendar_view.dart';
 import 'notifications_view.dart';
 import 'recycle_bin_view.dart';
@@ -29,7 +27,6 @@ class StaffDashboardView extends StatefulWidget {
     required this.loggingOut,
     this.readOnly = false,
     this.appointmentService,
-    this.patientRecordService,
   });
 
   final Map<String, dynamic>? userInfo;
@@ -38,7 +35,6 @@ class StaffDashboardView extends StatefulWidget {
   final bool loggingOut;
   final bool readOnly;
   final AppointmentService? appointmentService;
-  final PatientRecordService? patientRecordService;
 
   @override
   State<StaffDashboardView> createState() => _StaffDashboardViewState();
@@ -48,7 +44,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   final TextEditingController _searchController = TextEditingController();
   late final BaseService _baseService;
   late final AppointmentService _appointmentService;
-  late final PatientRecordService _patientRecordService;
   late Map<String, dynamic> _localUserInfo;
 
   late DateTime _selectedDate;
@@ -73,8 +68,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     _baseService = BaseService(ApiClient(tokenStorage: widget.tokenStorage));
     _appointmentService =
         widget.appointmentService ?? AppointmentService(_baseService);
-    _patientRecordService =
-        widget.patientRecordService ?? PatientRecordService(_baseService);
     _localUserInfo = widget.userInfo != null
         ? Map<String, dynamic>.from(widget.userInfo!)
         : <String, dynamic>{};
@@ -530,7 +523,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor: Colors.white.withOpacity(0.2),
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
                     backgroundImage: profileImageUrl != null
                         ? NetworkImage(profileImageUrl)
                         : null,
@@ -880,7 +873,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 10,
+                  fontSize: 13,
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF94A3B8),
                   letterSpacing: 0.5,
@@ -933,7 +926,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                       child: Text(
                         '$_accountRoleTag DASHBOARD',
                         style: TextStyle(
-                          fontSize: 28,
+                          fontSize: MobileTypography.pageTitle(context),
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.4,
                           color: Colors.black87,
@@ -1164,9 +1157,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               Expanded(
                 child: Text(
                   'Daily Queue - ${_formatLongDate(_selectedDate)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Color(0xFF1E293B),
-                    fontSize: 13,
+                    fontSize: MobileTypography.label(context),
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -1200,7 +1193,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
@@ -1209,10 +1202,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Today\'s Queue',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: MobileTypography.label(context),
               fontWeight: FontWeight.w800,
               color: Color(0xFF1E293B),
             ),
@@ -1285,7 +1278,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     required Color backgroundColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(10),
@@ -1297,7 +1290,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           Text(
             label,
             style: TextStyle(
-              fontSize: 9,
+              fontSize: MobileTypography.caption(context),
               fontWeight: FontWeight.w900,
               color: accentColor,
               letterSpacing: 0.4,
@@ -1307,7 +1300,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           Text(
             '#${_formatQueueNumber(queueNumber)}',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: MobileTypography.sectionTitle(context),
               fontWeight: FontWeight.w900,
               color: accentColor,
               height: 1,
@@ -1318,8 +1311,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             caption,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 10,
+            style: TextStyle(
+              fontSize: MobileTypography.caption(context),
               fontWeight: FontWeight.w600,
               color: Color(0xFF475569),
             ),
@@ -1469,7 +1462,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           style: TextStyle(
             color: selected ? Colors.white : const Color(0xFF6B7280),
             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            fontSize: 12,
+            fontSize: 13,
           ),
         ),
       ),
@@ -1563,7 +1556,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                           style: TextStyle(
                             fontWeight: FontWeight.w900,
                             color: accent,
-                            fontSize: 14,
+                            fontSize: 15,
                           ),
                         ),
                       ),
@@ -1582,8 +1575,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                                 serviceType,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 15,
+                                style: TextStyle(
+                                  fontSize: MobileTypography.body(context),
                                   fontWeight: FontWeight.w800,
                                   color: Color(0xFF334155),
                                 ),
@@ -1600,7 +1593,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                                 child: Text(
                                   _statusLabel(status),
                                   style: TextStyle(
-                                    fontSize: 9,
+                                    fontSize: MobileTypography.caption(context),
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 0.3,
                                     color: _statusColor(status),
@@ -1614,8 +1607,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                             patientName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
+                            style: TextStyle(
+                              fontSize: MobileTypography.caption(context),
                               color: Color(0xFF64748B),
                               fontWeight: FontWeight.w600,
                             ),
@@ -1631,8 +1624,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                               const SizedBox(width: 4),
                               Text(
                                 date,
-                                style: const TextStyle(
-                                  fontSize: 10,
+                                style: TextStyle(
+                                  fontSize: MobileTypography.caption(context),
                                   color: Color(0xFF94A3B8),
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1646,8 +1639,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                               const SizedBox(width: 4),
                               Text(
                                 time,
-                                style: const TextStyle(
-                                  fontSize: 10,
+                                style: TextStyle(
+                                  fontSize: MobileTypography.caption(context),
                                   color: Color(0xFF94A3B8),
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1660,10 +1653,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Text(
+                        Text(
                           'QUEUE',
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: MobileTypography.caption(context),
                             fontWeight: FontWeight.w900,
                             color: Color(0xFF94A3B8),
                             letterSpacing: 0.4,
@@ -1671,8 +1664,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                         ),
                         Text(
                           '#$queueNumber',
-                          style: const TextStyle(
-                            fontSize: 30,
+                          style: TextStyle(
+                            fontSize: MobileTypography.pageTitle(context),
                             fontWeight: FontWeight.w900,
                             color: Color(0xFF356042),
                             height: 1,
