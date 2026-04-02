@@ -3,6 +3,18 @@ import 'dart:typed_data';
 import '../core/endpoints.dart';
 import 'base_service.dart';
 
+enum ReportExportFormat {
+  csv('csv', 'CSV', 'text/csv'),
+  excel('excel', 'Excel', 'application/vnd.ms-excel'),
+  pdf('pdf', 'PDF', 'application/pdf');
+
+  const ReportExportFormat(this.queryValue, this.label, this.acceptHeader);
+
+  final String queryValue;
+  final String label;
+  final String acceptHeader;
+}
+
 class ReportExportFile {
   const ReportExportFile({
     required this.filename,
@@ -98,18 +110,23 @@ class AdminDashboardService {
     return const <Map<String, dynamic>>[];
   }
 
-  Future<ReportExportFile> exportDetailedRecordsCsv([
+  Future<ReportExportFile> exportDetailedRecords([
+    ReportExportFormat format = ReportExportFormat.csv,
     Map<String, String> filters = const <String, String>{},
   ]) async {
+    final Map<String, String> exportFilters = <String, String>{
+      ...filters,
+      'format': format.queryValue,
+    };
     final response = await _baseService.getRaw(
-      Endpoints.adminReportsExport(filters),
-      headers: const <String, String>{'Accept': 'text/csv'},
+      Endpoints.adminReportsExport(exportFilters),
+      headers: <String, String>{'Accept': format.acceptHeader},
     );
 
     return ReportExportFile(
       filename: _extractFilename(response.headers['content-disposition']),
       bytes: response.bodyBytes,
-      contentType: response.headers['content-type'] ?? 'text/csv',
+      contentType: response.headers['content-type'] ?? format.acceptHeader,
     );
   }
 

@@ -75,12 +75,12 @@ class AdminReportFilteringApiTest extends TestCase
 
         $data = $response->json('data');
 
-        $this->assertSame('2026-04-07', $data[0]['date']);
-        $this->assertSame('2026-04-05', $data[1]['date']);
+        $this->assertSame('2026-04-05', $data[0]['date']);
+        $this->assertSame('2026-04-07', $data[1]['date']);
         $this->assertSame('Walk-In Booking', $data[0]['booking_type']);
         $this->assertSame('Walk-In Booking', $data[1]['booking_type']);
-        $this->assertSame('Cancelled', $data[0]['status']);
-        $this->assertSame('Completed', $data[1]['status']);
+        $this->assertSame('Completed', $data[0]['status']);
+        $this->assertSame('Cancelled', $data[1]['status']);
     }
 
     public function test_combined_filters_apply_consistently_across_report_endpoints(): void

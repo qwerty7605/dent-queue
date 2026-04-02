@@ -1,15 +1,29 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/services/admin_dashboard_service.dart';
 import 'package:frontend/services/base_service.dart';
+import 'package:http/http.dart' as http;
 
 class _FakeBaseService extends Fake implements BaseService {
   dynamic nextResponse;
+  http.Response? nextRawResponse;
   String? lastPath;
+  Map<String, String>? lastHeaders;
 
   @override
   Future<T> getJson<T>(String path, T Function(dynamic json) mapper) async {
     lastPath = path;
     return mapper(nextResponse);
+  }
+
+  @override
+  Future<http.Response> getRaw(
+    String path, {
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    lastPath = path;
+    lastHeaders = headers;
+    return nextRawResponse ??
+        http.Response('', 200, headers: <String, String>{});
   }
 }
 
@@ -90,6 +104,36 @@ void main() {
           .getAppointmentTrends('monthly');
 
       expect(result, isEmpty);
+    },
+  );
+
+  test(
+    'exportDetailedRecords requests the export endpoint with the format',
+    () async {
+      fakeBaseService.nextRawResponse = http.Response.bytes(
+        <int>[1, 2, 3],
+        200,
+        headers: <String, String>{
+          'content-disposition': 'attachment; filename=report-records.pdf',
+          'content-type': 'application/pdf',
+        },
+      );
+
+      final ReportExportFile result = await adminDashboardService
+          .exportDetailedRecords(ReportExportFormat.pdf, <String, String>{
+            'status': 'Approved',
+          });
+
+      expect(
+        fakeBaseService.lastPath,
+        '/api/v1/admin/reports/export?status=Approved&format=pdf',
+      );
+      expect(fakeBaseService.lastHeaders, <String, String>{
+        'Accept': 'application/pdf',
+      });
+      expect(result.filename, 'report-records.pdf');
+      expect(result.contentType, 'application/pdf');
+      expect(result.bytes, <int>[1, 2, 3]);
     },
   );
 }

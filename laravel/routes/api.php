@@ -1,21 +1,20 @@
 <?php
 
+use App\Http\Controllers\Api\AdminClinicSettingsController;
+use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\Api\AdminProfileController;
+use App\Http\Controllers\Api\AdminStaffController;
+use App\Http\Controllers\Api\AppointmentController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PatientProfileController;
+use App\Http\Controllers\Api\PatientRecordController;
+use App\Http\Controllers\Api\QueueController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\StaffProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\ServiceController;
-use App\Http\Controllers\Api\AppointmentController;
-use App\Http\Controllers\Api\NotificationController;
-use App\Http\Controllers\Api\QueueController;
-use App\Http\Controllers\Api\PatientProfileController;
-use App\Http\Controllers\Api\StaffProfileController;
-use App\Http\Controllers\Api\AdminProfileController;
-use App\Http\Controllers\Api\PatientRecordController;
-use App\Http\Controllers\Api\ReportController;
-use App\Http\Controllers\Api\AdminDashboardController;
-use App\Http\Controllers\Api\AdminStaffController;
-use App\Http\Controllers\Api\AdminClinicSettingsController;
 
 Route::prefix('v1')->group(function () {
     // Public routes (Auth)
@@ -59,7 +58,7 @@ Route::prefix('v1')->group(function () {
                 Route::apiResource('reports', ReportController::class)->only(['index']);
 
                 Route::middleware('role:admin')->group(function () {
-                    Route::get('/reports/export', [ReportController::class, 'exportCsv']);
+                    Route::get('/reports/export', [ReportController::class, 'export']);
                     Route::get('/settings/clinic', [AdminClinicSettingsController::class, 'show']);
                     Route::put('/settings/clinic', [AdminClinicSettingsController::class, 'update']);
                 });

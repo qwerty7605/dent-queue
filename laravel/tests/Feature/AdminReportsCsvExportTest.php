@@ -46,25 +46,70 @@ class AdminReportsCsvExportTest extends TestCase
             'Created At',
         ], $rows[0]);
 
-        $this->assertSame('2', $rows[1][0]);
-        $this->assertSame('Walk In', $rows[1][1]);
-        $this->assertSame('Root Canal', $rows[1][2]);
-        $this->assertSame('2026-04-07', $rows[1][3]);
-        $this->assertSame('11:15 AM', $rows[1][4]);
-        $this->assertSame('Cancelled', $rows[1][5]);
-        $this->assertSame('Walk-In Booking', $rows[1][6]);
-        $this->assertSame('08', $rows[1][7]);
-        $this->assertSame('2026-04-02 08:00:00', $rows[1][8]);
+        $this->assertSame('1', $rows[1][0]);
+        $this->assertSame('Patient User', $rows[1][1]);
+        $this->assertSame('Dental Cleaning', $rows[1][2]);
+        $this->assertSame('2026-04-03', $rows[1][3]);
+        $this->assertSame('9:30 AM', $rows[1][4]);
+        $this->assertSame('Approved', $rows[1][5]);
+        $this->assertSame('Online Booking', $rows[1][6]);
+        $this->assertSame('03', $rows[1][7]);
+        $this->assertSame('2026-04-01 07:45:00', $rows[1][8]);
 
-        $this->assertSame('1', $rows[2][0]);
-        $this->assertSame('Patient User', $rows[2][1]);
-        $this->assertSame('Dental Cleaning', $rows[2][2]);
-        $this->assertSame('2026-04-03', $rows[2][3]);
-        $this->assertSame('9:30 AM', $rows[2][4]);
-        $this->assertSame('Approved', $rows[2][5]);
-        $this->assertSame('Online Booking', $rows[2][6]);
-        $this->assertSame('03', $rows[2][7]);
-        $this->assertSame('2026-04-01 07:45:00', $rows[2][8]);
+        $this->assertSame('2', $rows[2][0]);
+        $this->assertSame('Walk In', $rows[2][1]);
+        $this->assertSame('Root Canal', $rows[2][2]);
+        $this->assertSame('2026-04-07', $rows[2][3]);
+        $this->assertSame('11:15 AM', $rows[2][4]);
+        $this->assertSame('Cancelled', $rows[2][5]);
+        $this->assertSame('Walk-In Booking', $rows[2][6]);
+        $this->assertSame('08', $rows[2][7]);
+        $this->assertSame('2026-04-02 08:00:00', $rows[2][8]);
+    }
+
+    public function test_admin_can_export_report_records_as_excel(): void
+    {
+        $admin = $this->createReportFixture();
+        Sanctum::actingAs($admin);
+
+        $response = $this->get('/api/v1/admin/reports/export?format=excel');
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/vnd.ms-excel; charset=UTF-8');
+        $this->assertStringContainsString(
+            'attachment; filename="report-records-',
+            (string) $response->headers->get('content-disposition'),
+        );
+
+        $content = $response->getContent();
+
+        $this->assertIsString($content);
+        $this->assertStringContainsString('<?xml version="1.0" encoding="UTF-8"?>', $content);
+        $this->assertStringContainsString('<Worksheet ss:Name="Reports">', $content);
+        $this->assertStringContainsString('<Data ss:Type="String">Patient User</Data>', $content);
+        $this->assertStringContainsString('<Data ss:Type="String">Walk In</Data>', $content);
+    }
+
+    public function test_admin_can_export_report_records_as_pdf(): void
+    {
+        $admin = $this->createReportFixture();
+        Sanctum::actingAs($admin);
+
+        $response = $this->get('/api/v1/admin/reports/export?format=pdf');
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+        $this->assertStringContainsString(
+            'attachment; filename="report-records-',
+            (string) $response->headers->get('content-disposition'),
+        );
+
+        $content = $response->getContent();
+
+        $this->assertIsString($content);
+        $this->assertStringStartsWith('%PDF-1.4', $content);
+        $this->assertStringContainsString('/Type /Catalog', $content);
+        $this->assertStringContainsString('Detailed Reports Export', $content);
     }
 
     public function test_export_respects_active_report_filters(): void
@@ -73,7 +118,7 @@ class AdminReportsCsvExportTest extends TestCase
         Sanctum::actingAs($admin);
 
         $response = $this->get(
-            '/api/v1/admin/reports/export?' . http_build_query([
+            '/api/v1/admin/reports/export?'.http_build_query([
                 'status' => 'Approved',
                 'booking_type' => 'Online Booking',
             ]),
@@ -96,7 +141,7 @@ class AdminReportsCsvExportTest extends TestCase
         Sanctum::actingAs($admin);
 
         $response = $this->get(
-            '/api/v1/admin/reports/export?' . http_build_query([
+            '/api/v1/admin/reports/export?'.http_build_query([
                 'status' => 'Completed',
                 'booking_type' => 'Online Booking',
             ]),
@@ -209,8 +254,8 @@ class AdminReportsCsvExportTest extends TestCase
         return User::create([
             'first_name' => $roleName,
             'last_name' => 'User',
-            'username' => strtolower($roleName) . '_' . str()->random(6),
-            'email' => strtolower($roleName) . '_' . str()->random(6) . '@example.com',
+            'username' => strtolower($roleName).'_'.str()->random(6),
+            'email' => strtolower($roleName).'_'.str()->random(6).'@example.com',
             'password' => Hash::make('password123'),
             'role_id' => $role->id,
             'is_active' => true,
