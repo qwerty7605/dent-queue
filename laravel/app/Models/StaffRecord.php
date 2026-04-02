@@ -57,7 +57,6 @@ class StaffRecord extends Model
             'gender' => $user->gender,
             'address' => $user->location,
             'contact_number' => $user->phone_number,
-            'birthdate' => $user->birthdate,
         ]);
 
         if (blank($staffRecord->staff_id)) {

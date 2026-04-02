@@ -23,7 +23,6 @@ class PatientProfileUpdateApiTest extends TestCase
             'first_name' => 'Aldritch',
             'middle_name' => 'Sandal',
             'last_name' => 'Delapena',
-            'birthdate' => '2020-08-13',
             'address' => 'Tabango',
             'gender' => 'Male',
             'contact_number' => '09169014483',
@@ -38,11 +37,7 @@ class PatientProfileUpdateApiTest extends TestCase
             ->assertJsonPath('user.location', 'Tabango')
             ->assertJsonPath('user.gender', 'male')
             ->assertJsonPath('user.phone_number', '09169014483');
-
-        $this->assertStringStartsWith(
-            '2020-08-13',
-            (string) data_get($response->json(), 'user.birthdate')
-        );
+        $this->assertArrayNotHasKey('birthdate', $response->json('user'));
 
         $this->assertDatabaseHas('users', [
             'id' => $patient->id,
@@ -55,21 +50,7 @@ class PatientProfileUpdateApiTest extends TestCase
         ]);
 
         $patient->refresh();
-        $this->assertStringStartsWith('2020-08-13', (string) $patient->birthdate);
-    }
-
-    public function test_profile_update_rejects_future_birthdate(): void
-    {
-        $patient = $this->createUserWithRole('Patient');
-        Sanctum::actingAs($patient);
-
-        $response = $this->patchJson('/api/v1/patient/profile/' . $patient->id, [
-            'birthdate' => now()->addDay()->format('Y-m-d'),
-        ]);
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['birthdate'])
-            ->assertJsonPath('errors.birthdate.0', 'Birthdate cannot be in the future.');
+        $this->assertNull($patient->birthdate);
     }
 
     public function test_profile_update_rejects_invalid_contact_number_format(): void

@@ -348,8 +348,9 @@ class AppointmentController extends Controller
             ]);
         } catch (ValidationException $e) {
             return response()->json([
-                'message' => 'Failed to restore appointment.',
-                'errors' => $e->errors()
+                'type' => 'validation_error',
+                'message' => 'The given data was invalid.',
+                'errors' => $e->errors(),
             ], 422);
         }
     }

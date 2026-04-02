@@ -41,7 +41,6 @@ class PatientProfileController extends Controller
             'first_name' => ['sometimes', 'required', 'string', 'max:100'],
             'middle_name' => ['sometimes', 'nullable', 'string', 'max:100'],
             'last_name' => ['sometimes', 'required', 'string', 'max:100'],
-            'birthdate' => ['sometimes', 'nullable', 'date', 'before_or_equal:today'],
             'location' => ['sometimes', 'nullable', 'string', 'max:255'],
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
             'gender' => ['sometimes', 'nullable', 'string', 'in:male,female,other'],
@@ -49,7 +48,6 @@ class PatientProfileController extends Controller
             'contact_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
             'profile_picture' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
         ], [
-            'birthdate.before_or_equal' => 'Birthdate cannot be in the future.',
             'phone_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'profile_picture.image' => 'The profile picture must be an image file.',

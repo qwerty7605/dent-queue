@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/short_term_cache.dart';
 import 'package:frontend/services/admin_dashboard_service.dart';
 import 'package:frontend/services/appointment_service.dart';
 import 'package:frontend/services/base_service.dart';
@@ -196,6 +197,10 @@ class _FakeBaseService extends Fake implements BaseService {
 }
 
 void main() {
+  setUp(() {
+    ShortTermCache.clear();
+  });
+
   testWidgets(
     'renders report filters with the supported status and booking type options',
     (WidgetTester tester) async {

@@ -76,7 +76,6 @@ class AuthControllerTest extends TestCase
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'phone_number' => '09123456789',
-            'birthdate' => '1995-01-01',
             'gender' => 'female',
             'location' => 'Tester City'
         ]);
