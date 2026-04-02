@@ -8,9 +8,11 @@ class _FakeBaseService extends Fake implements BaseService {
   http.Response? nextRawResponse;
   String? lastPath;
   Map<String, String>? lastHeaders;
+  int getJsonCallCount = 0;
 
   @override
   Future<T> getJson<T>(String path, T Function(dynamic json) mapper) async {
+    getJsonCallCount += 1;
     lastPath = path;
     return mapper(nextResponse);
   }
@@ -34,6 +36,7 @@ void main() {
   setUp(() {
     fakeBaseService = _FakeBaseService();
     adminDashboardService = AdminDashboardService(fakeBaseService);
+    adminDashboardService.invalidateReportCaches();
   });
 
   test('getReportSummary requests the summary endpoint with filters', () async {
@@ -59,6 +62,34 @@ void main() {
     );
     expect(result['total'], 2);
     expect(result['approved'], 2);
+  });
+
+  test('getReportSummary uses a short-term cache until invalidated', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'data': <String, dynamic>{
+        'total_appointments': 4,
+        'pending_count': 1,
+        'approved_count': 2,
+        'completed_count': 1,
+        'cancelled_count': 0,
+      },
+    };
+
+    final Map<String, int> first = await adminDashboardService
+        .getReportSummary(<String, String>{'status': 'Approved'});
+    final Map<String, int> second = await adminDashboardService
+        .getReportSummary(<String, String>{'status': 'Approved'});
+
+    expect(first, second);
+    expect(fakeBaseService.getJsonCallCount, 1);
+
+    adminDashboardService.invalidateReportCaches();
+
+    await adminDashboardService.getReportSummary(<String, String>{
+      'status': 'Approved',
+    });
+
+    expect(fakeBaseService.getJsonCallCount, 2);
   });
 
   test(

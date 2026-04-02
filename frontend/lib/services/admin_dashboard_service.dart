@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../core/endpoints.dart';
+import '../core/short_term_cache.dart';
 import 'base_service.dart';
 
 enum ReportExportFormat {
@@ -29,6 +30,11 @@ class ReportExportFile {
 
 class AdminDashboardService {
   AdminDashboardService(this._baseService);
+
+  static const Duration _cacheTtl = Duration(seconds: 30);
+  static const String _reportSummaryCache = 'report-summary';
+  static const String _reportTrendsCache = 'report-trends';
+
   final BaseService _baseService;
 
   Future<Map<String, int>> getStats() async {
@@ -63,6 +69,15 @@ class AdminDashboardService {
   Future<Map<String, int>> getReportSummary([
     Map<String, String> filters = const <String, String>{},
   ]) async {
+    final String cacheKey = _filterCacheKey(filters);
+    final dynamic cachedSummary = ShortTermCache.read<dynamic>(
+      _reportSummaryCache,
+      cacheKey,
+    );
+    if (cachedSummary is Map) {
+      return Map<String, int>.from(cachedSummary);
+    }
+
     final response = await _baseService.getJson<dynamic>(
       Endpoints.adminReportsSummary(filters),
       (data) => data,
@@ -72,42 +87,82 @@ class AdminDashboardService {
       final dataMap = response['data'];
       if (dataMap is Map) {
         final data = Map<String, dynamic>.from(dataMap);
-        return {
+        final result = <String, int>{
           'total': data['total_appointments'] as int? ?? 0,
           'pending': data['pending_count'] as int? ?? 0,
           'approved': data['approved_count'] as int? ?? 0,
           'completed': data['completed_count'] as int? ?? 0,
           'cancelled': data['cancelled_count'] as int? ?? 0,
         };
+        ShortTermCache.write(
+          _reportSummaryCache,
+          cacheKey,
+          result,
+          ttl: _cacheTtl,
+        );
+        return result;
       }
     }
 
-    return {
+    final result = <String, int>{
       'total': 0,
       'pending': 0,
       'approved': 0,
       'completed': 0,
       'cancelled': 0,
     };
+    ShortTermCache.write(
+      _reportSummaryCache,
+      cacheKey,
+      result,
+      ttl: _cacheTtl,
+    );
+    return result;
   }
 
   Future<List<Map<String, dynamic>>> getAppointmentTrends(
     String trendType, [
     Map<String, String> filters = const <String, String>{},
   ]) async {
+    final String cacheKey = '$trendType|${_filterCacheKey(filters)}';
+    final dynamic cachedTrends = ShortTermCache.read<dynamic>(
+      _reportTrendsCache,
+      cacheKey,
+    );
+    if (cachedTrends is List) {
+      return cachedTrends
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
     final response = await _baseService.getJson<dynamic>(
       Endpoints.adminReportsTrends(trendType, filters),
       (data) => data,
     );
 
     if (response is Map<String, dynamic> && response['data'] is List<dynamic>) {
-      return (response['data'] as List<dynamic>)
+      final result = (response['data'] as List<dynamic>)
           .whereType<Map>()
           .map((item) => Map<String, dynamic>.from(item))
           .toList();
+      ShortTermCache.write(
+        _reportTrendsCache,
+        cacheKey,
+        result,
+        ttl: _cacheTtl,
+      );
+      return result;
     }
 
-    return const <Map<String, dynamic>>[];
+    const result = <Map<String, dynamic>>[];
+    ShortTermCache.write(
+      _reportTrendsCache,
+      cacheKey,
+      result,
+      ttl: _cacheTtl,
+    );
+    return result;
   }
 
   Future<ReportExportFile> exportDetailedRecords([
@@ -152,5 +207,35 @@ class AdminDashboardService {
     }
 
     return 'report-records.csv';
+  }
+
+  void invalidateReportCaches() {
+    ShortTermCache.invalidateNamespace(_reportSummaryCache);
+    ShortTermCache.invalidateNamespace(_reportTrendsCache);
+  }
+
+  static void invalidateSharedReportCaches() {
+    ShortTermCache.invalidateNamespace(_reportSummaryCache);
+    ShortTermCache.invalidateNamespace(_reportTrendsCache);
+  }
+
+  String _filterCacheKey(Map<String, String> filters) {
+    if (filters.isEmpty) {
+      return 'all';
+    }
+
+    final List<MapEntry<String, String>> entries = filters.entries.toList()
+      ..sort((MapEntry<String, String> a, MapEntry<String, String> b) {
+        final int keyOrder = a.key.compareTo(b.key);
+        if (keyOrder != 0) {
+          return keyOrder;
+        }
+
+        return a.value.compareTo(b.value);
+      });
+
+    return entries.map((MapEntry<String, String> entry) {
+      return '${entry.key}=${entry.value}';
+    }).join('&');
   }
 }

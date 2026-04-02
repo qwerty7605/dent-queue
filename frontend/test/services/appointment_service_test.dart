@@ -6,9 +6,13 @@ class FakeBaseService extends Fake implements BaseService {
   dynamic nextResponse;
   String? lastPath;
   Object? lastBody;
+  int getJsonCallCount = 0;
+  int postJsonCallCount = 0;
+  int patchJsonCallCount = 0;
 
   @override
   Future<T> getJson<T>(String path, T Function(dynamic json) mapper) async {
+    getJsonCallCount += 1;
     lastPath = path;
     return mapper(nextResponse);
   }
@@ -19,6 +23,19 @@ class FakeBaseService extends Fake implements BaseService {
     Object? body,
     T Function(dynamic json) mapper,
   ) async {
+    postJsonCallCount += 1;
+    lastPath = path;
+    lastBody = body;
+    return mapper(nextResponse);
+  }
+
+  @override
+  Future<T> patchJson<T>(
+    String path,
+    Object? body,
+    T Function(dynamic json) mapper,
+  ) async {
+    patchJsonCallCount += 1;
     lastPath = path;
     lastBody = body;
     return mapper(nextResponse);
@@ -32,6 +49,7 @@ void main() {
   setUp(() {
     fakeBaseService = FakeBaseService();
     appointmentService = AppointmentService(fakeBaseService);
+    appointmentService.invalidateAppointmentCaches();
   });
 
   test(
@@ -64,6 +82,70 @@ void main() {
       );
     },
   );
+
+  test('getAdminMasterList uses cache until invalidated', () async {
+    fakeBaseService.nextResponse = {
+      'data': [
+        {
+          'patient_name': 'Jane Doe',
+          'service': 'Cleaning',
+          'status': 'Pending',
+          'date': '2026-04-02',
+        },
+      ],
+    };
+
+    final first = await appointmentService.getAdminMasterList(
+      <String, String>{'status': 'Pending'},
+    );
+    final second = await appointmentService.getAdminMasterList(
+      <String, String>{'status': 'Pending'},
+    );
+
+    expect(first, second);
+    expect(fakeBaseService.getJsonCallCount, 1);
+
+    appointmentService.invalidateAppointmentCaches();
+    await appointmentService.getAdminMasterList(
+      <String, String>{'status': 'Pending'},
+    );
+
+    expect(fakeBaseService.getJsonCallCount, 2);
+  });
+
+  test('cancelAppointment invalidates cached appointment lists', () async {
+    fakeBaseService.nextResponse = {
+      'data': [
+        {
+          'patient_name': 'John Doe',
+          'service': 'Dental Checkup',
+          'status': 'Approved',
+          'date': '2026-04-01',
+        },
+      ],
+    };
+
+    await appointmentService.getAdminMasterList();
+    expect(fakeBaseService.getJsonCallCount, 1);
+
+    fakeBaseService.nextResponse = {'message': 'Cancelled'};
+    await appointmentService.cancelAppointment(12);
+    expect(fakeBaseService.patchJsonCallCount, 1);
+
+    fakeBaseService.nextResponse = {
+      'data': [
+        {
+          'patient_name': 'John Doe',
+          'service': 'Dental Checkup',
+          'status': 'Cancelled',
+          'date': '2026-04-01',
+        },
+      ],
+    };
+    await appointmentService.getAdminMasterList();
+
+    expect(fakeBaseService.getJsonCallCount, 2);
+  });
 
   test('callNextQueue should send selected date when provided', () async {
     fakeBaseService.nextResponse = {

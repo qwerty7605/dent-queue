@@ -82,6 +82,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
   Future<void> _loadAppointmentsForSelectedDate({
     bool showLoader = true,
+    bool forceRefresh = false,
   }) async {
     final date = _formatApiDate(_selectedDate);
     final bool hasVisibleContent =
@@ -101,6 +102,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     }
 
     try {
+      if (forceRefresh) {
+        _appointmentService.invalidateAppointmentCaches();
+      }
+
       final list = await _appointmentService.getAdminAppointmentsByDate(date);
       List<Map<String, dynamic>> recycleBinAppointments;
       try {
@@ -171,7 +176,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Future<void> _refreshAppointmentsAndQueue() {
-    return _loadAppointmentsForSelectedDate(showLoader: false);
+    return _loadAppointmentsForSelectedDate(
+      showLoader: false,
+      forceRefresh: true,
+    );
   }
 
   Future<void> _initializeAppointments() async {
