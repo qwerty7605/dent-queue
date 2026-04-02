@@ -185,6 +185,44 @@ class PatientCancelAppointmentTest extends TestCase
             ->assertJsonCount(0, 'appointments');
     }
 
+    public function test_patient_can_fetch_cancelled_appointment_details_after_cancelling(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $appointment = $this->createAppointment($patient->id, 'pending');
+        Sanctum::actingAs($patient);
+
+        $this->patchJson('/api/v1/patient/appointments/' . $appointment->id . '/cancel')
+            ->assertOk();
+
+        $this->getJson('/api/v1/patient/appointments/' . $appointment->id)
+            ->assertOk()
+            ->assertJsonPath('appointment.id', (int) $appointment->id)
+            ->assertJsonPath('appointment.status', 'Cancelled')
+            ->assertJsonPath('appointment.recycle_bin.is_restorable', true);
+    }
+
+    public function test_patient_can_fetch_appointment_details_with_current_status_labels(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $confirmedAppointment = $this->createAppointment($patient->id, 'confirmed');
+        $completedAppointment = Appointment::create([
+            'patient_id' => $patient->id,
+            'service_id' => 1,
+            'appointment_date' => now()->next('Tuesday')->format('Y-m-d'),
+            'time_slot' => '10:00',
+            'status' => 'completed',
+        ]);
+        Sanctum::actingAs($patient);
+
+        $this->getJson('/api/v1/patient/appointments/' . $confirmedAppointment->id)
+            ->assertOk()
+            ->assertJsonPath('appointment.status', 'Approved');
+
+        $this->getJson('/api/v1/patient/appointments/' . $completedAppointment->id)
+            ->assertOk()
+            ->assertJsonPath('appointment.status', 'Completed');
+    }
+
     private function createAppointment(int $patientId, string $status): Appointment
     {
         return Appointment::create([

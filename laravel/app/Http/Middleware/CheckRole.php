@@ -18,9 +18,12 @@ class CheckRole
      */
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        if (!$request->user() || !in_array(strtolower($request->user()->role->name), array_map('strtolower', $roles))) {
+        $user = $request->user();
+        $roleName = $user?->role?->name;
+
+        if ($roleName === null || !in_array(strtolower($roleName), array_map('strtolower', $roles), true)) {
             return response()->json([
-                'message' => 'Unauthorized. Restricted to ' . implode(' or ', $roles) . ' only.'
+                'message' => 'You do not have permission to perform this action.',
             ], 403);
         }
 

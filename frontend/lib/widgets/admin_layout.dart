@@ -29,7 +29,11 @@ class AdminLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = userInfo?['name']?.toString() ?? 'ADMIN';
     final String? profilePic = userInfo?['profile_picture']?.toString();
-    final bool hasProfilePic = profilePic != null && profilePic.isNotEmpty && profilePic != 'null' && profilePic != '/storage/';
+    final bool hasProfilePic =
+        profilePic != null &&
+        profilePic.isNotEmpty &&
+        profilePic != 'null' &&
+        profilePic != '/storage/';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC), // Light off-white background
@@ -43,7 +47,10 @@ class AdminLayout extends StatelessWidget {
               children: [
                 // Logo Header
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 24.0,
+                    horizontal: 16.0,
+                  ),
                   child: Row(
                     children: [
                       Image.asset(
@@ -84,7 +91,7 @@ class AdminLayout extends StatelessWidget {
                 ),
                 const Divider(color: Colors.white30, height: 1, thickness: 1),
                 const SizedBox(height: 16),
-                
+
                 // Sidebar Navigation Items
                 Expanded(
                   child: ListView(
@@ -95,40 +102,65 @@ class AdminLayout extends StatelessWidget {
                         context,
                         'Patients',
                         Icons.badge_outlined,
-                        labelSuffix: _formatSidebarCount(sidebarCounts['Patients']),
+                        labelSuffix: _formatSidebarCount(
+                          sidebarCounts['Patients'],
+                        ),
                       ),
                       _buildSidebarItem(
                         context,
                         'Staff',
                         Icons.medical_services_outlined,
-                        labelSuffix: _formatSidebarCount(sidebarCounts['Staff']),
+                        labelSuffix: _formatSidebarCount(
+                          sidebarCounts['Staff'],
+                        ),
                       ),
                       _buildSidebarItem(context, 'Master List', Icons.list_alt),
-                      _buildSidebarItem(context, 'Reports', Icons.analytics_outlined),
+                      _buildSidebarItem(
+                        context,
+                        'Reports',
+                        Icons.analytics_outlined,
+                      ),
                       _buildSidebarItem(context, 'Settings', Icons.settings),
-                      _buildSidebarItem(context, 'Profile', Icons.person_outline),
+                      _buildSidebarItem(
+                        context,
+                        'Profile',
+                        Icons.person_outline,
+                      ),
                     ],
                   ),
                 ),
-                
+
                 // Log out
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 24.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12.0,
+                    vertical: 24.0,
+                  ),
                   child: InkWell(
                     onTap: loggingOut ? null : onLogout,
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12.0,
+                        horizontal: 16.0,
+                      ),
                       child: Row(
                         children: [
                           if (loggingOut)
                             const SizedBox(
                               width: 24,
                               height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           else
-                            const Icon(Icons.logout, color: Colors.white, size: 24),
+                            const Icon(
+                              Icons.logout,
+                              color: Colors.white,
+                              size: 24,
+                            ),
                           const SizedBox(width: 16),
                           const Text(
                             'Log out',
@@ -146,14 +178,17 @@ class AdminLayout extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // Main Area
           Expanded(
             child: Column(
               children: [
                 // Top Right App Bar
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF3F6341),
                     border: const Border(
@@ -172,17 +207,27 @@ class AdminLayout extends StatelessWidget {
                             icon: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                const Icon(Icons.notifications_none, color: Colors.white),
+                                const Icon(
+                                  Icons.notifications_none,
+                                  color: Colors.white,
+                                ),
                                 if (notifications.isNotEmpty)
                                   Positioned(
                                     right: -4,
                                     top: -4,
                                     child: Container(
-                                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 18,
+                                        minHeight: 18,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFE8C355),
-                                        borderRadius: BorderRadius.circular(999),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
                                       ),
                                       child: Center(
                                         child: Text(
@@ -236,10 +281,16 @@ class AdminLayout extends StatelessWidget {
                                   radius: 20,
                                   backgroundColor: Colors.white,
                                   backgroundImage: hasProfilePic
-                                      ? NetworkImage('${AppConfig.baseUrl}$profilePic')
+                                      ? NetworkImage(
+                                          '${AppConfig.baseUrl}$profilePic',
+                                        )
                                       : null,
                                   child: !hasProfilePic
-                                      ? const Icon(Icons.person, color: Colors.grey, size: 24)
+                                      ? const Icon(
+                                          Icons.person,
+                                          color: Colors.grey,
+                                          size: 24,
+                                        )
                                       : null,
                                 ),
                               ],
@@ -250,11 +301,9 @@ class AdminLayout extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+
                 // Page Content
-                Expanded(
-                  child: child,
-                ),
+                Expanded(child: child),
               ],
             ),
           ),
@@ -274,25 +323,26 @@ class AdminLayout extends StatelessWidget {
     String labelSuffix = '',
   }) {
     final isActive = activeRoute == title;
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8.0),
       child: Material(
-        color: isActive ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
+        color: isActive
+            ? Colors.white.withValues(alpha: 0.2)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           onTap: () => onNavigate(title),
           borderRadius: BorderRadius.circular(8),
           hoverColor: Colors.white.withValues(alpha: 0.1),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 16.0),
+            padding: const EdgeInsets.symmetric(
+              vertical: 14.0,
+              horizontal: 16.0,
+            ),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 24,
-                ),
+                Icon(icon, color: Colors.white, size: 24),
                 const SizedBox(width: 16),
                 Text(
                   '$title$labelSuffix',
@@ -333,7 +383,10 @@ class AdminLayout extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.notifications_active_outlined, color: Color(0xFF497A52)),
+                    const Icon(
+                      Icons.notifications_active_outlined,
+                      color: Color(0xFF497A52),
+                    ),
                     const SizedBox(width: 12),
                     const Expanded(
                       child: Text(
@@ -355,7 +408,10 @@ class AdminLayout extends StatelessWidget {
                 if (notifications.isEmpty)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 24,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF4F7F4),
                       borderRadius: BorderRadius.circular(14),
@@ -383,7 +439,9 @@ class AdminLayout extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: const Color(0xFFF4F7F4),
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0xFFD9E4DA)),
+                              border: Border.all(
+                                color: const Color(0xFFD9E4DA),
+                              ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,

@@ -64,6 +64,37 @@ class CancelledAppointmentRecycleBinTest extends TestCase
         $this->assertNotContains($activeCompletedAppointment->id, $recycledAppointments->pluck('id')->all());
     }
 
+    public function test_patient_recycle_bin_endpoint_returns_cancelled_soft_deleted_appointments(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $cancelledAppointment = $this->createAppointment(
+            $patient->id,
+            'pending',
+            '2026-04-23',
+            '10:30',
+            'Needs reschedule',
+        );
+        $activeAppointment = $this->createAppointment($patient->id, 'pending', '2026-04-24', '11:30');
+
+        Sanctum::actingAs($patient);
+
+        $this->patchJson('/api/v1/patient/appointments/' . $cancelledAppointment->id . '/cancel')
+            ->assertOk();
+
+        $this->getJson('/api/v1/patient/appointments/recycle-bin')
+            ->assertOk()
+            ->assertJsonCount(1, 'recycle_bin')
+            ->assertJsonPath('recycle_bin.0.id', (int) $cancelledAppointment->id)
+            ->assertJsonPath('recycle_bin.0.status', 'Cancelled')
+            ->assertJsonPath('recycle_bin.0.notes', 'Needs reschedule');
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $activeAppointment->id,
+            'status' => 'pending',
+            'deleted_at' => null,
+        ]);
+    }
+
     public function test_soft_deleted_cancelled_appointments_remain_available_to_reports(): void
     {
         $patient = $this->createUserWithRole('Patient');
@@ -185,6 +216,42 @@ class CancelledAppointmentRecycleBinTest extends TestCase
                 app(AppointmentService::class)->buildRecycleBinState($recycledAppointment, $referenceTime),
                 'is_restorable',
             ),
+        );
+    }
+
+    public function test_past_date_recycle_bin_appointments_cannot_be_restored_even_inside_window(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $appointment = $this->createAppointment($patient->id, 'cancelled', '2026-04-28', '15:00');
+        $referenceTime = Carbon::parse('2026-04-30 12:00:00', 'UTC');
+
+        $appointment->delete();
+
+        Appointment::withTrashed()
+            ->whereKey($appointment->id)
+            ->update([
+                'deleted_at' => $referenceTime->copy()->subDay(),
+            ]);
+
+        $recycledAppointment = app(AppointmentService::class)->findRecycleBinAppointment((int) $appointment->id);
+
+        $this->assertNotNull($recycledAppointment);
+        $this->assertFalse(
+            app(AppointmentService::class)->canRestoreRecycleBinAppointment($recycledAppointment, $referenceTime),
+        );
+        $this->assertFalse(
+            data_get(
+                app(AppointmentService::class)->buildRecycleBinState($recycledAppointment, $referenceTime),
+                'is_restorable',
+            ),
+        );
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Cannot restore appointments from past dates.');
+
+        app(AppointmentService::class)->assertRecycleBinAppointmentCanBeRestored(
+            $recycledAppointment,
+            $referenceTime,
         );
     }
 

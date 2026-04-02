@@ -140,7 +140,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
   }
 
   Future<void> _showAddStaffDialog() async {
-    final result = await showDialog<bool>(
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AddStaffDialog(
@@ -148,10 +148,12 @@ class _AdminStaffViewState extends State<AdminStaffView> {
       ),
     );
 
-    if (result == true && mounted) {
+    if (result != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Staff account successfully created.'),
+        SnackBar(
+          content: Text(
+            result['message']?.toString() ?? 'Account successfully created.',
+          ),
           backgroundColor: Color(0xFF679B6A),
         ),
       );
@@ -170,7 +172,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
             children: [
               const Expanded(
                 child: Text(
-                  'Staff Accounts',
+                  'Staff & Intern Accounts',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
@@ -195,7 +197,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                 onPressed: _isLoading ? null : _showAddStaffDialog,
                 icon: const Icon(Icons.add),
                 label: const Text(
-                  'Add Staff',
+                  'Add Staff / Intern',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 style: FilledButton.styleFrom(
@@ -230,7 +232,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'Staff List',
+                      'Staff & Intern List',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -251,7 +253,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                     const Expanded(
                       child: Center(
                         child: Text(
-                          'No staff accounts found.',
+                          'No staff or intern accounts found.',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
@@ -287,13 +289,13 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                               ),
                               DataColumn(
                                 label: Text(
-                                  'Staff',
+                                  'Account',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                 ),
                               ),
                               DataColumn(
                                 label: Text(
-                                  'Birthday',
+                                  'Role',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                 ),
                               ),
@@ -360,10 +362,14 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                                   ),
                                   DataCell(
                                     SizedBox(
-                                      width: 130,
+                                      width: 100,
                                       child: Text(
-                                        _formatBirthdate(staffMember['birthdate']),
-                                        style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                        _resolveRoleLabel(staffMember),
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF356042),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -401,7 +407,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                                                   Icons.person_remove_alt_1,
                                                   color: Color(0xFFD32F2F),
                                                 ),
-                                                tooltip: 'Deactivate staff',
+                                                tooltip: 'Deactivate account',
                                               ),
                                       ),
                                     ),
@@ -450,6 +456,12 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     return _resolveText(contact);
   }
 
+  String _resolveRoleLabel(Map<String, dynamic> staffMember) {
+    final role = _readMap(staffMember['role']);
+    final name = role['name']?.toString().trim() ?? '';
+    return name.isEmpty ? 'Staff' : name;
+  }
+
   String _resolveGender(Map<String, dynamic> staffMember) {
     final staffRecord = _readMap(staffMember['staff_record']);
     final gender = staffRecord['gender'] ?? staffMember['gender'];
@@ -488,16 +500,4 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     return text.isEmpty ? '-' : text;
   }
 
-  String _formatBirthdate(dynamic value) {
-    final text = _resolveText(value);
-    if (text == '-') {
-      return text;
-    }
-
-    if (text.contains('T')) {
-      return text.split('T').first;
-    }
-
-    return text;
-  }
 }

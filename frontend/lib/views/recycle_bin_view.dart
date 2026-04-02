@@ -1,56 +1,223 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../core/api_exception.dart';
 import '../models/recycle_bin_entry.dart';
+import '../services/appointment_service.dart';
 
 enum RecycleBinRole { patient, staff }
 
-class RecycleBinView extends StatelessWidget {
-  const RecycleBinView({super.key, required this.role, this.entries});
+class RecycleBinView extends StatefulWidget {
+  const RecycleBinView({
+    super.key,
+    required this.role,
+    this.entries,
+    this.appointmentService,
+  });
 
   final RecycleBinRole role;
-  final List<RecycleBinEntry>? entries;
+  final List<RecycleBinEntry>? entries; // For offline preview if provided
+  final AppointmentService? appointmentService;
+
+  @override
+  State<RecycleBinView> createState() => _RecycleBinViewState();
+}
+
+class _RecycleBinViewState extends State<RecycleBinView> {
+  List<RecycleBinEntry>? _entries;
+  bool _isLoading = true;
+  bool _isRestoring = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.entries != null) {
+      _entries = widget.entries;
+      _isLoading = false;
+    } else {
+      _fetchRecycleBin();
+    }
+  }
+
+  Future<void> _fetchRecycleBin() async {
+    if (widget.appointmentService == null) {
+      setState(() {
+        _entries = _previewEntriesForRole(widget.role);
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final rawEntries = await widget.appointmentService!
+          .getRecycleBinAppointments(widget.role == RecycleBinRole.staff);
+      
+      final List<RecycleBinEntry> parsed = rawEntries.map((json) {
+        final rb = json['recycle_bin'] as Map<String, dynamic>? ?? {};
+
+        // Handle datetime parsing safely
+        DateTime apptAt = DateTime.now();
+        try {
+          final dateStr = json['appointment_date']?.toString() ?? '';
+          final timeStr =
+              (json['appointment_time']?.toString() ?? '10:00 AM')
+                  .split(' - ')
+                  .first;
+          if (dateStr.isNotEmpty) {
+            final format = DateFormat('yyyy-MM-dd h:mm a');
+            apptAt = format.parse('$dateStr $timeStr');
+          }
+        } catch (_) {}
+
+        DateTime deletedAt = DateTime.now();
+        if (rb['deleted_at'] != null) {
+          deletedAt = DateTime.parse(rb['deleted_at'].toString());
+        }
+
+        DateTime? expiresAt;
+        if (rb['expires_at'] != null) {
+          expiresAt = DateTime.parse(rb['expires_at'].toString());
+        }
+
+        final today = DateTime.now();
+        final startOfToday = DateTime(today.year, today.month, today.day);
+        final appointmentDay = DateTime(
+          apptAt.year,
+          apptAt.month,
+          apptAt.day,
+        );
+        final isPastAppointment = appointmentDay.isBefore(startOfToday);
+
+        return RecycleBinEntry(
+          id: json['id'] as int,
+          service: json['service_type']?.toString() ?? 'Dental Check-up',
+          appointmentAt: apptAt,
+          deletedAt: deletedAt,
+          statusLabel: 'Cancelled',
+          isRestorable: rb['is_restorable'] == true && !isPastAppointment,
+          expiresAt: expiresAt,
+          patientName: json['patient_name']?.toString(),
+          notes: json['notes']?.toString(),
+        );
+      }).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _entries = parsed;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Failed to load recycle bin.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _restoreAppointment(int id) async {
+    if (widget.appointmentService == null) return;
+
+    setState(() => _isRestoring = true);
+    try {
+      await widget.appointmentService!.restoreAppointment(id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Appointment restored successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      await _fetchRecycleBin();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to restore appointment. Conflict detected.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isRestoring = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final List<RecycleBinEntry> resolvedEntries =
-        entries ?? _previewEntriesForRole(role);
-    final int recoverableCount = resolvedEntries
-        .where((RecycleBinEntry entry) => entry.isRestorable)
-        .length;
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF4F5ED),
+        appBar: _buildAppBar(),
+        body: const Center(child: CircularProgressIndicator(color: Color(0xFF679B6A))),
+      );
+    }
+
+    final resolvedEntries = _entries ?? [];
+    final int recoverableCount = resolvedEntries.where((e) => e.isRestorable).length;
     final int expiredCount = resolvedEntries.length - recoverableCount;
-    final bool usingPreviewData = entries == null;
+    final bool usingPreviewData = widget.appointmentService == null && widget.entries == null;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5ED),
-      appBar: AppBar(
-        title: const Text(
-          'Recycle Bin',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.2,
-          ),
-        ),
-        backgroundColor: const Color(0xFF679B6A),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: resolvedEntries.isEmpty
-          ? _buildEmptyState()
-          : ListView(
-              key: const Key('recycle-bin-list'),
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
-              children: [
-                _buildHeroCard(
-                  recoverableCount: recoverableCount,
-                  expiredCount: expiredCount,
-                  usingPreviewData: usingPreviewData,
+      appBar: _buildAppBar(),
+      body: _errorMessage != null
+          ? Center(child: Text(_errorMessage!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)))
+          : resolvedEntries.isEmpty
+              ? _buildEmptyState()
+              : Stack(
+                  children: [
+                    ListView(
+                      key: const Key('recycle-bin-list'),
+                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+                      children: [
+                        _buildHeroCard(
+                          recoverableCount: recoverableCount,
+                          expiredCount: expiredCount,
+                          usingPreviewData: usingPreviewData,
+                        ),
+                        const SizedBox(height: 16),
+                        ...resolvedEntries.map(_buildEntryCard),
+                      ],
+                    ),
+                    if (_isRestoring)
+                      Container(
+                        color: Colors.black.withOpacity(0.1),
+                        child: const Center(child: CircularProgressIndicator(color: Color(0xFF679B6A))),
+                      ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                ...resolvedEntries.map(_buildEntryCard),
-              ],
-            ),
+    );
+  }
+
+  AppBar _buildAppBar() {
+    return AppBar(
+      title: const Text(
+        'Recycle Bin',
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.2,
+        ),
+      ),
+      backgroundColor: const Color(0xFF679B6A),
+      elevation: 0,
+      iconTheme: const IconThemeData(color: Colors.white),
     );
   }
 
@@ -68,7 +235,7 @@ class RecycleBinView extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -98,7 +265,7 @@ class RecycleBinView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      role == RecycleBinRole.patient
+                      widget.role == RecycleBinRole.patient
                           ? 'Patient Recycle Bin'
                           : 'Staff Recycle Bin',
                       style: const TextStyle(
@@ -109,7 +276,7 @@ class RecycleBinView extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      role == RecycleBinRole.patient
+                      widget.role == RecycleBinRole.patient
                           ? 'Review cancelled appointments and check whether each one is still eligible for restore.'
                           : 'Review cancelled appointments, confirm what can still be restored, and flag what has already expired.',
                       style: const TextStyle(
@@ -242,7 +409,7 @@ class RecycleBinView extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -334,7 +501,7 @@ class RecycleBinView extends StatelessWidget {
                 label: 'Moved To Bin',
                 value: dateFormatter.format(entry.deletedAt),
               ),
-              if (role == RecycleBinRole.staff && entry.patientName != null)
+              if (widget.role == RecycleBinRole.staff && entry.patientName != null)
                 _buildDetailBlock(label: 'Patient', value: entry.patientName!),
             ],
           ),
@@ -403,7 +570,7 @@ class RecycleBinView extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: entry.isRestorable
                       ? OutlinedButton.icon(
-                          onPressed: null,
+                          onPressed: () => _restoreAppointment(entry.id),
                           icon: const Icon(Icons.restore_outlined),
                           label: const Text('Restore Appointment'),
                         )
@@ -502,7 +669,7 @@ class RecycleBinView extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Colors.black.withOpacity(0.05),
                       blurRadius: 14,
                       offset: const Offset(0, 6),
                     ),
@@ -525,9 +692,9 @@ class RecycleBinView extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                role == RecycleBinRole.patient
-                    ? 'Cancelled appointments will appear here once recycle bin retrieval is connected for patient accounts.'
-                    : 'Cancelled appointments will appear here once recycle bin retrieval is connected for staff accounts.',
+                widget.role == RecycleBinRole.patient
+                    ? 'Cancelled appointments will appear here if they are eligible.'
+                    : 'Cancelled appointments will appear here.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Color(0xFF64748B),
@@ -545,13 +712,13 @@ class RecycleBinView extends StatelessWidget {
 
   String _restoreWindowCopy(DateTime? expiresAt, DateFormat dateFormatter) {
     if (expiresAt == null) {
-      return 'This appointment is still eligible for restore. The action button is prepared and will activate once the backend restore flow is connected.';
+      return 'This appointment is still eligible for restore. Click below to recover it.';
     }
 
-    return 'This appointment stays restorable until ${dateFormatter.format(expiresAt)}. The action button is prepared and will activate once the backend restore flow is connected.';
+    return 'This appointment stays restorable until ${dateFormatter.format(expiresAt)}. Click below to restore it.';
   }
 
-  static List<RecycleBinEntry> _previewEntriesForRole(RecycleBinRole role) {
+  List<RecycleBinEntry> _previewEntriesForRole(RecycleBinRole role) {
     if (role == RecycleBinRole.staff) {
       return [
         RecycleBinEntry(

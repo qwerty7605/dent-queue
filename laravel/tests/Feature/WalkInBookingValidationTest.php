@@ -171,6 +171,28 @@ class WalkInBookingValidationTest extends TestCase
         $this->assertSame(50, Queue::count());
     }
 
+    public function test_walk_in_booking_rejects_invalid_contact_number_format(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService();
+        Sanctum::actingAs($staff);
+
+        $response = $this->postJson('/api/v1/admin/appointments/walk-in', [
+            'first_name' => 'John',
+            'surname' => 'Doe',
+            'address' => '123 Walkin St.',
+            'gender' => 'Male',
+            'contact_number' => '0912345678',
+            'service_type' => $service->name,
+            'appointment_date' => now()->next('Monday')->format('Y-m-d'),
+            'appointment_time' => '10:00',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['contact_number'])
+            ->assertJsonPath('errors.contact_number.0', 'Contact number must be a valid 11-digit mobile number starting with 09.');
+    }
+
     private function createUserWithRole(string $roleName): User
     {
         $role = Role::firstOrCreate(['name' => $roleName]);

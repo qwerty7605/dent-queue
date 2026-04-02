@@ -72,6 +72,20 @@ class PatientProfileUpdateApiTest extends TestCase
             ->assertJsonPath('errors.birthdate.0', 'Birthdate cannot be in the future.');
     }
 
+    public function test_profile_update_rejects_invalid_contact_number_format(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        Sanctum::actingAs($patient);
+
+        $response = $this->patchJson('/api/v1/patient/profile/' . $patient->id, [
+            'contact_number' => '0912345678',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['contact_number'])
+            ->assertJsonPath('errors.contact_number.0', 'Contact number must be a valid 11-digit mobile number starting with 09.');
+    }
+
     public function test_patient_cannot_update_another_patients_profile(): void
     {
         $actingPatient = $this->createUserWithRole('Patient');

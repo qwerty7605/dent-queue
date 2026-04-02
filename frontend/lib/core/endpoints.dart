@@ -19,6 +19,10 @@ class Endpoints {
   static const patientJoinQueue = '$_base/patient/queues/join';
   static String cancelAppointment(int id) =>
       '$_base/patient/appointments/$id/cancel';
+  static String restoreAppointment(int id) =>
+      '$_base/patient/appointments/$id/restore';
+  static const patientRecycleBin = '$_base/patient/appointments/recycle-bin';
+
   static String patientNotificationMarkRead(int id) =>
       '$_base/patient/notifications/$id/read';
   static String updatePatientProfile(int id) => '$_base/patient/profile/$id';
@@ -54,6 +58,7 @@ class Endpoints {
     '$_base/admin/appointments/master-list',
     queryParameters,
   );
+  static const staffRecycleBin = '$_base/admin/appointments/recycle-bin';
   static const adminClinicSettings = '$_base/admin/settings/clinic';
   static String adminTodayQueue([String? date]) => date == null || date.isEmpty
       ? '$_base/admin/queues/today'

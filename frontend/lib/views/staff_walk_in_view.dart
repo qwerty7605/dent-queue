@@ -27,10 +27,10 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
   final _middleNameController = TextEditingController();
   final _addressController = TextEditingController();
   final _contactNumberController = TextEditingController();
-  
+
   String? _gender;
   String? _serviceType;
-  
+
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
 
@@ -58,8 +58,9 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final bool isSunday = now.weekday == DateTime.sunday;
-    final initial = _selectedDate ?? (isSunday ? now.add(const Duration(days: 1)) : now);
-    
+    final initial =
+        _selectedDate ?? (isSunday ? now.add(const Duration(days: 1)) : now);
+
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -112,17 +113,31 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
               onPrimary: Colors.white, // header text color
               onSurface: Color(0xFF2C3E50), // dial numbers
               surface: Colors.white, // dial background
-              surfaceContainerHighest: Color(0xFFE2E8F0), // unselected boxes background 
+              surfaceContainerHighest: Color(
+                0xFFE2E8F0,
+              ), // unselected boxes background
             ),
             timePickerTheme: TimePickerThemeData(
-              dayPeriodColor: WidgetStateColor.resolveWith((states) => 
-                states.contains(WidgetState.selected) ? const Color(0xFF679B6A) : Colors.transparent),
-              dayPeriodTextColor: WidgetStateColor.resolveWith((states) => 
-                states.contains(WidgetState.selected) ? Colors.white : const Color(0xFF2C3E50)),
-              hourMinuteColor: WidgetStateColor.resolveWith((states) => 
-                states.contains(WidgetState.selected) ? const Color(0xFF679B6A) : const Color(0xFFE2E8F0)),
-              hourMinuteTextColor: WidgetStateColor.resolveWith((states) => 
-                states.contains(WidgetState.selected) ? Colors.white : const Color(0xFF2C3E50)),
+              dayPeriodColor: WidgetStateColor.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? const Color(0xFF679B6A)
+                    : Colors.transparent,
+              ),
+              dayPeriodTextColor: WidgetStateColor.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? Colors.white
+                    : const Color(0xFF2C3E50),
+              ),
+              hourMinuteColor: WidgetStateColor.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? const Color(0xFF679B6A)
+                    : const Color(0xFFE2E8F0),
+              ),
+              hourMinuteTextColor: WidgetStateColor.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? Colors.white
+                    : const Color(0xFF2C3E50),
+              ),
               dialHandColor: const Color(0xFF679B6A),
             ),
             textButtonTheme: TextButtonThemeData(
@@ -140,7 +155,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
     );
     if (picked != null) {
       final double timeInDouble = picked.hour + picked.minute / 60.0;
-      
+
       // Rule 1: Prevent time selection outside 7:30 AM (7.5) - 6:00 PM (18.0)
       if (timeInDouble < 7.5 || timeInDouble > 18.0) {
         if (!mounted) return;
@@ -155,10 +170,11 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
 
       // Rule 2: If selecting today, prevent selecting past time
       final now = DateTime.now();
-      final isToday = _selectedDate!.year == now.year &&
-                      _selectedDate!.month == now.month &&
-                      _selectedDate!.day == now.day;
-                      
+      final isToday =
+          _selectedDate!.year == now.year &&
+          _selectedDate!.month == now.month &&
+          _selectedDate!.day == now.day;
+
       if (isToday) {
         final double nowInDouble = now.hour + now.minute / 60.0;
         if (timeInDouble <= nowInDouble) {
@@ -231,17 +247,14 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
       } on ApiException catch (e) {
         if (!mounted) return;
         setState(() => _isSubmitting = false);
-        
+
         String errorMessage = e.message;
         if (e.errors != null && e.errors!.isNotEmpty) {
           errorMessage = e.errors!.values.first.first;
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
       } catch (e) {
         if (!mounted) return;
@@ -265,7 +278,12 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
 
         return SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 32),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            16,
+            horizontalPadding,
+            32,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),
@@ -285,7 +303,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     Row(
                       children: [
                         Expanded(
@@ -293,7 +311,10 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                             label: 'FIRST NAME',
                             hint: 'First Name',
                             controller: _firstNameController,
-                            validator: (val) => val == null || val.trim().isEmpty ? 'Required' : null,
+                            validator: (val) =>
+                                val == null || val.trim().isEmpty
+                                ? 'Required'
+                                : null,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -302,7 +323,10 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                             label: 'SURNAME',
                             hint: 'Surname',
                             controller: _surnameController,
-                            validator: (val) => val == null || val.trim().isEmpty ? 'Required' : null,
+                            validator: (val) =>
+                                val == null || val.trim().isEmpty
+                                ? 'Required'
+                                : null,
                           ),
                         ),
                       ],
@@ -318,7 +342,8 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                       label: 'ADDRESS',
                       hint: 'Address',
                       controller: _addressController,
-                      validator: (val) => val == null || val.trim().isEmpty ? 'Required' : null,
+                      validator: (val) =>
+                          val == null || val.trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 16),
                     _buildDropdownField(
@@ -336,10 +361,17 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                       controller: _contactNumberController,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      validator: (val) => val == null || val.trim().isEmpty ? 'Required' : null,
+                      validator: (val) {
+                        final trimmed = val?.trim() ?? '';
+                        if (trimmed.isEmpty) return 'Required';
+                        if (!RegExp(r'^09\d{9}$').hasMatch(trimmed)) {
+                          return 'Enter an 11-digit number starting with 09';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 24),
-                    
+
                     const Divider(color: Color(0xFF679B6A), thickness: 3),
                     const SizedBox(height: 8),
                     const Center(
@@ -353,7 +385,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     _buildDropdownField(
                       label: 'SERVICE TYPE',
                       hint: 'Select Service',
@@ -363,7 +395,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                       validator: (val) => val == null ? 'Required' : null,
                     ),
                     const SizedBox(height: 16),
-                    
+
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -371,7 +403,9 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                           child: _buildDatePickerField(
                             label: 'APPT DATE',
                             hint: 'DD/MM/YYYY',
-                            value: _selectedDate != null ? '${_selectedDate!.day.toString().padLeft(2, '0')}/${_selectedDate!.month.toString().padLeft(2, '0')}/${_selectedDate!.year}' : null,
+                            value: _selectedDate != null
+                                ? '${_selectedDate!.day.toString().padLeft(2, '0')}/${_selectedDate!.month.toString().padLeft(2, '0')}/${_selectedDate!.year}'
+                                : null,
                             onTap: _pickDate,
                           ),
                         ),
@@ -379,18 +413,18 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                         Expanded(
                           child: _buildTimePickerField(
                             label: 'APPT TIME',
-                              hint: '--:-- --',
-                              value: _selectedTime != null 
-                                ? '${_selectedTime!.hourOfPeriod == 0 ? 12 : _selectedTime!.hourOfPeriod}:${_selectedTime!.minute.toString().padLeft(2, '0')} ${_selectedTime!.period == DayPeriod.am ? 'AM' : 'PM'}' 
+                            hint: '--:-- --',
+                            value: _selectedTime != null
+                                ? '${_selectedTime!.hourOfPeriod == 0 ? 12 : _selectedTime!.hourOfPeriod}:${_selectedTime!.minute.toString().padLeft(2, '0')} ${_selectedTime!.period == DayPeriod.am ? 'AM' : 'PM'}'
                                 : null,
-                              onTap: _pickTime,
+                            onTap: _pickTime,
                           ),
                         ),
                       ],
                     ),
-                      
+
                     const SizedBox(height: 32),
-                    
+
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -407,7 +441,10 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Text(
                                 'Add To Patient record',
@@ -489,10 +526,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
           decoration: _inputDecoration(hint),
           icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
           items: items.map((item) {
-            return DropdownMenuItem(
-              value: item,
-              child: Text(item),
-            );
+            return DropdownMenuItem(value: item, child: Text(item));
           }).toList(),
         ),
       ],
@@ -525,7 +559,11 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
               onTap: onTap,
               child: InputDecorator(
                 decoration: _inputDecoration('').copyWith(
-                  suffixIcon: const Icon(Icons.calendar_today, size: 20, color: Colors.black54),
+                  suffixIcon: const Icon(
+                    Icons.calendar_today,
+                    size: 20,
+                    color: Colors.black54,
+                  ),
                   errorText: state.errorText,
                 ),
                 child: Text(
@@ -569,7 +607,11 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
               onTap: onTap,
               child: InputDecorator(
                 decoration: _inputDecoration('').copyWith(
-                  suffixIcon: const Icon(Icons.access_time, size: 20, color: Colors.black54),
+                  suffixIcon: const Icon(
+                    Icons.access_time,
+                    size: 20,
+                    color: Colors.black54,
+                  ),
                   errorText: state.errorText,
                 ),
                 child: Text(

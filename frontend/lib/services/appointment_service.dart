@@ -98,6 +98,31 @@ class AppointmentService {
     return response as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> restoreAppointment(int id) async {
+    final response = await _baseService.patchJson<dynamic>(
+      Endpoints.restoreAppointment(id),
+      {},
+      (data) => data,
+    );
+    return response as Map<String, dynamic>;
+  }
+
+  Future<List<Map<String, dynamic>>> getRecycleBinAppointments(bool isStaff) async {
+    final endpoint = isStaff ? Endpoints.staffRecycleBin : Endpoints.patientRecycleBin;
+    final response = await _baseService.getJson<dynamic>(
+      endpoint,
+      (data) => data,
+    );
+    if (response is Map<String, dynamic> &&
+        response.containsKey('recycle_bin')) {
+      final binList = response['recycle_bin'] as List<dynamic>;
+      return binList
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    }
+    return [];
+  }
+
   Future<List<Map<String, dynamic>>> getAdminAppointmentsByDate(
     String date,
   ) async {

@@ -14,6 +14,7 @@ class AdminStaffApiTest extends TestCase
 
     private $admin;
     private $staffRole;
+    private $internRole;
 
     protected function setUp(): void
     {
@@ -21,6 +22,7 @@ class AdminStaffApiTest extends TestCase
 
         Role::create(['name' => 'Admin']);
         $this->staffRole = Role::create(['name' => 'Staff']);
+        $this->internRole = Role::create(['name' => 'Intern']);
         Role::create(['name' => 'Patient']);
 
         $this->admin = User::create([
@@ -36,7 +38,7 @@ class AdminStaffApiTest extends TestCase
 
     public function test_admin_can_list_staff(): void
     {
-        $user = User::create([
+        $staffUser = User::create([
             'first_name' => 'Staff',
             'last_name' => 'One',
             'email' => 'staff1@example.com',
@@ -45,21 +47,35 @@ class AdminStaffApiTest extends TestCase
             'role_id' => $this->staffRole->id,
             'is_active' => true,
         ]);
+        $internUser = User::create([
+            'first_name' => 'Intern',
+            'last_name' => 'One',
+            'email' => 'intern1@example.com',
+            'username' => 'intern1',
+            'password' => bcrypt('password123'),
+            'role_id' => $this->internRole->id,
+            'is_active' => true,
+        ]);
 
         Sanctum::actingAs($this->admin);
 
         $response = $this->getJson('/api/v1/admin/staff');
 
         $response->assertStatus(200)
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.username', 'staff1')
+            ->assertJsonCount(2, 'data')
             ->assertJsonStructure([
                 'data' => [
                     '*' => [
+                        'role',
                         'staff_record'
                     ]
                 ]
             ]);
+
+        $listedUsers = collect($response->json('data'));
+
+        $this->assertTrue($listedUsers->contains(fn ($user) => data_get($user, 'username') === $staffUser->username && data_get($user, 'role.name') === 'Staff'));
+        $this->assertTrue($listedUsers->contains(fn ($user) => data_get($user, 'username') === $internUser->username && data_get($user, 'role.name') === 'Intern'));
     }
 
     public function test_admin_can_create_staff(): void
@@ -69,17 +85,19 @@ class AdminStaffApiTest extends TestCase
         $response = $this->postJson('/api/v1/admin/staff', [
             'first_name' => 'New',
             'last_name' => 'Staff',
-            'birthdate' => '1990-01-01',
             'gender' => 'female',
             'address' => 'Staff House 1',
             'contact_number' => '09123456789',
+            'role' => 'staff',
             'username' => 'newstaff',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);
 
         $response->assertStatus(201)
+            ->assertJsonPath('message', 'Staff account successfully created.')
             ->assertJsonPath('data.username', 'newstaff')
+            ->assertJsonPath('data.role.name', 'Staff')
             ->assertJsonStructure([
                 'data' => [
                     'staff_record' => [
@@ -98,6 +116,82 @@ class AdminStaffApiTest extends TestCase
             'first_name' => 'New',
             'last_name' => 'Staff',
             'contact_number' => '09123456789',
+        ]);
+    }
+
+    public function test_admin_can_create_intern(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->postJson('/api/v1/admin/staff', [
+            'first_name' => 'New',
+            'last_name' => 'Intern',
+            'gender' => 'male',
+            'address' => 'Intern House 1',
+            'contact_number' => '09999999999',
+            'role' => 'intern',
+            'username' => 'newintern',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('message', 'Intern account successfully created.')
+            ->assertJsonPath('data.username', 'newintern')
+            ->assertJsonPath('data.role.name', 'Intern')
+            ->assertJsonPath('data.staff_record', null);
+
+        $this->assertDatabaseHas('users', [
+            'username' => 'newintern',
+            'email' => 'newintern@system.intern',
+            'role_id' => $this->internRole->id,
+        ]);
+    }
+
+    public function test_admin_cannot_create_staff_with_invalid_contact_number(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->postJson('/api/v1/admin/staff', [
+            'first_name' => 'New',
+            'last_name' => 'Staff',
+            'gender' => 'female',
+            'address' => 'Staff House 1',
+            'contact_number' => '12345678901',
+            'role' => 'staff',
+            'username' => 'badstaff',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['contact_number'])
+            ->assertJsonPath('errors.contact_number.0', 'Contact number must be a valid 11-digit mobile number starting with 09.');
+    }
+
+    public function test_admin_can_create_intern_even_if_role_row_was_missing(): void
+    {
+        $this->internRole->delete();
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->postJson('/api/v1/admin/staff', [
+            'first_name' => 'Recovered',
+            'last_name' => 'Intern',
+            'gender' => 'male',
+            'address' => 'Intern House 2',
+            'contact_number' => '09123456789',
+            'role' => 'intern',
+            'username' => 'recoveredintern',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('message', 'Intern account successfully created.')
+            ->assertJsonPath('data.role.name', 'Intern');
+
+        $this->assertDatabaseHas('roles', [
+            'name' => 'Intern',
         ]);
     }
 
@@ -120,6 +214,31 @@ class AdminStaffApiTest extends TestCase
         $response->assertStatus(200);
         $this->assertDatabaseHas('users', [
             'id' => $staff->id,
+            'is_active' => false,
+        ]);
+    }
+
+    public function test_admin_can_deactivate_intern(): void
+    {
+        $intern = User::create([
+            'first_name' => 'To',
+            'last_name' => 'Remove',
+            'email' => 'removeintern@example.com',
+            'username' => 'removeintern',
+            'password' => bcrypt('password123'),
+            'role_id' => $this->internRole->id,
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->deleteJson("/api/v1/admin/staff/{$intern->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('message', 'Intern account successfully removed.');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $intern->id,
             'is_active' => false,
         ]);
     }

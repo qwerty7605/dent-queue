@@ -112,7 +112,7 @@ class AdminClinicSettingsApiTest extends TestCase
         $response = $this->getJson('/api/v1/admin/settings/clinic');
 
         $response->assertForbidden()
-            ->assertJsonPath('message', 'Unauthorized. Restricted to admin only.');
+            ->assertJsonPath('message', 'You do not have permission to perform this action.');
     }
 
     private function createUserWithRole(string $roleName): User
