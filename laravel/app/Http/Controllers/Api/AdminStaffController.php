@@ -46,6 +46,7 @@ class AdminStaffController extends Controller
 
         $data = $request->validate([
             'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
             'last_name' => 'required|string|max:100',
             'gender' => 'required|string|in:male,female,other',
             'address' => 'nullable|string|max:255',
@@ -71,6 +72,7 @@ class AdminStaffController extends Controller
 
         $user = User::create([
             'first_name' => $data['first_name'],
+            'middle_name' => $data['middle_name'] ?? null,
             'last_name' => $data['last_name'],
             'gender' => $data['gender'],
             'location' => $data['address'], // Using location column for address

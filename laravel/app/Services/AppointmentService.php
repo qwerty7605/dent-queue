@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
 use App\Models\PatientNotification;
-use App\Models\Queue;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -15,8 +14,6 @@ use Illuminate\Validation\ValidationException;
 
 class AppointmentService
 {
-    private const DAILY_QUEUE_LIMIT = 50;
-    private const MAX_QUEUE_ASSIGNMENT_RETRIES = 5;
     private const RECYCLE_BIN_RESTORE_WINDOW_DAYS = 7;
     private const STATUS_PENDING = 'pending';
     private const STATUS_CONFIRMED = 'confirmed';
@@ -41,7 +38,10 @@ class AppointmentService
         self::STATUS_CANCELLED => [],
     ];
 
-    public function __construct(protected BookingRulesEngine $bookingRulesEngine)
+    public function __construct(
+        protected BookingRulesEngine $bookingRulesEngine,
+        protected QueueService $queueService,
+    )
     {
     }
 
@@ -237,6 +237,11 @@ class AppointmentService
         $validatedBooking = $this->bookingRulesEngine->validate($data);
         $initialStatus = $this->resolveInitialStatus($data);
 
+        $this->assertTimeSlotAvailable(
+            (string) $validatedBooking['appointment_date'],
+            (string) $validatedBooking['time_slot'],
+        );
+
         $existingAppointment = Appointment::where('patient_id', $data['patient_id'])
             ->where('appointment_date', $validatedBooking['appointment_date'])
             ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
@@ -245,18 +250,6 @@ class AppointmentService
         if ($existingAppointment) {
             throw ValidationException::withMessages([
                 'appointment_date' => ['You already have a booking for this date.'],
-            ]);
-        }
-
-        $conflictingAppointment = Appointment::query()
-            ->where('appointment_date', $validatedBooking['appointment_date'])
-            ->where('time_slot', $validatedBooking['time_slot'])
-            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED])
-            ->exists();
-
-        if ($conflictingAppointment) {
-            throw ValidationException::withMessages([
-                'time_slot' => ['This schedule is already booked. Please choose another date or time.'],
             ]);
         }
 
@@ -279,10 +272,7 @@ class AppointmentService
                 throw $exception;
             }
 
-            $this->assignQueueForDate(
-                $appointment,
-                (string) $validatedBooking['appointment_date'],
-            );
+            $this->queueService->generateQueueNumber((int) $appointment->id);
 
             $appointment->load(['patient', 'queue', 'service']);
             $this->createBookingNotification($appointment);
@@ -323,50 +313,6 @@ class AppointmentService
         return str_contains($message, 'unique constraint')
             || str_contains($message, 'duplicate entry')
             || str_contains($message, 'is not unique');
-    }
-
-    private function assignQueueForDate(Appointment $appointment, string $appointmentDate): void
-    {
-        for ($attempt = 0; $attempt < self::MAX_QUEUE_ASSIGNMENT_RETRIES; $attempt++) {
-            $nextQueueNumber = $this->resolveNextQueueNumber($appointmentDate);
-
-            if ($nextQueueNumber > self::DAILY_QUEUE_LIMIT) {
-                throw ValidationException::withMessages([
-                    'appointment_date' => ['The daily limit of ' . self::DAILY_QUEUE_LIMIT . ' patients has been reached for this date.'],
-                ]);
-            }
-
-            try {
-                Queue::create([
-                    'appointment_id' => (int) $appointment->id,
-                    'queue_date' => $appointmentDate,
-                    'queue_number' => $nextQueueNumber,
-                    'is_called' => false,
-                ]);
-
-                return;
-            } catch (QueryException $exception) {
-                if (!$this->isUniqueConstraintViolation($exception)) {
-                    throw $exception;
-                }
-
-                if ($attempt === self::MAX_QUEUE_ASSIGNMENT_RETRIES - 1) {
-                    throw ValidationException::withMessages([
-                        'appointment_date' => ['Unable to assign a queue number right now. Please retry.'],
-                    ]);
-                }
-            }
-        }
-    }
-
-    private function resolveNextQueueNumber(string $appointmentDate): int
-    {
-        $lastQueue = Queue::where('queue_date', $appointmentDate)
-            ->lockForUpdate()
-            ->orderByDesc('queue_number')
-            ->first();
-
-        return $lastQueue ? ((int) $lastQueue->queue_number + 1) : 1;
     }
 
     public function updateStatus(Appointment $appointment, string $status, int $changedByUserId)
@@ -450,6 +396,11 @@ class AppointmentService
     public function restoreAppointment(Appointment $appointment): Appointment
     {
         $this->assertRecycleBinAppointmentCanBeRestored($appointment);
+        $this->assertTimeSlotAvailable(
+            (string) $appointment->appointment_date,
+            (string) $appointment->time_slot,
+            (int) $appointment->id,
+        );
 
         $existingAppointment = Appointment::where('patient_id', $appointment->patient_id)
             ->where('appointment_date', $appointment->appointment_date)
@@ -462,28 +413,13 @@ class AppointmentService
             ]);
         }
 
-        $conflictingAppointment = Appointment::query()
-            ->where('appointment_date', $appointment->appointment_date)
-            ->where('time_slot', $appointment->time_slot)
-            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED])
-            ->exists();
-
-        if ($conflictingAppointment) {
-            throw ValidationException::withMessages([
-                'time_slot' => ['This schedule is already taken. Please choose another date or time.'],
-            ]);
-        }
-
         DB::transaction(function () use ($appointment) {
             $appointment->restore();
             // Default to pending. Admin can approve it later if needed.
             $appointment->status = self::STATUS_PENDING;
             $appointment->save();
 
-            // Safeguard: Ensure a queue number exists since we restored it
-            if (!$appointment->queue()->exists()) {
-                $this->assignQueueForDate($appointment, $appointment->appointment_date);
-            }
+            $this->queueService->generateQueueNumber((int) $appointment->id);
         });
 
         Log::info('appointment.restored', [
@@ -669,6 +605,27 @@ class AppointmentService
         };
     }
 
+    private function assertTimeSlotAvailable(
+        string $appointmentDate,
+        string $timeSlot,
+        ?int $ignoreAppointmentId = null,
+    ): void {
+        $conflictingAppointment = Appointment::query()
+            ->where('appointment_date', $appointmentDate)
+            ->where('time_slot', $timeSlot)
+            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES);
+
+        if ($ignoreAppointmentId !== null) {
+            $conflictingAppointment->whereKeyNot($ignoreAppointmentId);
+        }
+
+        if ($conflictingAppointment->exists()) {
+            throw ValidationException::withMessages([
+                'time_slot' => ['This time slot is already booked. Please choose another time.'],
+            ]);
+        }
+    }
+
     private function createBookingNotification(Appointment $appointment): void
     {
         $appointment->loadMissing('patient');
@@ -711,15 +668,19 @@ class AppointmentService
 
     private function recycleCancelledAppointment(Appointment $appointment): Appointment
     {
-        if ((string) $appointment->status !== self::STATUS_CANCELLED) {
-            $appointment->forceFill([
-                'status' => self::STATUS_CANCELLED,
-            ])->save();
-        }
+        DB::transaction(function () use ($appointment): void {
+            if ((string) $appointment->status !== self::STATUS_CANCELLED) {
+                $appointment->forceFill([
+                    'status' => self::STATUS_CANCELLED,
+                ])->save();
+            }
 
-        if (!$appointment->trashed()) {
-            $appointment->delete();
-        }
+            if (!$appointment->trashed()) {
+                $appointment->delete();
+            }
+
+            $this->queueService->removeQueueForAppointment($appointment);
+        });
 
         return $this->loadAppointmentForResponse((int) $appointment->id);
     }

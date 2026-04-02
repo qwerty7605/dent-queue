@@ -7,6 +7,7 @@ import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../services/appointment_service.dart';
 import '../services/base_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 import '../widgets/appointment_success_dialog.dart';
 import '../widgets/edit_profile_dialog.dart';
@@ -44,6 +45,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   final TextEditingController _searchController = TextEditingController();
   late final BaseService _baseService;
   late final AppointmentService _appointmentService;
+  late final NotificationService _notificationService;
   late Map<String, dynamic> _localUserInfo;
 
   late DateTime _selectedDate;
@@ -57,9 +59,11 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   bool _isCallingNext = false;
   String? _appointmentsLoadError;
   final int _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
+  int _unreadNotificationCount = 0;
 
-  String get _accountRoleLabel => widget.readOnly ? 'Intern' : 'Staff';
-  String get _accountRoleTag => widget.readOnly ? 'INTERN' : 'STAFF';
+  bool get _isReadOnlyAccount => _resolvedRole(_localUserInfo) == 'intern';
+  String get _accountRoleLabel => _isReadOnlyAccount ? 'Intern' : 'Staff';
+  String get _accountRoleTag => _isReadOnlyAccount ? 'INTERN' : 'STAFF';
 
   @override
   void initState() {
@@ -68,10 +72,12 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     _baseService = BaseService(ApiClient(tokenStorage: widget.tokenStorage));
     _appointmentService =
         widget.appointmentService ?? AppointmentService(_baseService);
+    _notificationService = NotificationService(_baseService);
     _localUserInfo = widget.userInfo != null
         ? Map<String, dynamic>.from(widget.userInfo!)
         : <String, dynamic>{};
     _initializeAppointments();
+    _loadUnreadNotificationCount();
   }
 
   @override
@@ -188,6 +194,31 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     await _loadAppointmentsForSelectedDate();
   }
 
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final NotificationListResult result = await _notificationService
+          .getNotifications('staff');
+      if (!mounted) return;
+      setState(() {
+        _unreadNotificationCount = result.unreadCount;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _unreadNotificationCount = 0;
+      });
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NotificationsView()),
+    );
+    if (!mounted) return;
+    await _loadUnreadNotificationCount();
+  }
+
   Future<void> _selectNextBookedDateForInitialLoad() async {
     try {
       final appointments = await _appointmentService.getAdminMasterList();
@@ -275,8 +306,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       context: context,
       builder: (_) => StaffAppointmentDetailsDialog(
         appointment: appointment,
-        showStatusActions: !widget.readOnly,
-        onStatusUpdate: widget.readOnly
+        showStatusActions: !_isReadOnlyAccount,
+        onStatusUpdate: _isReadOnlyAccount
             ? null
             : (nextStatus) => _updateAppointmentStatus(appointment, nextStatus),
       ),
@@ -337,7 +368,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Future<void> _openEditProfileDialog() async {
-    if (widget.readOnly) {
+    if (_isReadOnlyAccount) {
       _showStatusMessage('Intern accounts are view-only.');
       return;
     }
@@ -365,6 +396,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   Widget build(BuildContext context) {
     final userInfo = _localUserInfo;
     final name = _resolveDisplayName(userInfo);
+    final chipName = _resolveTopBarName(userInfo);
     final profilePicture = _normalizeProfilePicture(
       userInfo['profile_picture'],
     );
@@ -372,7 +404,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5ED),
-      appBar: _buildAppBar(name, profileImageUrl),
+      appBar: _buildAppBar(chipName, profileImageUrl),
       drawer: _buildDrawer(name, profileImageUrl),
       body: SafeArea(
         child: switch (_selectedTab) {
@@ -396,7 +428,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     return AppBar(
       backgroundColor: const Color(0xFF356042),
       elevation: 0,
-      iconTheme: const IconThemeData(color: Colors.black, size: 24),
+      iconTheme: const IconThemeData(color: Colors.white, size: 24),
       titleSpacing: -8,
       title: Row(
         children: [
@@ -435,13 +467,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       actions: [
         if (!widget.readOnly)
           IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NotificationsView()),
-              );
-            },
+            icon: _buildNotificationIcon(_unreadNotificationCount),
+            onPressed: _openNotifications,
           ),
         Padding(
           padding: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
@@ -600,7 +627,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 Navigator.pop(context);
               },
             ),
-            if (!widget.readOnly)
+            if (!_isReadOnlyAccount)
               _buildDrawerItem(
                 icon: Icons.directions_walk,
                 title: 'Walk-in',
@@ -612,7 +639,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   Navigator.pop(context);
                 },
               ),
-            if (!widget.readOnly)
+            if (!_isReadOnlyAccount)
               _buildDrawerItem(
                 icon: Icons.search,
                 title: 'Records',
@@ -635,7 +662,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 Navigator.pop(context);
               },
             ),
-            if (!widget.readOnly)
+            if (!_isReadOnlyAccount)
               _buildDrawerItem(
                 icon: Icons.notifications_none,
                 title: 'Notifications',
@@ -650,7 +677,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   );
                 },
               ),
-            if (!widget.readOnly)
+            if (!_isReadOnlyAccount)
               _buildDrawerItem(
                 icon: Icons.restore_from_trash_outlined,
                 title: 'Recycle Bin',
@@ -725,7 +752,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     final userInfo = _localUserInfo;
     final displayName = _resolveDisplayName(userInfo).toUpperCase();
     final fullName = _resolveFullName(userInfo).toUpperCase();
-    final birthdate = _formatProfileBirthdate(userInfo['birthdate']);
+    final firstName = _resolveProfileValue(userInfo['first_name']);
+    final middleName = _resolveProfileValue(userInfo['middle_name']);
+    final lastName = _resolveProfileValue(userInfo['last_name']);
     final address = _resolveProfileValue(
       userInfo['location'] ?? userInfo['address'],
     );
@@ -806,9 +835,21 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   ),
                   const SizedBox(height: 18),
                   _buildProfileField(
-                    icon: Icons.calendar_today_outlined,
-                    label: 'BIRTHDATE',
-                    value: birthdate,
+                    icon: Icons.badge_outlined,
+                    label: 'FIRST NAME',
+                    value: firstName,
+                  ),
+                  const SizedBox(height: 18),
+                  _buildProfileField(
+                    icon: Icons.assignment_ind_outlined,
+                    label: 'MIDDLE NAME',
+                    value: middleName,
+                  ),
+                  const SizedBox(height: 18),
+                  _buildProfileField(
+                    icon: Icons.person_pin_outlined,
+                    label: 'LAST NAME',
+                    value: lastName,
                   ),
                   const SizedBox(height: 18),
                   _buildProfileField(
@@ -833,7 +874,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: widget.readOnly
+                      onPressed: _isReadOnlyAccount
                           ? null
                           : () async {
                               await _openEditProfileDialog();
@@ -846,7 +887,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                         ),
                       ),
                       child: Text(
-                        widget.readOnly ? 'View Only' : 'Edit Profile',
+                        _isReadOnlyAccount ? 'View Only' : 'Edit Profile',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -1248,7 +1289,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed:
-                  (widget.readOnly || _isCallingNext || _isLoadingAppointments)
+                  (_isReadOnlyAccount || _isCallingNext || _isLoadingAppointments)
                   ? null
                   : _callNextPatient,
               icon: _isCallingNext
@@ -1259,7 +1300,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                     )
                   : const Icon(Icons.campaign_outlined, size: 18),
               label: Text(
-                widget.readOnly
+                _isReadOnlyAccount
                     ? 'View Only Queue'
                     : (_isCallingNext ? 'Calling...' : 'Call Next'),
               ),
@@ -1737,13 +1778,13 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               label: 'Calendar',
               tab: _StaffTab.calendar,
             ),
-            if (!widget.readOnly)
+            if (!_isReadOnlyAccount)
               _buildNavItem(
                 icon: Icons.directions_walk,
                 label: 'Walk In',
                 tab: _StaffTab.walkIn,
               ),
-            if (!widget.readOnly)
+            if (!_isReadOnlyAccount)
               _buildNavItem(
                 icon: Icons.search,
                 label: 'Records',
@@ -1934,22 +1975,87 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     return direct.isNotEmpty ? direct : 'N/A';
   }
 
+  String _resolveTopBarName(Map<String, dynamic>? userInfo) {
+    if (userInfo == null) {
+      return _accountRoleLabel;
+    }
+
+    final firstName = userInfo['first_name']?.toString().trim() ?? '';
+    if (firstName.isNotEmpty) {
+      return firstName;
+    }
+
+    final displayName = _resolveDisplayName(userInfo);
+    final parts = displayName.split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.trim().isEmpty) {
+      return _accountRoleLabel;
+    }
+
+    return parts.first;
+  }
+
+  String _resolvedRole(Map<String, dynamic>? userInfo) {
+    if (userInfo == null) {
+      return widget.readOnly ? 'intern' : 'staff';
+    }
+
+    final dynamic directRole = userInfo['role'];
+    if (directRole is String && directRole.trim().isNotEmpty) {
+      return directRole.trim().toLowerCase();
+    }
+
+    if (directRole is Map) {
+      final String roleName =
+          directRole['name']?.toString().trim().toLowerCase() ?? '';
+      if (roleName.isNotEmpty) {
+        return roleName;
+      }
+    }
+
+    final String roleName =
+        userInfo['role_name']?.toString().trim().toLowerCase() ?? '';
+    if (roleName.isNotEmpty) {
+      return roleName;
+    }
+
+    return widget.readOnly ? 'intern' : 'staff';
+  }
+
+  Widget _buildNotificationIcon(int unreadCount) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Icon(Icons.notifications_none, color: Colors.white),
+        if (unreadCount > 0)
+          Positioned(
+            right: -6,
+            top: -6,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8C355),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Center(
+                child: Text(
+                  unreadCount > 99 ? '99+' : unreadCount.toString(),
+                  style: const TextStyle(
+                    color: Color(0xFF1F2A22),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   String _resolveProfileValue(dynamic value) {
     final text = value?.toString().trim() ?? '';
     return text.isNotEmpty ? text : 'N/A';
-  }
-
-  String _formatProfileBirthdate(dynamic value) {
-    final raw = value?.toString().trim() ?? '';
-    if (raw.isEmpty) {
-      return 'N/A';
-    }
-
-    if (raw.contains('T')) {
-      return raw.split('T').first;
-    }
-
-    return raw;
   }
 
   String _formatStaffAccountId(dynamic value) {

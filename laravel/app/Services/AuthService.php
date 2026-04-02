@@ -14,7 +14,7 @@ class AuthService
      */
     public function register(array $data): User
     {
-        $patientRole = Role::where('name', 'Patient')->first();
+        $patientRole = Role::firstOrCreate(['name' => 'Patient']);
 
         return User::create([
             'first_name' => $data['first_name'],

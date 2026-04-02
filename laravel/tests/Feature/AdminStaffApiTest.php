@@ -84,6 +84,7 @@ class AdminStaffApiTest extends TestCase
 
         $response = $this->postJson('/api/v1/admin/staff', [
             'first_name' => 'New',
+            'middle_name' => 'Mae',
             'last_name' => 'Staff',
             'gender' => 'female',
             'address' => 'Staff House 1',
@@ -97,6 +98,7 @@ class AdminStaffApiTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonPath('message', 'Staff account successfully created.')
             ->assertJsonPath('data.username', 'newstaff')
+            ->assertJsonPath('data.middle_name', 'Mae')
             ->assertJsonPath('data.role.name', 'Staff')
             ->assertJsonStructure([
                 'data' => [
@@ -109,11 +111,13 @@ class AdminStaffApiTest extends TestCase
         $this->assertDatabaseHas('users', [
             'username' => 'newstaff',
             'email' => 'newstaff@system.staff',
+            'middle_name' => 'Mae',
             'role_id' => $this->staffRole->id,
         ]);
 
         $this->assertDatabaseHas('staff_records', [
             'first_name' => 'New',
+            'middle_name' => 'Mae',
             'last_name' => 'Staff',
             'contact_number' => '09123456789',
         ]);

@@ -4,6 +4,7 @@ import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../services/base_service.dart';
 import '../services/appointment_service.dart';
+import '../services/notification_service.dart';
 import '../core/config.dart';
 
 import '../widgets/book_appointment_dialog.dart';
@@ -36,15 +37,16 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   int _selectedIndex = 0; // 0 for Appointments, 1 for Profile
 
   late final AppointmentService _appointmentService;
+  late final NotificationService _notificationService;
   List<Map<String, dynamic>> _appointments = [];
   List<Map<String, dynamic>> _cancelledAppointments = [];
   Map<String, dynamic>? _todayQueueStatus;
   _PatientAppointmentFilter _selectedFilter = _PatientAppointmentFilter.all;
   bool _isLoadingAppointments = true;
-  bool _isJoiningQueue = false;
   String? _successMessage;
   String _messageType = 'success'; // 'success' or 'error'
   late Map<String, dynamic> _localUserInfo;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
@@ -55,7 +57,36 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
         AppointmentService(
           BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
         );
+    _notificationService = NotificationService(
+      BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
+    );
     _loadAppointments();
+    _loadUnreadNotificationCount();
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final NotificationListResult result = await _notificationService
+          .getNotifications('patient');
+      if (!mounted) return;
+      setState(() {
+        _unreadNotificationCount = result.unreadCount;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _unreadNotificationCount = 0;
+      });
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NotificationsView()),
+    );
+    if (!mounted) return;
+    await _loadUnreadNotificationCount();
   }
 
   Future<void> _loadAppointments({
@@ -124,38 +155,6 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     return _loadAppointments(showLoader: false, forceRefresh: true);
   }
 
-  Future<void> _joinTodayQueue() async {
-    if (_isJoiningQueue) return;
-
-    setState(() {
-      _isJoiningQueue = true;
-    });
-
-    try {
-      final response = await _appointmentService.joinPatientTodayQueue();
-      if (!mounted) return;
-
-      setState(() {
-        _todayQueueStatus = Map<String, dynamic>.from(response);
-        _successMessage =
-            response['message']?.toString() ?? 'Queue joined successfully.';
-        _messageType = 'success';
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _successMessage = 'Unable to join today\'s queue right now.';
-        _messageType = 'error';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isJoiningQueue = false;
-        });
-      }
-    }
-  }
-
   void _showStatusMessage(String message) {
     if (!mounted) {
       return;
@@ -177,6 +176,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     }
     if (fullName.isEmpty) fullName = 'User';
     final name = fullName;
+    final chipName = _topBarName(userInfo);
 
     String? profilePicture = userInfo['profile_picture']?.toString();
     if (profilePicture != null &&
@@ -189,7 +189,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       backgroundColor: const Color(
         0xFFF4F5ED,
       ), // Faint greyish green for the background
-      appBar: _buildAppBar(name, profilePicture),
+      appBar: _buildAppBar(chipName, profilePicture),
       drawer: Drawer(
         backgroundColor: Colors.white,
         child: SafeArea(
@@ -407,16 +407,22 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   }
 
   PreferredSizeWidget _buildAppBar(String name, String? profilePicture) {
+    final double screenWidth = MediaQuery.sizeOf(context).width;
+    final double profileChipWidth = screenWidth < 380
+        ? 108
+        : screenWidth < 430
+        ? 132
+        : 164;
+
     return AppBar(
       backgroundColor: const Color(0xFF356042), // Green header
       elevation: 0,
       iconTheme: const IconThemeData(
-        color: Colors.black,
+        color: Colors.white,
         size: 24,
       ), // Hamburger menu
       titleSpacing: -15, // Reduces space between hamburger and title
       title: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           // Placeholder for Logo
           Container(
@@ -460,13 +466,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications_none, color: Colors.white),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const NotificationsView()),
-            );
-          },
+          icon: _buildNotificationIcon(_unreadNotificationCount),
+          onPressed: _openNotifications,
         ),
         // Profile chip placeholder
         Padding(
@@ -477,49 +478,56 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                 _selectedIndex = 1;
               });
             },
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Row(
-                children: [
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
+            child: SizedBox(
+              width: profileChipWidth,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const Text(
+                            'PATIENT',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
                       ),
-                      const Text(
-                        'PATIENT',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 8),
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Colors.white,
-                    backgroundImage: profilePicture != null
-                        ? NetworkImage('${AppConfig.baseUrl}$profilePicture')
-                        : null,
-                    child: profilePicture == null
-                        ? const Icon(Icons.person, color: Colors.grey, size: 20)
-                        : null,
-                  ),
-                ],
+                    ),
+                    const SizedBox(width: 8),
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Colors.white,
+                      backgroundImage: profilePicture != null
+                          ? NetworkImage('${AppConfig.baseUrl}$profilePicture')
+                          : null,
+                      child: profilePicture == null
+                          ? const Icon(Icons.person, color: Colors.grey, size: 20)
+                          : null,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -921,25 +929,14 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
 
   Widget _buildProfileView() {
     final Map<String, dynamic> userInfo = _localUserInfo;
-
-    // First try "name", if missing then try assembling from first_name, middle_name, last_name
-    String fullName = userInfo['name']?.toString() ?? '';
-    if (fullName.isEmpty) {
-      fullName =
-          '${userInfo['first_name'] ?? ''} ${userInfo['middle_name'] ?? ''} ${userInfo['last_name'] ?? ''}'
-              .trim();
-    }
-    fullName = fullName.toUpperCase();
+    final String firstName = _profileValue(userInfo['first_name']);
+    final String middleName = _profileValue(userInfo['middle_name']);
+    final String lastName = _profileValue(userInfo['last_name']);
+    final String fullName = _fullProfileName(userInfo).toUpperCase();
 
     final String address =
         (userInfo['location'] ?? userInfo['address'])?.toString() ?? 'N/A';
     final String gender = userInfo['gender']?.toString() ?? 'N/A';
-
-    String birthdate = userInfo['birthdate']?.toString() ?? 'N/A';
-    // Remove the trailing time like T00:00:00.000000Z
-    if (birthdate.contains('T')) {
-      birthdate = birthdate.split('T')[0];
-    }
 
     final String contactNumber =
         (userInfo['phone_number'] ?? userInfo['contact_number'])?.toString() ??
@@ -1031,9 +1028,21 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                   ),
                   const SizedBox(height: 20),
                   _buildProfileField(
-                    Icons.calendar_today_outlined,
-                    'BIRTHDATE',
-                    birthdate,
+                    Icons.badge_outlined,
+                    'FIRST NAME',
+                    firstName,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildProfileField(
+                    Icons.assignment_ind_outlined,
+                    'MIDDLE NAME',
+                    middleName,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildProfileField(
+                    Icons.person_pin_outlined,
+                    'LAST NAME',
+                    lastName,
                   ),
                   const SizedBox(height: 20),
                   _buildProfileField(
@@ -1145,6 +1154,69 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     );
   }
 
+  String _profileValue(dynamic value) {
+    final String text = value?.toString().trim() ?? '';
+    return text.isEmpty ? 'N/A' : text;
+  }
+
+  String _fullProfileName(Map<String, dynamic> userInfo) {
+    final List<String> parts = <String>[
+      userInfo['first_name']?.toString().trim() ?? '',
+      userInfo['middle_name']?.toString().trim() ?? '',
+      userInfo['last_name']?.toString().trim() ?? '',
+    ].where((String part) => part.isNotEmpty).toList();
+
+    if (parts.isNotEmpty) {
+      return parts.join(' ');
+    }
+
+    final String fallback = userInfo['name']?.toString().trim() ?? '';
+    return fallback.isEmpty ? 'User Name' : fallback;
+  }
+
+  String _topBarName(Map<String, dynamic> userInfo) {
+    final String firstName = userInfo['first_name']?.toString().trim() ?? '';
+    if (firstName.isNotEmpty) {
+      return firstName;
+    }
+
+    final String fullName = _fullProfileName(userInfo);
+    final List<String> parts = fullName.split(RegExp(r'\s+'));
+    return parts.isEmpty ? 'User' : parts.first;
+  }
+
+  Widget _buildNotificationIcon(int unreadCount) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Icon(Icons.notifications_none, color: Colors.white),
+        if (unreadCount > 0)
+          Positioned(
+            right: -6,
+            top: -6,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8C355),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Center(
+                child: Text(
+                  unreadCount > 99 ? '99+' : unreadCount.toString(),
+                  style: const TextStyle(
+                    color: Color(0xFF1F2A22),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildStatusCard({
     required String title,
     required String count,
@@ -1211,14 +1283,13 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   Widget _buildTodayQueuePanel() {
     final nowServing =
         _todayQueueStatus?['now_serving'] as Map<String, dynamic>?;
+    final nextUp = _todayQueueStatus?['next_up'] as Map<String, dynamic>?;
     final patientQueue =
         _todayQueueStatus?['patient_queue'] as Map<String, dynamic>?;
-    final hasActiveTodayAppointment = _appointments.any((appointment) {
-      final date = appointment['appointment_date']?.toString() ?? '';
-      final status = _normalizeAppointmentStatus(appointment['status']);
-      final today = DateTime.now().toIso8601String().split('T').first;
-      return date == today && status != 'cancelled';
-    });
+    final bool isPatientNextUp =
+        patientQueue != null &&
+        nextUp != null &&
+        patientQueue['appointment_id'] == nextUp['appointment_id'];
 
     return Container(
       width: double.infinity,
@@ -1261,55 +1332,69 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
               const SizedBox(width: 12),
               Expanded(
                 child: _buildQueueMetricCard(
-                  label: 'YOUR QUEUE',
-                  value: _formatQueueNumber(patientQueue?['queue_number']),
-                  caption: patientQueue == null
-                      ? 'No queue yet'
-                      : '${patientQueue['people_ahead'] ?? 0} ahead of you',
-                  color: const Color(0xFF1D4ED8),
-                  backgroundColor: const Color(0xFFEFF5FF),
+                  label: 'NEXT UP',
+                  value: _formatQueueNumber(nextUp?['queue_number']),
+                  caption:
+                      nextUp?['patient_name']?.toString() ?? 'No one in line',
+                  color: const Color(0xFF0F766E),
+                  backgroundColor: const Color(0xFFEFFCFB),
                 ),
               ),
             ],
           ),
           if (patientQueue != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              patientQueue['is_now_serving'] == true
-                  ? 'It is your turn now.'
-                  : 'Status: ${patientQueue['status'] ?? 'Pending'}',
-              style: TextStyle(
-                color: patientQueue['is_now_serving'] == true
-                    ? const Color(0xFF16A34A)
-                    : const Color(0xFF475569),
-                fontWeight: FontWeight.w700,
-                fontSize: MobileTypography.caption(context),
-              ),
-            ),
-          ] else if (hasActiveTodayAppointment) ...[
-            const SizedBox(height: 8),
-            SizedBox(
+            const SizedBox(height: 12),
+            Container(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isJoiningQueue ? null : _joinTodayQueue,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF356042),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: patientQueue['is_now_serving'] == true
+                    ? const Color(0xFFEFFCF3)
+                    : isPatientNextUp
+                    ? const Color(0xFFEFF5FF)
+                    : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: patientQueue['is_now_serving'] == true
+                      ? const Color(0xFF16A34A).withValues(alpha: 0.22)
+                      : isPatientNextUp
+                      ? const Color(0xFF1D4ED8).withValues(alpha: 0.22)
+                      : const Color(0xFFE2E8F0),
                 ),
-                child: _isJoiningQueue
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Join Today\'s Queue'),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    patientQueue['is_now_serving'] == true
+                        ? 'Please proceed to clinic.'
+                        : isPatientNextUp
+                        ? 'You are up next.'
+                        : 'Your queue number is ${_formatQueueNumber(patientQueue['queue_number'])}.',
+                    style: TextStyle(
+                      color: patientQueue['is_now_serving'] == true
+                          ? const Color(0xFF166534)
+                          : isPatientNextUp
+                          ? const Color(0xFF1D4ED8)
+                          : const Color(0xFF334155),
+                      fontWeight: FontWeight.w800,
+                      fontSize: MobileTypography.body(context),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    patientQueue['is_now_serving'] == true
+                        ? 'It is your turn now.'
+                        : isPatientNextUp
+                        ? 'Please get ready. Your turn is approaching.'
+                        : '${patientQueue['people_ahead'] ?? 0} ahead of you. Status: ${patientQueue['status'] ?? 'Pending'}',
+                    style: TextStyle(
+                      color: const Color(0xFF475569),
+                      fontWeight: FontWeight.w700,
+                      fontSize: MobileTypography.caption(context),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

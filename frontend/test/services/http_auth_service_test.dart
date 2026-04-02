@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/short_term_cache.dart';
 import 'package:frontend/services/http_auth_service.dart';
 import 'package:frontend/services/base_service.dart';
 import 'package:frontend/core/token_storage.dart';
@@ -41,6 +42,7 @@ void main() {
     fakeBaseService = FakeBaseService();
     fakeTokenStorage = FakeTokenStorage();
     authService = HttpAuthService(fakeBaseService, fakeTokenStorage);
+    ShortTermCache.clear();
   });
 
   test('login should write token and user info on success', () async {
@@ -62,5 +64,37 @@ void main() {
     expect(fakeTokenStorage.lastWrittenToken, 'test_token');
     expect(fakeTokenStorage.lastWrittenUserInfo?['role'], 'admin');
     expect(fakeBaseService.lastPath, contains('login'));
+  });
+
+  test('login clears short-term cache before storing the new session', () async {
+    ShortTermCache.write(
+      'appointment-patient-list',
+      'current-user',
+      <Map<String, dynamic>>[
+        <String, dynamic>{'id': 99, 'status': 'Approved'},
+      ],
+      ttl: const Duration(seconds: 30),
+    );
+
+    fakeBaseService.nextResponse = {
+      'data': {
+        'token': 'fresh_token',
+        'user': {
+          'id': 2,
+          'email': 'fresh@example.com',
+          'role': 'patient',
+          'first_name': 'Fresh',
+          'last_name': 'User',
+        }
+      }
+    };
+
+    await authService.login('fresh@example.com', 'password');
+
+    expect(
+      ShortTermCache.read<dynamic>('appointment-patient-list', 'current-user'),
+      isNull,
+    );
+    expect(fakeTokenStorage.lastWrittenToken, 'fresh_token');
   });
 }

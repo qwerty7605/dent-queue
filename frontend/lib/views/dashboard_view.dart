@@ -39,6 +39,16 @@ class _DashboardViewState extends State<DashboardView> {
     setState(() {
       _userInfo = userInfo;
     });
+
+    try {
+      final freshUserInfo = await widget.authService.me();
+      if (!mounted || freshUserInfo == null) return;
+      setState(() {
+        _userInfo = freshUserInfo;
+      });
+    } catch (_) {
+      // Keep cached user info when the refresh call is unavailable.
+    }
   }
 
   Future<void> _logout() async {

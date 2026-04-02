@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -76,6 +77,7 @@ class QueueNowServingApiTest extends TestCase
 
     public function test_staff_call_next_skips_non_approved_appointments_and_advances_queue(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'UTC'));
         $staff = $this->createUserWithRole('Staff');
         $service = $this->createService('Teeth Cleaning');
         $date = '2026-03-23';
@@ -117,6 +119,63 @@ class QueueNowServingApiTest extends TestCase
             'queue_number' => 1,
             'is_called' => false,
         ]);
+    }
+
+    public function test_staff_cannot_call_next_before_8_am(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-23 07:59:00', 'UTC'));
+        $staff = $this->createUserWithRole('Staff');
+        Sanctum::actingAs($staff);
+
+        $response = $this->postJson('/api/v1/admin/queues/call-next', [
+            'date' => '2026-03-23',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['date'])
+            ->assertJsonPath('errors.date.0', 'Queue calling starts at 8:00 AM.');
+    }
+
+    public function test_staff_cannot_call_next_for_a_future_queue_date(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'UTC'));
+        $staff = $this->createUserWithRole('Staff');
+        Sanctum::actingAs($staff);
+
+        $response = $this->postJson('/api/v1/admin/queues/call-next', [
+            'date' => '2026-03-24',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['date'])
+            ->assertJsonPath('errors.date.0', 'Queue calling is only available on the appointment date.');
+    }
+
+    public function test_staff_cannot_call_next_until_current_called_appointment_is_completed(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'UTC'));
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService('Teeth Cleaning');
+        $date = '2026-03-23';
+
+        $firstPatient = $this->createUserWithRole('Patient');
+        $secondPatient = $this->createUserWithRole('Patient');
+
+        $firstAppointment = $this->createAppointment($this->patientRecordId($firstPatient), $service->id, $date, '09:00', 'confirmed');
+        $secondAppointment = $this->createAppointment($this->patientRecordId($secondPatient), $service->id, $date, '10:00', 'confirmed');
+
+        $this->createQueue($firstAppointment->id, $date, 1, true);
+        $this->createQueue($secondAppointment->id, $date, 2, false);
+
+        Sanctum::actingAs($staff);
+
+        $response = $this->postJson('/api/v1/admin/queues/call-next', [
+            'date' => $date,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['queue'])
+            ->assertJsonPath('errors.queue.0', 'The current called appointment must be completed before calling the next patient.');
     }
 
     private function createQueue(int $appointmentId, string $date, int $queueNumber, bool $isCalled): Queue

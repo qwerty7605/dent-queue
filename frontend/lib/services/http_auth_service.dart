@@ -1,4 +1,5 @@
 import '../core/endpoints.dart';
+import '../core/short_term_cache.dart';
 import '../core/token_storage.dart';
 import 'auth_service.dart';
 import 'base_service.dart';
@@ -11,6 +12,8 @@ class HttpAuthService implements AuthService {
 
   @override
   Future<void> login(String identifier, String password) async {
+    ShortTermCache.clear();
+
     // send the identifier under both possible keys, backend will pick one
     final payload = {
       'password': password,
@@ -41,6 +44,8 @@ class HttpAuthService implements AuthService {
 
   @override
   Future<void> register(Map<String, dynamic> payload) async {
+    ShortTermCache.clear();
+
     // ensure email and username are present; frontend should provide both now
     final json = await _baseService.postJson<dynamic>(
       Endpoints.register,
@@ -62,6 +67,8 @@ class HttpAuthService implements AuthService {
 
   @override
   Future<void> logout() async {
+    ShortTermCache.clear();
+
     await _baseService.postJson<dynamic>(
       Endpoints.logout,
       null,

@@ -325,7 +325,8 @@ class AppointmentController extends Controller
             $user->load('role');
         }
 
-        $isPatient = $user->role->name === 'patient';
+        $isPatient = $request->is('api/v1/patient/appointments/recycle-bin')
+            || mb_strtolower((string) $user->role->name) === 'patient';
         
         /** @var Appointment $appointment */
         $appointment = Appointment::withTrashed()->findOrFail($id);
@@ -355,15 +356,9 @@ class AppointmentController extends Controller
 
     public function recycleBin(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if ($user->role === null) {
-            $user->load('role');
-        }
-
-        $isPatient = $user->role->name === 'patient';
         $patientId = null;
 
-        if ($isPatient) {
+        if (!str_contains($request->path(), 'admin/appointments/recycle-bin')) {
             $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
             $patientId = (int) $patientRecord->id;
         }
