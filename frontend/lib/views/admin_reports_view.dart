@@ -8,6 +8,16 @@ import '../services/appointment_service.dart';
 
 enum _TrendView { daily, weekly, monthly }
 
+enum _ExportDatePreset {
+  currentFilters,
+  today,
+  yesterday,
+  thisWeek,
+  past7Days,
+  thisMonth,
+  allDates,
+}
+
 class _AppointmentTrendPoint {
   const _AppointmentTrendPoint({required this.label, required this.count});
 
@@ -20,6 +30,20 @@ class _ReportFilterChipData {
 
   final String label;
   final String value;
+}
+
+class _ExportDateRange {
+  const _ExportDateRange({this.startDate, this.endDate});
+
+  final DateTime? startDate;
+  final DateTime? endDate;
+}
+
+class _ExportSelection {
+  const _ExportSelection({required this.format, required this.filters});
+
+  final ReportExportFormat format;
+  final Map<String, String> filters;
 }
 
 class AdminReportsView extends StatefulWidget {
@@ -56,6 +80,16 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     'Online Booking',
     'Walk-In Booking',
   ];
+  static const Map<_ExportDatePreset, String> _exportPresetLabels =
+      <_ExportDatePreset, String>{
+        _ExportDatePreset.currentFilters: 'Current filters',
+        _ExportDatePreset.today: 'Today',
+        _ExportDatePreset.yesterday: 'Yesterday',
+        _ExportDatePreset.thisWeek: 'This week',
+        _ExportDatePreset.past7Days: 'Past 7 days',
+        _ExportDatePreset.thisMonth: 'This month',
+        _ExportDatePreset.allDates: 'All dates',
+      };
 
   bool _isLoading = true;
   bool _isTrendLoading = true;
@@ -95,8 +129,13 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     _fetchData();
   }
 
-  Future<void> _fetchData() async {
+  Future<void> _fetchData({bool forceRefresh = false}) async {
     final Map<String, String> filters = _activeReportFilters;
+
+    if (forceRefresh) {
+      widget.adminDashboardService.invalidateReportCaches();
+      widget.appointmentService.invalidateAppointmentCaches();
+    }
 
     if (mounted) {
       setState(() {
@@ -109,7 +148,11 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       await Future.wait([
         _fetchReportSummary(filters),
         _fetchDetailedRecords(filters),
-        _loadTrendData(_selectedTrendView, filters: filters),
+        _loadTrendData(
+          _selectedTrendView,
+          filters: filters,
+          forceRefresh: forceRefresh,
+        ),
       ]);
     } finally {
       if (mounted) {
@@ -281,11 +324,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  Future<void> _exportCsv() async {
-    return _exportReport(ReportExportFormat.csv);
-  }
-
-  Future<void> _exportReport(ReportExportFormat format) async {
+  Future<void> _exportReport(
+    ReportExportFormat format, {
+    Map<String, String>? overrideFilters,
+  }) async {
     if (_isExporting) {
       return;
     }
@@ -295,8 +337,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     });
 
     try {
-      final exportFile = await widget.adminDashboardService
-          .exportDetailedRecords(format, _activeReportFilters);
+      final exportFile = await widget.adminDashboardService.exportDetailedRecords(
+        format,
+        overrideFilters ?? _activeReportFilters,
+      );
       final savedPath = await saveDownloadedFile(
         filename: exportFile.filename,
         bytes: exportFile.bytes,
@@ -349,28 +393,241 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       );
     }
 
-    return PopupMenuButton<ReportExportFormat>(
+    return FilledButton.icon(
       key: const Key('report-export-button'),
-      onSelected: _exportReport,
-      itemBuilder: (BuildContext context) => ReportExportFormat.values
-          .map(
-            (ReportExportFormat format) => PopupMenuItem<ReportExportFormat>(
-              key: Key('report-export-option-${format.queryValue}'),
-              value: format,
-              child: Text('Export ${format.label}'),
-            ),
-          )
-          .toList(),
-      child: FilledButton.icon(
-        onPressed: null,
-        icon: const Icon(Icons.download_outlined),
-        label: const Text('Export'),
-        style: FilledButton.styleFrom(
-          backgroundColor: _exportButtonColor,
-          foregroundColor: Colors.white,
-        ),
+      onPressed: () async {
+        final _ExportSelection? selection = await _showExportDialog();
+        if (selection == null) {
+          return;
+        }
+
+        await _exportReport(selection.format, overrideFilters: selection.filters);
+      },
+      icon: const Icon(Icons.download_outlined),
+      label: const Text('Export'),
+      style: FilledButton.styleFrom(
+        backgroundColor: _exportButtonColor,
+        foregroundColor: Colors.white,
       ),
     );
+  }
+
+  Future<_ExportSelection?> _showExportDialog() async {
+    ReportExportFormat selectedFormat = ReportExportFormat.csv;
+    _ExportDatePreset selectedPreset = _ExportDatePreset.currentFilters;
+
+    return showDialog<_ExportSelection>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return AlertDialog(
+              title: const Text('Export Report'),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Choose the file format and date range to export.',
+                    ),
+                    const SizedBox(height: 20),
+                    DropdownButtonFormField<ReportExportFormat>(
+                      initialValue: selectedFormat,
+                      decoration: _reportFilterInputDecoration(
+                        hintText: 'Select format',
+                        prefixIcon: const Icon(
+                          Icons.description_outlined,
+                          size: 18,
+                          color: Color(0xFF55655B),
+                        ),
+                      ),
+                      items: ReportExportFormat.values
+                          .map(
+                            (ReportExportFormat format) =>
+                                DropdownMenuItem<ReportExportFormat>(
+                                  value: format,
+                                  child: Text(format.label),
+                                ),
+                          )
+                          .toList(),
+                      onChanged: (ReportExportFormat? value) {
+                        if (value == null) {
+                          return;
+                        }
+
+                        setDialogState(() {
+                          selectedFormat = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<_ExportDatePreset>(
+                      initialValue: selectedPreset,
+                      decoration: _reportFilterInputDecoration(
+                        hintText: 'Select date range',
+                        prefixIcon: const Icon(
+                          Icons.date_range_outlined,
+                          size: 18,
+                          color: Color(0xFF55655B),
+                        ),
+                      ),
+                      items: _exportPresetLabels.entries
+                          .map(
+                            (MapEntry<_ExportDatePreset, String> entry) =>
+                                DropdownMenuItem<_ExportDatePreset>(
+                                  value: entry.key,
+                                  child: Text(entry.value),
+                                ),
+                          )
+                          .toList(),
+                      onChanged: (_ExportDatePreset? value) {
+                        if (value == null) {
+                          return;
+                        }
+
+                        setDialogState(() {
+                          selectedPreset = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FBF8),
+                        borderRadius: BorderRadius.circular(
+                          _reportSectionRadius,
+                        ),
+                        border: Border.all(color: const Color(0xFFDCE7DE)),
+                      ),
+                      child: Text(
+                        _exportPresetDescription(selectedPreset),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF5E6C63),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(
+                      _ExportSelection(
+                        format: selectedFormat,
+                        filters: _buildExportFilters(selectedPreset),
+                      ),
+                    );
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _exportButtonColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Export'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _exportPresetDescription(_ExportDatePreset preset) {
+    final _ExportDateRange range = _resolveExportDateRange(preset);
+    final String statusText = _appliedStatus == null
+        ? 'all statuses'
+        : 'status ${_appliedStatus!}';
+    final String bookingTypeText = _appliedBookingType ?? 'all booking types';
+
+    switch (preset) {
+      case _ExportDatePreset.currentFilters:
+        return 'Uses the currently applied report filters, including any custom start and end dates, plus $statusText and $bookingTypeText.';
+      case _ExportDatePreset.allDates:
+        return 'Exports all dates while still keeping $statusText and $bookingTypeText.';
+      default:
+        return 'Exports ${_exportPresetLabels[preset]!.toLowerCase()} from ${_formatReportFilterDate(range.startDate)} to ${_formatReportFilterDate(range.endDate)} while keeping $statusText and $bookingTypeText.';
+    }
+  }
+
+  Map<String, String> _buildExportFilters(_ExportDatePreset preset) {
+    if (preset == _ExportDatePreset.currentFilters) {
+      return Map<String, String>.from(_activeReportFilters);
+    }
+
+    final Map<String, String> filters = <String, String>{};
+
+    if (_appliedStatus != null) {
+      filters['status'] = _appliedStatus!;
+    }
+
+    if (_appliedBookingType != null) {
+      filters['booking_type'] = _appliedBookingType!;
+    }
+
+    if (preset == _ExportDatePreset.allDates) {
+      return filters;
+    }
+
+    final _ExportDateRange range = _resolveExportDateRange(preset);
+
+    if (range.startDate != null) {
+      filters['start_date'] = _formatReportFilterDate(range.startDate);
+    }
+
+    if (range.endDate != null) {
+      filters['end_date'] = _formatReportFilterDate(range.endDate);
+    }
+
+    return filters;
+  }
+
+  _ExportDateRange _resolveExportDateRange(_ExportDatePreset preset) {
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+
+    switch (preset) {
+      case _ExportDatePreset.currentFilters:
+        return _ExportDateRange(
+          startDate: _appliedStartDate,
+          endDate: _appliedEndDate,
+        );
+      case _ExportDatePreset.today:
+        return _ExportDateRange(startDate: today, endDate: today);
+      case _ExportDatePreset.yesterday:
+        final DateTime yesterday = today.subtract(const Duration(days: 1));
+        return _ExportDateRange(startDate: yesterday, endDate: yesterday);
+      case _ExportDatePreset.thisWeek:
+        return _ExportDateRange(
+          startDate: today.subtract(Duration(days: today.weekday - 1)),
+          endDate: today.add(Duration(days: DateTime.daysPerWeek - today.weekday)),
+        );
+      case _ExportDatePreset.past7Days:
+        return _ExportDateRange(
+          startDate: today.subtract(const Duration(days: 6)),
+          endDate: today,
+        );
+      case _ExportDatePreset.thisMonth:
+        return _ExportDateRange(
+          startDate: DateTime(today.year, today.month, 1),
+          endDate: DateTime(today.year, today.month + 1, 0),
+        );
+      case _ExportDatePreset.allDates:
+        return const _ExportDateRange();
+    }
   }
 
   @override
@@ -400,7 +657,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   OutlinedButton.icon(
                     onPressed: _isLoading || _isTrendLoading
                         ? null
-                        : _fetchData,
+                        : () => _fetchData(forceRefresh: true),
                     icon: const Icon(Icons.refresh),
                     label: const Text(
                       'Refresh',
@@ -436,7 +693,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   OutlinedButton.icon(
                     onPressed: _isLoading || _isTrendLoading
                         ? null
-                        : _fetchData,
+                        : () => _fetchData(forceRefresh: true),
                     icon: const Icon(Icons.refresh),
                     label: const Text(
                       'Refresh',

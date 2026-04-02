@@ -40,12 +40,16 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
     _loadMasterList();
   }
 
-  Future<void> _loadMasterList() async {
+  Future<void> _loadMasterList({bool forceRefresh = false}) async {
     setState(() {
       _isLoading = true;
     });
 
     try {
+      if (forceRefresh) {
+        widget.appointmentService.invalidateAppointmentCaches();
+      }
+
       final appointments = await widget.appointmentService.getAdminMasterList();
       if (!mounted) return;
       setState(() {
@@ -131,7 +135,9 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: _isLoading ? null : _loadMasterList,
+                onPressed: _isLoading
+                    ? null
+                    : () => _loadMasterList(forceRefresh: true),
                 icon: const Icon(Icons.refresh),
                 label: const Text(
                   'Refresh',

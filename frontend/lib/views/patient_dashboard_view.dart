@@ -58,7 +58,10 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     _loadAppointments();
   }
 
-  Future<void> _loadAppointments({bool showLoader = true}) async {
+  Future<void> _loadAppointments({
+    bool showLoader = true,
+    bool forceRefresh = false,
+  }) async {
     final bool hasVisibleContent =
         _appointments.isNotEmpty ||
         _cancelledAppointments.isNotEmpty ||
@@ -69,6 +72,10 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     }
 
     try {
+      if (forceRefresh) {
+        _appointmentService.invalidateAppointmentCaches();
+      }
+
       final list = await _appointmentService.getPatientAppointments();
       List<Map<String, dynamic>> recycleBinAppointments;
       try {
@@ -114,7 +121,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   }
 
   Future<void> _refreshAppointmentsAndQueue() {
-    return _loadAppointments(showLoader: false);
+    return _loadAppointments(showLoader: false, forceRefresh: true);
   }
 
   Future<void> _joinTodayQueue() async {

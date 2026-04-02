@@ -1,4 +1,5 @@
 import '../core/endpoints.dart';
+import '../core/short_term_cache.dart';
 import '../models/app_notification.dart';
 import 'base_service.dart';
 
@@ -15,11 +16,34 @@ class NotificationListResult {
 class NotificationService {
   NotificationService(this._baseService);
 
+  static const Duration _cacheTtl = Duration(seconds: 30);
+  static const String _notificationsCache = 'notifications';
+
   final BaseService _baseService;
 
   Future<NotificationListResult> getNotifications(String role) async {
+    final String normalizedRole = _normalizedRole(role);
+    final dynamic cached = ShortTermCache.read<dynamic>(
+      _notificationsCache,
+      normalizedRole,
+    );
+    if (cached is Map<String, dynamic>) {
+      final List<AppNotification> notifications =
+          (cached['notifications'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map>()
+              .map((Map<dynamic, dynamic> item) {
+                return AppNotification.fromJson(Map<String, dynamic>.from(item));
+              })
+              .toList();
+
+      return NotificationListResult(
+        notifications: notifications,
+        unreadCount: cached['unread_count'] as int? ?? 0,
+      );
+    }
+
     final response = await _baseService.getJson<dynamic>(
-      _notificationsPath(role),
+      _notificationsPath(normalizedRole),
       (data) => data,
     );
 
@@ -44,6 +68,26 @@ class NotificationService {
           return !notification.isRead;
         }).length;
 
+    ShortTermCache.write(
+      _notificationsCache,
+      normalizedRole,
+      <String, dynamic>{
+        'notifications': notifications
+            .map((AppNotification notification) => <String, dynamic>{
+                  'notification_id': notification.id,
+                  'title': notification.title,
+                  'message': notification.message,
+                  'created_at': notification.createdAt?.toIso8601String(),
+                  'is_read': notification.isRead,
+                  'type': notification.type,
+                  'related_appointment_id': notification.relatedAppointmentId,
+                })
+            .toList(),
+        'unread_count': unreadCount,
+      },
+      ttl: _cacheTtl,
+    );
+
     return NotificationListResult(
       notifications: notifications,
       unreadCount: unreadCount,
@@ -51,11 +95,14 @@ class NotificationService {
   }
 
   Future<AppNotification> markAsRead(String role, int notificationId) async {
+    final String normalizedRole = _normalizedRole(role);
     final response = await _baseService.patchJson<dynamic>(
-      _markAsReadPath(role, notificationId),
+      _markAsReadPath(normalizedRole, notificationId),
       <String, dynamic>{},
       (data) => data,
     );
+
+    invalidateNotificationCache(normalizedRole);
 
     if (response is Map<String, dynamic> && response['notification'] is Map) {
       return AppNotification.fromJson(
@@ -69,11 +116,14 @@ class NotificationService {
   }
 
   Future<int> markAllAsRead(String role) async {
+    final String normalizedRole = _normalizedRole(role);
     final response = await _baseService.patchJson<dynamic>(
-      _markAllAsReadPath(role),
+      _markAllAsReadPath(normalizedRole),
       <String, dynamic>{},
       (data) => data,
     );
+
+    invalidateNotificationCache(normalizedRole);
 
     if (response is Map<String, dynamic>) {
       return response['updated_count'] as int? ?? 0;
@@ -108,5 +158,9 @@ class NotificationService {
     }
 
     return 'patient';
+  }
+
+  void invalidateNotificationCache(String role) {
+    ShortTermCache.invalidate(_notificationsCache, _normalizedRole(role));
   }
 }

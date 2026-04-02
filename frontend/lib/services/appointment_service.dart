@@ -1,22 +1,52 @@
 import '../core/endpoints.dart';
+import '../core/short_term_cache.dart';
+import 'admin_dashboard_service.dart';
 import 'base_service.dart';
 
 class AppointmentService {
   AppointmentService(this._baseService);
+
+  static const Duration _cacheTtl = Duration(seconds: 30);
+  static const String _adminMasterListCache = 'appointment-admin-master-list';
+  static const String _patientAppointmentsCache = 'appointment-patient-list';
+  static const String _medicalHistoryCache = 'appointment-medical-history';
+  static const String _recycleBinCache = 'appointment-recycle-bin';
+  static const String _adminAppointmentsByDateCache =
+      'appointment-admin-by-date';
+  static const String _adminCalendarAppointmentsCache =
+      'appointment-admin-calendar';
+  static const String _calendarAppointmentDetailsCache =
+      'appointment-calendar-detail';
+  static const String _patientTodayQueueCache = 'appointment-patient-today-queue';
+  static const String _adminTodayQueueCache = 'appointment-admin-today-queue';
+  static const String _servicesCache = 'appointment-services';
+
   final BaseService _baseService;
 
   Future<List<Map<String, dynamic>>> getServices() async {
+    final dynamic cached = ShortTermCache.read<dynamic>(_servicesCache, 'all');
+    if (cached is List) {
+      return cached
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
     final response = await _baseService.getJson<dynamic>(
       Endpoints.services,
       (data) => data,
     );
     if (response is Map<String, dynamic> && response.containsKey('services')) {
       final servicesList = response['services'] as List<dynamic>;
-      return servicesList
+      final result = servicesList
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
+      ShortTermCache.write(_servicesCache, 'all', result, ttl: _cacheTtl);
+      return result;
     }
-    return [];
+    const result = <Map<String, dynamic>>[];
+    ShortTermCache.write(_servicesCache, 'all', result, ttl: _cacheTtl);
+    return result;
   }
 
   Future<Map<String, dynamic>> createAppointment(
@@ -27,6 +57,7 @@ class AppointmentService {
       payload,
       (data) => data,
     );
+    invalidateAppointmentCaches();
     return response as Map<String, dynamic>;
   }
 
@@ -38,12 +69,25 @@ class AppointmentService {
       payload,
       (data) => data,
     );
+    invalidateAppointmentCaches();
     return response as Map<String, dynamic>;
   }
 
   Future<List<Map<String, dynamic>>> getAdminMasterList([
     Map<String, String> filters = const <String, String>{},
   ]) async {
+    final String cacheKey = _filterCacheKey(filters);
+    final dynamic cachedMasterList = ShortTermCache.read<dynamic>(
+      _adminMasterListCache,
+      cacheKey,
+    );
+    if (cachedMasterList is List) {
+      return cachedMasterList
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
     final response = await _baseService.getJson<dynamic>(
       Endpoints.adminMasterList(filters),
       (data) => data,
@@ -51,15 +95,41 @@ class AppointmentService {
 
     if (response is Map<String, dynamic> && response.containsKey('data')) {
       final appointmentsList = response['data'] as List<dynamic>;
-      return appointmentsList
+      final result = appointmentsList
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
+      ShortTermCache.write(
+        _adminMasterListCache,
+        cacheKey,
+        result,
+        ttl: _cacheTtl,
+      );
+      return result;
     }
 
-    return [];
+    const result = <Map<String, dynamic>>[];
+    ShortTermCache.write(
+      _adminMasterListCache,
+      cacheKey,
+      result,
+      ttl: _cacheTtl,
+    );
+    return result;
   }
 
   Future<List<Map<String, dynamic>>> getPatientAppointments() async {
+    const String cacheKey = 'current-user';
+    final dynamic cachedPatientList = ShortTermCache.read<dynamic>(
+      _patientAppointmentsCache,
+      cacheKey,
+    );
+    if (cachedPatientList is List) {
+      return cachedPatientList
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
     final response = await _baseService.getJson<dynamic>(
       Endpoints.appointments,
       (data) => data,
@@ -67,14 +137,40 @@ class AppointmentService {
     if (response is Map<String, dynamic> &&
         response.containsKey('appointments')) {
       final appointmentsList = response['appointments'] as List<dynamic>;
-      return appointmentsList
+      final result = appointmentsList
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
+      ShortTermCache.write(
+        _patientAppointmentsCache,
+        cacheKey,
+        result,
+        ttl: _cacheTtl,
+      );
+      return result;
     }
-    return [];
+
+    const result = <Map<String, dynamic>>[];
+    ShortTermCache.write(
+      _patientAppointmentsCache,
+      cacheKey,
+      result,
+      ttl: _cacheTtl,
+    );
+    return result;
   }
 
   Future<List<Map<String, dynamic>>> getMedicalHistory() async {
+    final dynamic cached = ShortTermCache.read<dynamic>(
+      _medicalHistoryCache,
+      'current-user',
+    );
+    if (cached is List) {
+      return cached
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
     final response = await _baseService.getJson<dynamic>(
       Endpoints.medicalHistory,
       (data) => data,
@@ -82,11 +178,26 @@ class AppointmentService {
     if (response is Map<String, dynamic> &&
         response.containsKey('appointments')) {
       final appointmentsList = response['appointments'] as List<dynamic>;
-      return appointmentsList
+      final result = appointmentsList
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
+      ShortTermCache.write(
+        _medicalHistoryCache,
+        'current-user',
+        result,
+        ttl: _cacheTtl,
+      );
+      return result;
     }
-    return [];
+
+    const result = <Map<String, dynamic>>[];
+    ShortTermCache.write(
+      _medicalHistoryCache,
+      'current-user',
+      result,
+      ttl: _cacheTtl,
+    );
+    return result;
   }
 
   Future<Map<String, dynamic>> cancelAppointment(int id) async {
@@ -95,6 +206,7 @@ class AppointmentService {
       {},
       (data) => data,
     );
+    invalidateAppointmentCaches();
     return response as Map<String, dynamic>;
   }
 
@@ -104,10 +216,20 @@ class AppointmentService {
       {},
       (data) => data,
     );
+    invalidateAppointmentCaches();
     return response as Map<String, dynamic>;
   }
 
   Future<List<Map<String, dynamic>>> getRecycleBinAppointments(bool isStaff) async {
+    final String cacheKey = isStaff ? 'staff' : 'patient';
+    final dynamic cached = ShortTermCache.read<dynamic>(_recycleBinCache, cacheKey);
+    if (cached is List) {
+      return cached
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
     final endpoint = isStaff ? Endpoints.staffRecycleBin : Endpoints.patientRecycleBin;
     final response = await _baseService.getJson<dynamic>(
       endpoint,
@@ -116,16 +238,32 @@ class AppointmentService {
     if (response is Map<String, dynamic> &&
         response.containsKey('recycle_bin')) {
       final binList = response['recycle_bin'] as List<dynamic>;
-      return binList
+      final result = binList
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
+      ShortTermCache.write(_recycleBinCache, cacheKey, result, ttl: _cacheTtl);
+      return result;
     }
-    return [];
+
+    const result = <Map<String, dynamic>>[];
+    ShortTermCache.write(_recycleBinCache, cacheKey, result, ttl: _cacheTtl);
+    return result;
   }
 
   Future<List<Map<String, dynamic>>> getAdminAppointmentsByDate(
     String date,
   ) async {
+    final dynamic cachedAppointmentsByDate = ShortTermCache.read<dynamic>(
+      _adminAppointmentsByDateCache,
+      date,
+    );
+    if (cachedAppointmentsByDate is List) {
+      return cachedAppointmentsByDate
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
     final response = await _baseService.getJson<dynamic>(
       Endpoints.adminAppointmentsByDate(date),
       (data) => data,
@@ -134,17 +272,42 @@ class AppointmentService {
     if (response is Map<String, dynamic> &&
         response.containsKey('appointments')) {
       final appointmentsList = response['appointments'] as List<dynamic>;
-      return appointmentsList
+      final result = appointmentsList
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
+      ShortTermCache.write(
+        _adminAppointmentsByDateCache,
+        date,
+        result,
+        ttl: _cacheTtl,
+      );
+      return result;
     }
 
-    return [];
+    const result = <Map<String, dynamic>>[];
+    ShortTermCache.write(
+      _adminAppointmentsByDateCache,
+      date,
+      result,
+      ttl: _cacheTtl,
+    );
+    return result;
   }
 
   Future<List<Map<String, dynamic>>> getAdminCalendarAppointments(
     String date,
   ) async {
+    final dynamic cachedCalendarAppointments = ShortTermCache.read<dynamic>(
+      _adminCalendarAppointmentsCache,
+      date,
+    );
+    if (cachedCalendarAppointments is List) {
+      return cachedCalendarAppointments
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
     final response = await _baseService.getJson<dynamic>(
       Endpoints.adminCalendarAppointments(date),
       (data) => data,
@@ -153,27 +316,63 @@ class AppointmentService {
     if (response is Map<String, dynamic> &&
         response.containsKey('appointments')) {
       final appointmentsList = response['appointments'] as List<dynamic>;
-      return appointmentsList
+      final result = appointmentsList
           .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
+      ShortTermCache.write(
+        _adminCalendarAppointmentsCache,
+        date,
+        result,
+        ttl: _cacheTtl,
+      );
+      return result;
     }
 
-    return [];
+    const result = <Map<String, dynamic>>[];
+    ShortTermCache.write(
+      _adminCalendarAppointmentsCache,
+      date,
+      result,
+      ttl: _cacheTtl,
+    );
+    return result;
   }
 
   Future<Map<String, dynamic>> getAdminCalendarAppointmentDetails(
     int id,
   ) async {
+    final dynamic cached = ShortTermCache.read<dynamic>(
+      _calendarAppointmentDetailsCache,
+      id.toString(),
+    );
+    if (cached is Map) {
+      return Map<String, dynamic>.from(cached);
+    }
+
     final response = await _baseService.getJson<dynamic>(
       Endpoints.adminCalendarAppointmentDetails(id),
       (data) => data,
     );
 
     if (response is Map<String, dynamic> && response['appointment'] is Map) {
-      return Map<String, dynamic>.from(response['appointment'] as Map);
+      final result = Map<String, dynamic>.from(response['appointment'] as Map);
+      ShortTermCache.write(
+        _calendarAppointmentDetailsCache,
+        id.toString(),
+        result,
+        ttl: _cacheTtl,
+      );
+      return result;
     }
 
-    return {};
+    const result = <String, dynamic>{};
+    ShortTermCache.write(
+      _calendarAppointmentDetailsCache,
+      id.toString(),
+      result,
+      ttl: _cacheTtl,
+    );
+    return result;
   }
 
   Future<Map<String, dynamic>> updateAdminAppointmentStatus(
@@ -186,6 +385,7 @@ class AppointmentService {
       (data) => data,
     );
 
+    invalidateAppointmentCaches();
     return response as Map<String, dynamic>;
   }
 
@@ -197,15 +397,31 @@ class AppointmentService {
       payload,
       (data) => data,
     );
+    invalidateAppointmentCaches();
     return response as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> getPatientTodayQueue() async {
+    final dynamic cached = ShortTermCache.read<dynamic>(
+      _patientTodayQueueCache,
+      'current-user',
+    );
+    if (cached is Map) {
+      return Map<String, dynamic>.from(cached);
+    }
+
     final response = await _baseService.getJson<dynamic>(
       Endpoints.patientTodayQueue,
       (data) => data,
     );
-    return response as Map<String, dynamic>;
+    final result = Map<String, dynamic>.from(response as Map);
+    ShortTermCache.write(
+      _patientTodayQueueCache,
+      'current-user',
+      result,
+      ttl: _cacheTtl,
+    );
+    return result;
   }
 
   Future<Map<String, dynamic>> joinPatientTodayQueue() async {
@@ -214,15 +430,32 @@ class AppointmentService {
       {},
       (data) => data,
     );
+    invalidateAppointmentCaches();
     return response as Map<String, dynamic>;
   }
 
   Future<Map<String, dynamic>> getAdminTodayQueue([String? date]) async {
+    final String cacheKey = date == null || date.isEmpty ? 'today' : date;
+    final dynamic cached = ShortTermCache.read<dynamic>(
+      _adminTodayQueueCache,
+      cacheKey,
+    );
+    if (cached is Map) {
+      return Map<String, dynamic>.from(cached);
+    }
+
     final response = await _baseService.getJson<dynamic>(
       Endpoints.adminTodayQueue(date),
       (data) => data,
     );
-    return response as Map<String, dynamic>;
+    final result = Map<String, dynamic>.from(response as Map);
+    ShortTermCache.write(
+      _adminTodayQueueCache,
+      cacheKey,
+      result,
+      ttl: _cacheTtl,
+    );
+    return result;
   }
 
   Future<Map<String, dynamic>> callNextQueue({String? date}) async {
@@ -231,6 +464,41 @@ class AppointmentService {
       date == null || date.isEmpty ? {} : {'date': date},
       (data) => data,
     );
+    invalidateAppointmentCaches();
     return response as Map<String, dynamic>;
+  }
+
+  void invalidateAppointmentCaches() {
+    ShortTermCache.invalidateNamespace(_servicesCache);
+    ShortTermCache.invalidateNamespace(_adminMasterListCache);
+    ShortTermCache.invalidateNamespace(_patientAppointmentsCache);
+    ShortTermCache.invalidateNamespace(_medicalHistoryCache);
+    ShortTermCache.invalidateNamespace(_recycleBinCache);
+    ShortTermCache.invalidateNamespace(_adminAppointmentsByDateCache);
+    ShortTermCache.invalidateNamespace(_adminCalendarAppointmentsCache);
+    ShortTermCache.invalidateNamespace(_calendarAppointmentDetailsCache);
+    ShortTermCache.invalidateNamespace(_patientTodayQueueCache);
+    ShortTermCache.invalidateNamespace(_adminTodayQueueCache);
+    AdminDashboardService.invalidateSharedReportCaches();
+  }
+
+  String _filterCacheKey(Map<String, String> filters) {
+    if (filters.isEmpty) {
+      return 'all';
+    }
+
+    final List<MapEntry<String, String>> entries = filters.entries.toList()
+      ..sort((MapEntry<String, String> a, MapEntry<String, String> b) {
+        final int keyOrder = a.key.compareTo(b.key);
+        if (keyOrder != 0) {
+          return keyOrder;
+        }
+
+        return a.value.compareTo(b.value);
+      });
+
+    return entries.map((MapEntry<String, String> entry) {
+      return '${entry.key}=${entry.value}';
+    }).join('&');
   }
 }
