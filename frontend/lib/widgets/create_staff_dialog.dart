@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../services/staff_service.dart';
 
 class CreateStaffDialog extends StatefulWidget {
@@ -15,7 +14,6 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
-  final _birthdayController = TextEditingController();
   final _genderController = TextEditingController();
   final _addressController = TextEditingController();
   final _contactController = TextEditingController();
@@ -23,14 +21,12 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  DateTime? _selectedBirthday;
   bool _isSubmitting = false;
 
   @override
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _birthdayController.dispose();
     _genderController.dispose();
     _addressController.dispose();
     _contactController.dispose();
@@ -38,21 +34,6 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
-  }
-
-  Future<void> _selectBirthday() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedBirthday ?? DateTime(2000),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-    );
-    if (picked != null && picked != _selectedBirthday) {
-      setState(() {
-        _selectedBirthday = picked;
-        _birthdayController.text = DateFormat('MM/dd/yy').format(picked);
-      });
-    }
   }
 
   Future<void> _submit() async {
@@ -64,9 +45,6 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
       final staffData = {
         'first_name': _firstNameController.text,
         'last_name': _lastNameController.text,
-        'birthdate': _selectedBirthday != null
-            ? DateFormat('yyyy-MM-dd').format(_selectedBirthday!)
-            : null,
         'gender': _genderController.text.toLowerCase(),
         'address': _addressController.text,
         'contact_number': _contactController.text,
@@ -145,19 +123,7 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildDateField(
-                              'Birthday',
-                              _birthdayController,
-                              _selectBirthday,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildGenderDropdown()),
-                        ],
-                      ),
+                      _buildGenderDropdown(),
                       const SizedBox(height: 16),
                       _buildTextField('Address', _addressController),
                       const SizedBox(height: 16),
@@ -300,54 +266,6 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
                 }
                 return null;
               },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDateField(
-    String label,
-    TextEditingController controller,
-    VoidCallback onTap,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black54,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          readOnly: true,
-          onTap: onTap,
-          decoration: InputDecoration(
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.black12),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.black12),
-            ),
-            suffixIcon: const Icon(Icons.calendar_month, size: 20),
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Required field';
-            }
-            return null;
-          },
         ),
       ],
     );

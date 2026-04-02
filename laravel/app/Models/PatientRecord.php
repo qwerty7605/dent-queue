@@ -65,7 +65,6 @@ class PatientRecord extends Model
             'gender' => $user->gender,
             'address' => $user->location,
             'contact_number' => $user->phone_number,
-            'birthdate' => $user->birthdate,
         ]);
 
         if (blank($patientRecord->patient_id)) {

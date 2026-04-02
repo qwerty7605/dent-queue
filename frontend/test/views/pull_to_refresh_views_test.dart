@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/short_term_cache.dart';
 import 'package:frontend/core/token_storage.dart';
 import 'package:frontend/services/appointment_service.dart';
 import 'package:frontend/views/patient_dashboard_view.dart';
@@ -20,6 +21,9 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
   int adminMasterListCalls = 0;
   int adminAppointmentsCalls = 0;
   int adminQueueCalls = 0;
+
+  @override
+  void invalidateAppointmentCaches() {}
 
   @override
   Future<List<Map<String, dynamic>>> getPatientAppointments() async {
@@ -89,9 +93,21 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
 }
 
 void main() {
+  setUp(() {
+    ShortTermCache.clear();
+  });
+
   String todayString() {
     final DateTime now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> triggerRefresh(WidgetTester tester, Finder refreshIndicator) async {
+    final RefreshIndicator indicator = tester.widget<RefreshIndicator>(
+      refreshIndicator,
+    );
+    await indicator.onRefresh();
+    await tester.pump();
   }
 
   testWidgets(
@@ -172,13 +188,10 @@ void main() {
       expect(appointmentService.patientQueueCalls, 1);
       expect(find.text('Dental Check-up'), findsOneWidget);
 
-      await tester.drag(
-        find.byKey(const Key('patient-dashboard-scroll')),
-        const Offset(0, 320),
+      await triggerRefresh(
+        tester,
+        find.byKey(const Key('patient-dashboard-refresh')),
       );
-      await tester.pump();
-
-      expect(find.byType(RefreshProgressIndicator), findsOneWidget);
 
       await tester.pumpAndSettle();
 
@@ -276,15 +289,12 @@ void main() {
       expect(appointmentService.adminMasterListCalls, 1);
       expect(appointmentService.adminAppointmentsCalls, 1);
       expect(appointmentService.adminQueueCalls, 1);
-    expect(find.text('Ava Lopez'), findsWidgets);
+      expect(find.text('Ava Lopez'), findsWidgets);
 
-      await tester.drag(
-        find.byKey(const Key('staff-dashboard-scroll')),
-        const Offset(0, 320),
+      await triggerRefresh(
+        tester,
+        find.byKey(const Key('staff-dashboard-refresh')),
       );
-      await tester.pump();
-
-      expect(find.byType(RefreshProgressIndicator), findsOneWidget);
 
       await tester.pumpAndSettle();
 

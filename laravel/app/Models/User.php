@@ -36,7 +36,6 @@ class User extends Authenticatable
         'email',
         'password',
         'phone_number',
-        'birthdate',
         'location',
         'gender',
         'profile_picture',
@@ -97,6 +96,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'birthdate',
     ];
 
     /**
@@ -108,7 +108,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'birthdate' => 'date',
+            'birthdate' => 'date:Y-m-d',
             'password' => 'hashed',
         ];
     }

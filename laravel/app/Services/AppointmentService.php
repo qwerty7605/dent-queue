@@ -464,8 +464,8 @@ class AppointmentService
         $isExpired = $this->isRecycleBinAppointmentExpired($appointment, $referenceTime);
 
         return [
-            'deleted_at' => optional($appointment->deleted_at)?->toIso8601String(),
-            'expires_at' => $expiresAt?->toIso8601String(),
+            'deleted_at' => $appointment->deleted_at?->copy()->shiftTimezone('UTC')->toIso8601String(),
+            'expires_at' => $expiresAt?->copy()->shiftTimezone('UTC')->toIso8601String(),
             'is_expired' => $isExpired,
             'is_restorable' => $this->canRestoreRecycleBinAppointment($appointment, $referenceTime),
             'restore_window_days' => self::RECYCLE_BIN_RESTORE_WINDOW_DAYS,
@@ -676,7 +676,9 @@ class AppointmentService
             }
 
             if (!$appointment->trashed()) {
-                $appointment->delete();
+                $appointment->forceFill([
+                    'deleted_at' => Carbon::now('UTC'),
+                ])->save();
             }
 
             $this->queueService->removeQueueForAppointment($appointment);
