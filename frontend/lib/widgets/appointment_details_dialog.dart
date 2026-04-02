@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 class AppointmentDetailsDialog extends StatelessWidget {
   final Map<String, dynamic> appointment;
 
-  const AppointmentDetailsDialog({
-    super.key,
-    required this.appointment,
-  });
+  const AppointmentDetailsDialog({super.key, required this.appointment});
 
   @override
   Widget build(BuildContext context) {
@@ -27,22 +24,21 @@ class AppointmentDetailsDialog extends StatelessWidget {
       }
     }
     final time = formattedTime;
-    final rawStatus = appointment['status']?.toString().toLowerCase() ?? 'pending';
-    
-    // Default to pending styles
+    final normalizedStatus = _normalizeStatus(appointment['status']);
+
     String statusText = 'PENDING';
-    Color statusColor = const Color(0xFFE8C355); // Yellow/Orange
+    Color statusColor = const Color(0xFFE8C355);
     Color statusBgColor = const Color(0xFFFFF7EF);
 
-    if (rawStatus == 'confirmed') {
+    if (normalizedStatus == 'approved') {
       statusText = 'APPROVED';
       statusColor = Colors.blue;
       statusBgColor = const Color(0xFFF1F7FF);
-    } else if (rawStatus == 'completed') {
+    } else if (normalizedStatus == 'completed') {
       statusText = 'COMPLETED';
       statusColor = Colors.green;
       statusBgColor = const Color(0xFFF1FFF7);
-    } else if (rawStatus == 'cancelled') {
+    } else if (normalizedStatus == 'cancelled') {
       statusText = 'CANCELLED';
       statusColor = Colors.redAccent;
       statusBgColor = const Color(0xFFFFF1F1);
@@ -71,7 +67,10 @@ class AppointmentDetailsDialog extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: statusBgColor,
                     borderRadius: BorderRadius.circular(16),
@@ -89,7 +88,7 @@ class AppointmentDetailsDialog extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            
+
             // Service Type
             const Text(
               'SERVICE TYPE',
@@ -181,13 +180,10 @@ class AppointmentDetailsDialog extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              appointment['notes']?.toString().isNotEmpty == true 
-                  ? appointment['notes'].toString() 
+              appointment['notes']?.toString().isNotEmpty == true
+                  ? appointment['notes'].toString()
                   : 'No notes provided',
-              style: const TextStyle(
-                fontSize: 16,
-                color: Color(0xFF2C3E50),
-              ),
+              style: const TextStyle(fontSize: 16, color: Color(0xFF2C3E50)),
             ),
             const SizedBox(height: 32),
 
@@ -227,16 +223,49 @@ class AppointmentDetailsDialog extends StatelessWidget {
       if (parts.length == 3) {
         final year = parts[0];
         final monthIdx = int.parse(parts[1]) - 1;
-        final day = int.parse(parts[2]).toString(); // remove leading zero if any
-        
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        final monthStr = (monthIdx >= 0 && monthIdx < 12) ? months[monthIdx] : parts[1];
-        
+        final day = int.parse(
+          parts[2],
+        ).toString(); // remove leading zero if any
+
+        const months = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ];
+        final monthStr = (monthIdx >= 0 && monthIdx < 12)
+            ? months[monthIdx]
+            : parts[1];
+
         return '$monthStr $day, $year';
       }
     } catch (e) {
       // ignore
     }
     return dateStr;
+  }
+
+  String _normalizeStatus(dynamic value) {
+    final raw = value?.toString().trim().toLowerCase() ?? '';
+
+    if (raw == 'approved' || raw == 'confirmed') {
+      return 'approved';
+    }
+    if (raw == 'completed') {
+      return 'completed';
+    }
+    if (raw == 'cancelled' || raw == 'canceled') {
+      return 'cancelled';
+    }
+
+    return 'pending';
   }
 }

@@ -17,14 +17,19 @@ class AdminStaffController extends Controller
      */
     public function index(): JsonResponse
     {
-        $staffRole = Role::whereRaw('LOWER(name) = ?', ['staff'])->first();
+        $roleIds = Role::query()
+            ->where(function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['staff'])
+                    ->orWhereRaw('LOWER(name) = ?', ['intern']);
+            })
+            ->pluck('id');
 
-        if (!$staffRole) {
+        if ($roleIds->isEmpty()) {
             return response()->json(['data' => []]);
         }
 
-        $staff = User::with('staffRecord')
-            ->where('role_id', $staffRole->id)
+        $staff = User::with(['role', 'staffRecord'])
+            ->whereIn('role_id', $roleIds)
             ->where('is_active', true)
             ->get();
 
@@ -39,39 +44,45 @@ class AdminStaffController extends Controller
         $data = $request->validate([
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
-            'birthdate' => 'required|date',
             'gender' => 'required|string|in:male,female,other',
             'address' => 'nullable|string|max:255',
-            'contact_number' => 'required|string', // Alias for phone_number
+            'contact_number' => ['required', 'regex:/^09\d{9}$/'],
+            'role' => 'required|string|in:staff,intern',
             'username' => 'required|string|max:50|unique:users,username',
             'password' => 'required|string|min:8|confirmed',
+        ], [
+            'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
         ]);
 
-        $staffRole = Role::whereRaw('LOWER(name) = ?', ['staff'])->first();
+        $normalizedRole = Str::lower((string) $data['role']);
+        $selectedRole = Role::whereRaw('LOWER(name) = ?', [$normalizedRole])->first();
 
-        if (!$staffRole) {
-            return response()->json(['message' => 'Staff role not found.'], 500);
+        if (!$selectedRole) {
+            $selectedRole = Role::create([
+                'name' => Str::ucfirst($normalizedRole),
+            ]);
         }
 
         // Generate a synthetic email if not provided, since the DB requires it
-        $email = $data['username'] . '@system.staff';
+        $email = $data['username'] . '@system.' . $normalizedRole;
 
         $user = User::create([
             'first_name' => $data['first_name'],
             'last_name' => $data['last_name'],
-            'birthdate' => $data['birthdate'],
             'gender' => $data['gender'],
             'location' => $data['address'], // Using location column for address
             'phone_number' => $data['contact_number'],
             'username' => $data['username'],
             'email' => $email,
             'password' => $data['password'], // Will be hashed by User model casts
-            'role_id' => $staffRole->id,
+            'role_id' => $selectedRole->id,
             'is_active' => true,
         ]);
 
+        $roleLabel = ucfirst(strtolower((string) $selectedRole->name));
+
         return response()->json([
-            'message' => 'Staff account successfully created.',
+            'message' => $roleLabel . ' account successfully created.',
             'data' => $user->load(['role', 'staffRecord']),
         ], 201);
     }
@@ -83,16 +94,17 @@ class AdminStaffController extends Controller
     {
         $user = User::findOrFail($id);
 
-        // Security check: ensure the user being deactivated is a staff member
-        if (!$user->role || Str::lower($user->role->name) !== 'staff') {
-             return response()->json(['message' => 'Only staff accounts can be removed from this section.'], 403);
+        // Security check: ensure the user being deactivated is a staff or intern account.
+        $roleName = $user->role ? Str::lower($user->role->name) : null;
+        if (!in_array($roleName, ['staff', 'intern'], true)) {
+             return response()->json(['message' => 'Only staff and intern accounts can be removed from this section.'], 403);
         }
 
         $user->is_active = false;
         $user->save();
 
         return response()->json([
-            'message' => 'Staff account successfully removed.'
+            'message' => ucfirst((string) $roleName) . ' account successfully removed.'
         ]);
     }
 }

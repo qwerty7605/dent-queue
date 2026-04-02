@@ -187,11 +187,13 @@ class AppointmentController extends Controller
             'surname' => ['sometimes', 'nullable', 'string', 'max:100'],
             'address' => ['required', 'string', 'max:255'],
             'gender' => ['required', 'string', 'in:Male,Female,Other'],
-            'contact_number' => ['required', 'string', 'max:20'],
+            'contact_number' => ['required', 'regex:/^09\d{9}$/'],
             'birthdate' => ['nullable', 'date', 'before_or_equal:today'],
             'service_type' => ['required', 'string', 'exists:services,name'],
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'appointment_time' => ['required', 'string'],
+        ], [
+            'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
         ]);
 
         $service = Service::query()->where('name', (string) $payload['service_type'])->first();
@@ -305,12 +307,90 @@ class AppointmentController extends Controller
         ]);
     }
 
+    public function restore(Request $request, $id): JsonResponse
+    {
+        $user = $request->user();
+        if ($user->role === null) {
+            $user->load('role');
+        }
+
+        $isPatient = $user->role->name === 'patient';
+        
+        /** @var Appointment $appointment */
+        $appointment = Appointment::withTrashed()->findOrFail($id);
+
+        if ($isPatient) {
+            $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
+            if ((int) $appointment->patient_id !== (int) $patientRecord->id) {
+                return response()->json([
+                    'message' => 'Unauthorized. You can only restore your own appointments.',
+                ], 403);
+            }
+        }
+
+        try {
+            $restoredAppointment = $this->appointmentService->restoreAppointment($appointment);
+            return response()->json([
+                'message' => 'Appointment restored successfully.',
+                'appointment' => $this->formatAppointmentResponse($restoredAppointment),
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => 'Failed to restore appointment.',
+                'errors' => $e->errors()
+            ], 422);
+        }
+    }
+
+    public function recycleBin(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if ($user->role === null) {
+            $user->load('role');
+        }
+
+        $isPatient = $user->role->name === 'patient';
+        $patientId = null;
+
+        if ($isPatient) {
+            $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
+            $patientId = (int) $patientRecord->id;
+        }
+
+        $appointments = $this->appointmentService->getRecycleBinAppointments($patientId);
+
+        return response()->json([
+            'recycle_bin' => $appointments->map(function ($appointment) {
+                $data = $this->formatAppointmentResponse($appointment);
+                if ($appointment->patient) {
+                    $data['patient_name'] = trim("{$appointment->patient->first_name} {$appointment->patient->last_name}");
+                }
+                return $data;
+            }),
+        ]);
+    }
+
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(Request $request, string $id): JsonResponse
     {
-        //
+        $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
+
+        /** @var Appointment $appointment */
+        $appointment = Appointment::withTrashed()
+            ->with(['patient', 'queue', 'service'])
+            ->findOrFail($id);
+
+        if ((int) $appointment->patient_id !== (int) $patientRecord->id) {
+            return response()->json([
+                'message' => 'Unauthorized. You can only view your own appointments.',
+            ], 403);
+        }
+
+        return response()->json([
+            'appointment' => $this->formatAppointmentResponse($appointment),
+        ]);
     }
 
     /**

@@ -5,8 +5,8 @@ import 'admin_patients_view.dart';
 import 'admin_staff_view.dart';
 import 'admin_master_list_view.dart';
 import 'admin_profile_view.dart';
-import 'admin_settings_view.dart';
 import 'admin_reports_view.dart';
+import 'admin_settings_view.dart';
 import '../core/token_storage.dart';
 import '../core/api_client.dart';
 import '../services/base_service.dart';
@@ -46,6 +46,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   Map<String, int> _dashboardStats = {
     'patients_count': 0,
     'staff_count': 0,
+    'intern_count': 0,
+    'staff_accounts_count': 0,
     'appointments_count': 0,
   };
 
@@ -93,7 +95,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       notifications: _notifications,
       sidebarCounts: <String, int>{
         'Patients': _dashboardStats['patients_count'] ?? 0,
-        'Staff': _dashboardStats['staff_count'] ?? 0,
+        'Staff': _dashboardStats['staff_accounts_count'] ?? 0,
       },
       onNavigate: (route) {
         setState(() {
@@ -123,6 +125,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return AdminReportsView(
           adminDashboardService: _adminDashboardService,
           appointmentService: _appointmentService,
+          showDetailedRecords: false,
         );
       case 'Settings':
         return AdminSettingsView(
@@ -256,10 +259,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 darkColor: const Color(0xFF50786A),
               ),
               _buildDashboardCard(
-                title: 'Staff',
+                title: 'Staff & Interns',
                 value: _isLoadingStats
                     ? '...'
-                    : (_dashboardStats['staff_count'] ?? 0).toString(),
+                    : (_dashboardStats['staff_accounts_count'] ?? 0).toString(),
                 icon: Icons.medical_services_outlined,
                 mainColor: const Color(0xFF86B9B0), // Teal
                 darkColor: const Color(0xFF6E9A92),

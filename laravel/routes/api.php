@@ -44,6 +44,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/appointments/walk-in', [AppointmentController::class, 'storeWalkIn']);
             Route::post('/appointments/follow-up', [AppointmentController::class, 'storeFollowUp']);
             Route::patch('/appointments/{appointment}/status', [AppointmentController::class, 'updateStatus']);
+            Route::patch('/appointments/{id}/restore', [AppointmentController::class, 'restore']);
+            Route::get('/appointments/recycle-bin', [AppointmentController::class, 'recycleBin']);
             Route::get('/calendar/appointments', [AppointmentController::class, 'calendarAppointments']);
             Route::get('/calendar/appointments/{appointment}', [AppointmentController::class, 'calendarAppointmentDetails']);
             Route::get('/queues/today', [QueueController::class, 'index']);
@@ -63,8 +65,10 @@ Route::prefix('v1')->group(function () {
         Route::prefix('patient')->middleware('role:patient')->group(function () {
             Route::get('/services', [ServiceController::class, 'index']);
             Route::get('/appointments/history', [AppointmentController::class, 'medicalHistory']);
-            Route::apiResource('appointments', AppointmentController::class);
             Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel']);
+            Route::patch('/appointments/{id}/restore', [AppointmentController::class, 'restore']);
+            Route::get('/appointments/recycle-bin', [AppointmentController::class, 'recycleBin']);
+            Route::apiResource('appointments', AppointmentController::class);
             Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
             Route::get('/notifications', [NotificationController::class, 'index']);
             Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])

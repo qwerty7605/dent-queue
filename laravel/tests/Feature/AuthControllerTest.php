@@ -87,6 +87,26 @@ class AuthControllerTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'jane@example.com']);
     }
 
+    public function test_registration_rejects_invalid_contact_number_format(): void
+    {
+        Role::create(['name' => 'Patient']);
+
+        $response = $this->postJson('/api/v1/auth/register', [
+            'first_name' => 'Jane',
+            'last_name' => 'Smith',
+            'email' => 'jane@example.com',
+            'username' => 'janesmith',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'contact_number' => '08123456789',
+            'gender' => 'female',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['contact_number'])
+            ->assertJsonPath('errors.contact_number.0', 'Contact number must be a valid 11-digit mobile number starting with 09.');
+    }
+
     public function test_user_can_logout(): void
     {
         $role = Role::create(['name' => 'Patient']);

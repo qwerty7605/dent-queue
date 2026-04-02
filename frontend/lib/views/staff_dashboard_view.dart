@@ -54,6 +54,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   _StaffFilter _selectedFilter = _StaffFilter.all;
 
   List<Map<String, dynamic>> _appointments = [];
+  List<Map<String, dynamic>> _cancelledAppointments = [];
   Map<String, dynamic>? _queueStatus;
   bool _isLoadingAppointments = true;
   bool _isCallingNext = false;
@@ -86,7 +87,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }) async {
     final date = _formatApiDate(_selectedDate);
     final bool hasVisibleContent =
-        _appointments.isNotEmpty || _queueStatus != null;
+        _appointments.isNotEmpty ||
+        _cancelledAppointments.isNotEmpty ||
+        _queueStatus != null;
 
     if (showLoader || !hasVisibleContent) {
       setState(() {
@@ -101,6 +104,14 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
     try {
       final list = await _appointmentService.getAdminAppointmentsByDate(date);
+      List<Map<String, dynamic>> recycleBinAppointments;
+      try {
+        recycleBinAppointments = await _appointmentService.getRecycleBinAppointments(
+          true,
+        );
+      } catch (_) {
+        recycleBinAppointments = [];
+      }
       Map<String, dynamic>? queueStatus;
       try {
         queueStatus = await _appointmentService.getAdminTodayQueue(date);
@@ -110,8 +121,15 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         queueStatus = _buildQueueStatusFallback(list, date);
       }
       if (!mounted) return;
+      final cancelledForSelectedDate = recycleBinAppointments
+          .where(
+            (appointment) =>
+                appointment['appointment_date']?.toString() == date,
+          )
+          .toList();
       setState(() {
         _appointments = list;
+        _cancelledAppointments = cancelledForSelectedDate;
         _queueStatus = queueStatus;
         _isLoadingAppointments = false;
       });
@@ -128,6 +146,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
       setState(() {
         _appointments = [];
+        _cancelledAppointments = [];
         _queueStatus = null;
         _isLoadingAppointments = false;
         _appointmentsLoadError = e.message;
@@ -145,6 +164,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
       setState(() {
         _appointments = [];
+        _cancelledAppointments = [];
         _queueStatus = null;
         _isLoadingAppointments = false;
         _appointmentsLoadError =
@@ -373,7 +393,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     final chipWidth = screenWidth < 390 ? 130.0 : 160.0;
 
     return AppBar(
-      backgroundColor: const Color(0xFF679B6A),
+      backgroundColor: const Color(0xFF356042),
       elevation: 0,
       iconTheme: const IconThemeData(color: Colors.black, size: 24),
       titleSpacing: -8,
@@ -381,38 +401,39 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         children: [
           Image.asset('assets/images/logo.png', width: 38, height: 38),
           const SizedBox(width: 4),
-          const Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'SMART',
-                    style: TextStyle(
-                      color: Color(0xFFE8C355),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      letterSpacing: -0.5,
-                    ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Text(
+                  'SMART',
+                  style: TextStyle(
+                    color: Color(0xFFE8C355),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    letterSpacing: -0.5,
+                    height: 1.1,
                   ),
-                  TextSpan(
-                    text: 'DentQueue',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      letterSpacing: -0.5,
-                    ),
+                ),
+                Text(
+                  'DentQueue',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    letterSpacing: -0.5,
+                    height: 1.1,
                   ),
-                ],
-              ),
-              overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ],
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications_none, color: Colors.black54),
+          icon: const Icon(Icons.notifications_none, color: Colors.white),
           onPressed: () {
             Navigator.push(
               context,
@@ -444,15 +465,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          const Text(
-                            'STAFF',
-                            style: TextStyle(
-                              color: Color(0xFFE8C355),
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
                           Text(
                             name,
                             maxLines: 1,
@@ -461,6 +473,15 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                               color: Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const Text(
+                            'STAFF',
+                            style: TextStyle(
+                              color: Color(0xFFE8C355),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
                             ),
                           ),
                         ],
@@ -501,13 +522,14 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       child: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            Container(
+              color: const Color(0xFF356042),
+              padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 24,
-                    backgroundColor: const Color(0xFF679B6A),
+                    backgroundColor: Colors.white.withOpacity(0.2),
                     backgroundImage: profileImageUrl != null
                         ? NetworkImage(profileImageUrl)
                         : null,
@@ -521,7 +543,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                           )
                         : null,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -533,15 +555,17 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                           style: const TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 15,
+                            color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 2),
                         const Text(
                           'STAFF ACCOUNT',
                           style: TextStyle(
-                            color: Color(0xFF64748B),
-                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFE8C355),
+                            fontWeight: FontWeight.w900,
                             fontSize: 11,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],
@@ -628,10 +652,12 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        const RecycleBinView(role: RecycleBinRole.staff),
+                    builder: (_) => RecycleBinView(
+                      role: RecycleBinRole.staff,
+                      appointmentService: _appointmentService,
+                    ),
                   ),
-                );
+                ).then((_) => _loadAppointmentsForSelectedDate(showLoader: false));
               },
             ),
             const Spacer(),
@@ -672,12 +698,12 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       contentPadding: const EdgeInsets.symmetric(horizontal: 26),
       leading: Icon(
         icon,
-        color: selected ? const Color(0xFF679B6A) : const Color(0xFF64748B),
+        color: selected ? const Color(0xFF356042) : const Color(0xFF64748B),
       ),
       title: Text(
         title,
         style: TextStyle(
-          color: selected ? const Color(0xFF679B6A) : const Color(0xFF64748B),
+          color: selected ? const Color(0xFF356042) : const Color(0xFF64748B),
           fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
         ),
       ),
@@ -710,7 +736,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               height: 144,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF679B6A), width: 3),
+                border: Border.all(color: const Color(0xFF356042), width: 3),
                 color: const Color(0xFFF8FAFC),
                 image: profileImageUrl != null
                     ? DecorationImage(
@@ -801,7 +827,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                         await _openEditProfileDialog();
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF679B6A),
+                        backgroundColor: const Color(0xFF356042),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -834,7 +860,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF679B6A), size: 22),
+        Icon(icon, color: const Color(0xFF356042), size: 22),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -876,7 +902,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         return RefreshIndicator(
           key: const Key('staff-dashboard-refresh'),
           onRefresh: _refreshAppointmentsAndQueue,
-          color: const Color(0xFF679B6A),
+          color: const Color(0xFF356042),
           child: SingleChildScrollView(
             key: const Key('staff-dashboard-scroll'),
             physics: const AlwaysScrollableScrollPhysics(),
@@ -1097,7 +1123,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFF679B6A), width: 1.3),
+            borderSide: const BorderSide(color: Color(0xFF356042), width: 1.3),
           ),
           isDense: true,
         ),
@@ -1121,7 +1147,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               const Icon(
                 Icons.format_list_numbered,
                 size: 18,
-                color: Color(0xFF679B6A),
+                color: Color(0xFF356042),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -1137,7 +1163,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               IconButton(
                 onPressed: _pickDate,
                 icon: const Icon(Icons.calendar_month_outlined, size: 18),
-                color: const Color(0xFF679B6A),
+                color: const Color(0xFF356042),
                 tooltip: 'Select date',
                 visualDensity: VisualDensity.compact,
               ),
@@ -1146,7 +1172,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                     ? null
                     : () => _loadAppointmentsForSelectedDate(),
                 icon: const Icon(Icons.refresh, size: 18),
-                color: const Color(0xFF679B6A),
+                color: const Color(0xFF356042),
                 tooltip: 'Refresh daily queue',
                 visualDensity: VisualDensity.compact,
               ),
@@ -1221,7 +1247,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   : const Icon(Icons.campaign_outlined, size: 18),
               label: Text(_isCallingNext ? 'Calling...' : 'Call Next'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF679B6A),
+                backgroundColor: const Color(0xFF356042),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
@@ -1345,7 +1371,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('Retry'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF679B6A),
+              backgroundColor: const Color(0xFF356042),
               foregroundColor: Colors.white,
               minimumSize: const Size(116, 36),
             ),
@@ -1387,7 +1413,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF679B6A) : const Color(0xFFECEDEA),
+          color: selected ? const Color(0xFF356042) : const Color(0xFFECEDEA),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Text(
@@ -1499,15 +1525,41 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            serviceType,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF334155),
-                            ),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                serviceType,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF334155),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _statusBackground(status),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  _statusLabel(status),
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.3,
+                                    color: _statusColor(status),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 1),
                           Text(
@@ -1574,7 +1626,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                           style: const TextStyle(
                             fontSize: 30,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF679B6A),
+                            color: Color(0xFF356042),
                             height: 1,
                           ),
                         ),
@@ -1583,33 +1635,20 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   ],
                 ),
               ),
-              Container(
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(10),
-                    bottomRight: Radius.circular(10),
-                  ),
-                  border: Border(top: BorderSide(color: Color(0xFFD8DEE8))),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Center(
-                  child: Text(
-                    _statusLabel(status),
-                    style: TextStyle(
-                      color: _statusColor(status),
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Color _statusBackground(String status) {
+    return switch (status) {
+      'approved' => const Color(0xFFEFF5FF),
+      'completed' => const Color(0xFFEFFCF3),
+      'cancelled' => const Color(0xFFFFF1F1),
+      _ => const Color(0xFFFFF7ED),
+    };
   }
 
   Color _statusColor(String status) {
@@ -1671,7 +1710,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     required _StaffTab tab,
   }) {
     final selected = _selectedTab == tab;
-    final color = selected ? const Color(0xFF679B6A) : const Color(0xFF94A3B8);
+    final color = selected ? const Color(0xFF356042) : const Color(0xFF94A3B8);
 
     return Expanded(
       child: InkWell(
@@ -1705,15 +1744,19 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   int _countByStatus(String key) {
-    return _appointments
+    return _dashboardAppointments()
         .where((a) => _normalizeStatus(a['status']) == key)
         .length;
+  }
+
+  List<Map<String, dynamic>> _dashboardAppointments() {
+    return [..._appointments, ..._cancelledAppointments];
   }
 
   List<Map<String, dynamic>> _computeVisibleAppointments() {
     final query = _searchController.text.trim().toLowerCase();
 
-    final filtered = _appointments.where((appointment) {
+    final filtered = _dashboardAppointments().where((appointment) {
       final status = _normalizeStatus(appointment['status']);
       final matchesStatus = switch (_selectedFilter) {
         _StaffFilter.all => true,

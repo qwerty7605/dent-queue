@@ -447,14 +447,66 @@ class AppointmentService
         return $appointment;
     }
 
-    public function getRecycleBinAppointments()
+    public function restoreAppointment(Appointment $appointment): Appointment
     {
-        return $this->recycleBinAppointmentsQuery()
+        $this->assertRecycleBinAppointmentCanBeRestored($appointment);
+
+        $existingAppointment = Appointment::where('patient_id', $appointment->patient_id)
+            ->where('appointment_date', $appointment->appointment_date)
+            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
+            ->exists();
+
+        if ($existingAppointment) {
+            throw ValidationException::withMessages([
+                'appointment_date' => ['The patient already has an active booking for this date.'],
+            ]);
+        }
+
+        $conflictingAppointment = Appointment::query()
+            ->where('appointment_date', $appointment->appointment_date)
+            ->where('time_slot', $appointment->time_slot)
+            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED])
+            ->exists();
+
+        if ($conflictingAppointment) {
+            throw ValidationException::withMessages([
+                'time_slot' => ['This schedule is already taken. Please choose another date or time.'],
+            ]);
+        }
+
+        DB::transaction(function () use ($appointment) {
+            $appointment->restore();
+            // Default to pending. Admin can approve it later if needed.
+            $appointment->status = self::STATUS_PENDING;
+            $appointment->save();
+
+            // Safeguard: Ensure a queue number exists since we restored it
+            if (!$appointment->queue()->exists()) {
+                $this->assignQueueForDate($appointment, $appointment->appointment_date);
+            }
+        });
+
+        Log::info('appointment.restored', [
+            'appointment_id' => (int) $appointment->id,
+            'occurred_at' => now()->toISOString(),
+        ]);
+
+        return $this->loadAppointmentForResponse((int) $appointment->id);
+    }
+
+    public function getRecycleBinAppointments(?int $patientId = null)
+    {
+        $query = $this->recycleBinAppointmentsQuery()
             ->with(['patient', 'queue', 'service'])
             ->orderByDesc('deleted_at')
             ->orderByDesc('appointment_date')
-            ->orderByDesc('time_slot')
-            ->get();
+            ->orderByDesc('time_slot');
+
+        if ($patientId !== null) {
+            $query->where('patient_id', $patientId);
+        }
+
+        return $query->get();
     }
 
     public function findRecycleBinAppointment(int $appointmentId): ?Appointment
@@ -503,6 +555,10 @@ class AppointmentService
             return false;
         }
 
+        if ($this->isRecycleBinAppointmentDateInPast($appointment, $referenceTime)) {
+            return false;
+        }
+
         return !$this->isRecycleBinAppointmentExpired($appointment, $referenceTime);
     }
 
@@ -519,6 +575,12 @@ class AppointmentService
         if ($this->isRecycleBinAppointmentExpired($appointment, $referenceTime)) {
             throw ValidationException::withMessages([
                 'appointment' => ['This cancelled appointment is no longer eligible for restore.'],
+            ]);
+        }
+
+        if ($this->isRecycleBinAppointmentDateInPast($appointment, $referenceTime)) {
+            throw ValidationException::withMessages([
+                'appointment_date' => ['Cannot restore appointments from past dates.'],
             ]);
         }
     }
@@ -683,6 +745,18 @@ class AppointmentService
     private function isRecycleBinAppointment(Appointment $appointment): bool
     {
         return $appointment->trashed() && (string) $appointment->status === self::STATUS_CANCELLED;
+    }
+
+    private function isRecycleBinAppointmentDateInPast(
+        Appointment $appointment,
+        ?Carbon $referenceTime = null,
+    ): bool {
+        $timezone = (string) config('app.timezone', 'UTC');
+        $appointmentDate = Carbon::parse($appointment->appointment_date, $timezone)->startOfDay();
+        $today = $referenceTime?->copy()->setTimezone($timezone)->startOfDay()
+            ?? Carbon::today($timezone);
+
+        return $appointmentDate->isBefore($today);
     }
 
     private function recycleBinAppointmentsQuery(): Builder

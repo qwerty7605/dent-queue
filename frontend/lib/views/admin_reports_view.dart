@@ -25,10 +25,14 @@ class AdminReportsView extends StatefulWidget {
     super.key,
     required this.adminDashboardService,
     required this.appointmentService,
+    this.embedded = false,
+    this.showDetailedRecords = true,
   });
 
   final AdminDashboardService adminDashboardService;
   final AppointmentService appointmentService;
+  final bool embedded;
+  final bool showDetailedRecords;
 
   @override
   State<AdminReportsView> createState() => _AdminReportsViewState();
@@ -275,101 +279,98 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(40.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Reports',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.embedded ? 'Detailed Report' : 'Reports',
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
                 ),
               ),
-              OutlinedButton.icon(
-                onPressed: _isLoading || _isTrendLoading ? null : _fetchData,
-                icon: const Icon(Icons.refresh),
-                label: const Text(
-                  'Refresh',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF679B6A),
-                  side: const BorderSide(color: Color(0xFF679B6A)),
-                ),
+            ),
+            OutlinedButton.icon(
+              onPressed: _isLoading || _isTrendLoading ? null : _fetchData,
+              icon: const Icon(Icons.refresh),
+              label: const Text(
+                'Refresh',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-            ],
-          ),
-          const SizedBox(height: 48),
-
-          Wrap(
-            spacing: 32,
-            runSpacing: 32,
-            alignment: WrapAlignment.start,
-            children: [
-              _buildReportCard(
-                title: 'Total Appointments',
-                value: _isLoading ? '...' : _reportStats['total'].toString(),
-                icon: Icons.calendar_month,
-                mainColor: const Color(0xFF6A9A8B),
-                darkColor: const Color(0xFF50786A),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF679B6A),
+                side: const BorderSide(color: Color(0xFF679B6A)),
               ),
-              _buildReportCard(
-                title: 'Pending',
-                value: _isLoading ? '...' : _reportStats['pending'].toString(),
-                icon: Icons.hourglass_empty,
-                mainColor: const Color(0xFFE5CC82), // Sand Yellow
-                darkColor: const Color(0xFFBCA663),
-              ),
-              _buildReportCard(
-                title: 'Approved',
-                value: _isLoading ? '...' : _reportStats['approved'].toString(),
-                icon: Icons.check_circle_outline,
-                mainColor: const Color(0xFF86B9B0), // Teal
-                darkColor: const Color(0xFF6E9A92),
-              ),
-              _buildReportCard(
-                title: 'Completed',
-                value: _isLoading
-                    ? '...'
-                    : _reportStats['completed'].toString(),
-                icon: Icons.done_all,
-                mainColor: const Color(0xFF4CAF50), // Greenish
-                darkColor: const Color(0xFF388E3C),
-              ),
-              _buildReportCard(
-                title: 'Cancelled',
-                value: _isLoading
-                    ? '...'
-                    : _reportStats['cancelled'].toString(),
-                icon: Icons.cancel_outlined,
-                mainColor: const Color(0xFFE28B71), // Orange Red
-                darkColor: const Color(0xFFBA6952),
-              ),
-            ],
-          ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 48),
+        Wrap(
+          spacing: 32,
+          runSpacing: 32,
+          alignment: WrapAlignment.start,
+          children: [
+            _buildReportCard(
+              title: 'Total Appointments',
+              value: _isLoading ? '...' : _reportStats['total'].toString(),
+              icon: Icons.calendar_month,
+              mainColor: const Color(0xFF6A9A8B),
+              darkColor: const Color(0xFF50786A),
+            ),
+            _buildReportCard(
+              title: 'Pending',
+              value: _isLoading ? '...' : _reportStats['pending'].toString(),
+              icon: Icons.hourglass_empty,
+              mainColor: const Color(0xFFE5CC82),
+              darkColor: const Color(0xFFBCA663),
+            ),
+            _buildReportCard(
+              title: 'Approved',
+              value: _isLoading ? '...' : _reportStats['approved'].toString(),
+              icon: Icons.check_circle_outline,
+              mainColor: const Color(0xFF86B9B0),
+              darkColor: const Color(0xFF6E9A92),
+            ),
+            _buildReportCard(
+              title: 'Completed',
+              value: _isLoading ? '...' : _reportStats['completed'].toString(),
+              icon: Icons.done_all,
+              mainColor: const Color(0xFF4CAF50),
+              darkColor: const Color(0xFF388E3C),
+            ),
+            _buildReportCard(
+              title: 'Cancelled',
+              value: _isLoading ? '...' : _reportStats['cancelled'].toString(),
+              icon: Icons.cancel_outlined,
+              mainColor: const Color(0xFFE28B71),
+              darkColor: const Color(0xFFBA6952),
+            ),
+          ],
+        ),
+        const SizedBox(height: 56),
+        _buildReportFilterSection(),
+        const SizedBox(height: 56),
+        _buildAppointmentTrendsSection(),
+        const SizedBox(height: 56),
+        _buildDistributionChart(),
+        if (widget.showDetailedRecords) ...[
           const SizedBox(height: 56),
-
-          _buildReportFilterSection(),
-          const SizedBox(height: 56),
-
-          _buildAppointmentTrendsSection(),
-          const SizedBox(height: 56),
-
-          // Status Distribution Chart Section
-          _buildDistributionChart(),
-          const SizedBox(height: 56),
-
-          // Detailed Report Table Section
           _buildDetailedReportTable(),
         ],
-      ),
+      ],
+    );
+
+    if (widget.embedded) {
+      return content;
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(40.0),
+      child: content,
     );
   }
 

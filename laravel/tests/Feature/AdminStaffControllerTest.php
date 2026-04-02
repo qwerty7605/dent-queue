@@ -38,10 +38,10 @@ class AdminStaffControllerTest extends TestCase
         $payload = [
             'first_name' => 'Jane',
             'last_name' => 'Smith',
-            'birthdate' => '1990-01-01',
             'gender' => 'female',
             'address' => '123 Test St',
             'contact_number' => '09123456789',
+            'role' => 'staff',
             'username' => 'janesmith',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -81,7 +81,7 @@ class AdminStaffControllerTest extends TestCase
         $response = $this->actingAs($this->admin)->postJson('/api/v1/admin/staff', $payload);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['first_name', 'last_name', 'birthdate', 'gender', 'password']);
+            ->assertJsonValidationErrors(['first_name', 'last_name', 'gender', 'role', 'password']);
     }
 
     public function test_staff_creation_fails_with_mismatched_passwords(): void
@@ -89,9 +89,9 @@ class AdminStaffControllerTest extends TestCase
         $payload = [
             'first_name' => 'Jane',
             'last_name' => 'Smith',
-            'birthdate' => '1990-01-01',
             'gender' => 'female',
             'contact_number' => '09123456789',
+            'role' => 'staff',
             'username' => 'janesmith2',
             'password' => 'password123',
             'password_confirmation' => 'differentpassword',
@@ -118,9 +118,9 @@ class AdminStaffControllerTest extends TestCase
         $payload = [
             'first_name' => 'Jane',
             'last_name' => 'Smith',
-            'birthdate' => '1990-01-01',
             'gender' => 'female',
             'contact_number' => '09123456789',
+            'role' => 'staff',
             'username' => 'existinguser',
             'password' => 'password123',
             'password_confirmation' => 'password123',

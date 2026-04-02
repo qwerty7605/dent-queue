@@ -36,6 +36,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
 
   late final AppointmentService _appointmentService;
   List<Map<String, dynamic>> _appointments = [];
+  List<Map<String, dynamic>> _cancelledAppointments = [];
   Map<String, dynamic>? _todayQueueStatus;
   _PatientAppointmentFilter _selectedFilter = _PatientAppointmentFilter.all;
   bool _isLoadingAppointments = true;
@@ -58,7 +59,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
 
   Future<void> _loadAppointments({bool showLoader = true}) async {
     final bool hasVisibleContent =
-        _appointments.isNotEmpty || _todayQueueStatus != null;
+        _appointments.isNotEmpty ||
+        _cancelledAppointments.isNotEmpty ||
+        _todayQueueStatus != null;
 
     if (showLoader || !hasVisibleContent) {
       setState(() => _isLoadingAppointments = true);
@@ -66,6 +69,14 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
 
     try {
       final list = await _appointmentService.getPatientAppointments();
+      List<Map<String, dynamic>> recycleBinAppointments;
+      try {
+        recycleBinAppointments = await _appointmentService.getRecycleBinAppointments(
+          false,
+        );
+      } catch (_) {
+        recycleBinAppointments = [];
+      }
       Map<String, dynamic>? queueStatus;
       try {
         queueStatus = await _appointmentService.getPatientTodayQueue();
@@ -75,6 +86,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       if (!mounted) return;
       setState(() {
         _appointments = list;
+        _cancelledAppointments = recycleBinAppointments;
         _todayQueueStatus = queueStatus;
         _isLoadingAppointments = false;
       });
@@ -90,10 +102,15 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       }
 
       setState(() {
+        _cancelledAppointments = [];
         _isLoadingAppointments = false;
         _todayQueueStatus = null;
       });
     }
+  }
+
+  List<Map<String, dynamic>> _dashboardAppointments() {
+    return [..._appointments, ..._cancelledAppointments];
   }
 
   Future<void> _refreshAppointmentsAndQueue() {
@@ -175,6 +192,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
           child: Column(
             children: [
               Container(
+                color: const Color(0xFF356042),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 32,
@@ -183,7 +201,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                   children: [
                     CircleAvatar(
                       radius: 24,
-                      backgroundColor: const Color(0xFF679B6A),
+                      backgroundColor: Colors.white.withOpacity(0.2),
                       backgroundImage: profilePicture != null
                           ? NetworkImage('${AppConfig.baseUrl}$profilePicture')
                           : null,
@@ -208,15 +226,17 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
-                              color: Colors.black87,
+                              color: Colors.white,
                             ),
                           ),
-                          Text(
-                            'ID: SDQ-$paddedId',
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                          const SizedBox(height: 2),
+                          const Text(
+                            'PATIENT ACCOUNT',
+                            style: TextStyle(
+                              color: Color(0xFFE8C355),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
                             ),
                           ),
                         ],
@@ -231,12 +251,12 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 32),
                 leading: const Icon(
                   Icons.person_outline,
-                  color: Color(0xFF679B6A),
+                  color: Color(0xFF356042),
                 ),
                 title: const Text(
                   'Profile',
                   style: TextStyle(
-                    color: Color(0xFF679B6A),
+                    color: Color(0xFF356042),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -249,12 +269,12 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 32),
                 leading: const Icon(
                   Icons.calendar_today_outlined,
-                  color: Color(0xFF679B6A),
+                  color: Color(0xFF356042),
                 ),
                 title: const Text(
                   'My Appointments',
                   style: TextStyle(
-                    color: Color(0xFF679B6A),
+                    color: Color(0xFF356042),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -267,12 +287,12 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 32),
                 leading: const Icon(
                   Icons.access_time_outlined,
-                  color: Color(0xFF679B6A),
+                  color: Color(0xFF356042),
                 ),
                 title: const Text(
                   'Medical History',
                   style: TextStyle(
-                    color: Color(0xFF679B6A),
+                    color: Color(0xFF356042),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -285,12 +305,12 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 32),
                 leading: const Icon(
                   Icons.notifications_none,
-                  color: Color(0xFF679B6A),
+                  color: Color(0xFF356042),
                 ),
                 title: const Text(
                   'Notifications',
                   style: TextStyle(
-                    color: Color(0xFF679B6A),
+                    color: Color(0xFF356042),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -308,12 +328,12 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 32),
                 leading: const Icon(
                   Icons.restore_from_trash_outlined,
-                  color: Color(0xFF679B6A),
+                  color: Color(0xFF356042),
                 ),
                 title: const Text(
                   'Recycle Bin',
                   style: TextStyle(
-                    color: Color(0xFF679B6A),
+                    color: Color(0xFF356042),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -322,10 +342,12 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          const RecycleBinView(role: RecycleBinRole.patient),
+                      builder: (_) => RecycleBinView(
+                        role: RecycleBinRole.patient,
+                        appointmentService: _appointmentService,
+                      ),
                     ),
-                  );
+                  ).then((_) => _loadAppointments(showLoader: false));
                 },
               ),
               const Spacer(),
@@ -370,7 +392,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                   _loadAppointments();
                 }
               },
-              backgroundColor: const Color(0xFF679B6A),
+              backgroundColor: const Color(0xFF356042),
               shape: const CircleBorder(),
               child: const Icon(Icons.add, color: Colors.white, size: 36),
             )
@@ -382,7 +404,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
 
   PreferredSizeWidget _buildAppBar(String name, String? profilePicture) {
     return AppBar(
-      backgroundColor: const Color(0xFF679B6A), // Green header
+      backgroundColor: const Color(0xFF356042), // Green header
       elevation: 0,
       iconTheme: const IconThemeData(
         color: Colors.black,
@@ -402,38 +424,39 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
             ),
           ),
           const SizedBox(width: 4),
-          const Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'SMART',
-                    style: TextStyle(
-                      color: Color(0xFFE8C355), // Yellow from logo
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      letterSpacing: -0.5,
-                    ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Text(
+                  'SMART',
+                  style: TextStyle(
+                    color: Color(0xFFE8C355), // Yellow from logo
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    letterSpacing: -0.5,
+                    height: 1.1,
                   ),
-                  TextSpan(
-                    text: 'DentQueue',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      letterSpacing: -0.5,
-                    ),
+                ),
+                Text(
+                  'DentQueue',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    letterSpacing: -0.5,
+                    height: 1.1,
                   ),
-                ],
-              ),
-              overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ],
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications_none, color: Colors.black54),
+          icon: const Icon(Icons.notifications_none, color: Colors.white),
           onPressed: () {
             Navigator.push(
               context,
@@ -462,6 +485,14 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       const Text(
                         'PATIENT',
                         style: TextStyle(
@@ -469,14 +500,6 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                           fontSize: 9,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 0.5,
-                        ),
-                      ),
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -507,7 +530,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     return RefreshIndicator(
       key: const Key('patient-dashboard-refresh'),
       onRefresh: _refreshAppointmentsAndQueue,
-      color: const Color(0xFF679B6A),
+      color: const Color(0xFF356042),
       child: SingleChildScrollView(
         key: const Key('patient-dashboard-scroll'),
         physics: const AlwaysScrollableScrollPhysics(),
@@ -577,27 +600,28 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
             const SizedBox(height: 24),
             Builder(
               builder: (context) {
-                final pendingCount = _appointments
+                final allAppointments = _dashboardAppointments();
+                final pendingCount = allAppointments
                     .where(
                       (a) =>
                           _normalizeAppointmentStatus(a['status']) == 'pending',
                     )
                     .length;
-                final approvedCount = _appointments
+                final approvedCount = allAppointments
                     .where(
                       (a) =>
                           _normalizeAppointmentStatus(a['status']) ==
                           'approved',
                     )
                     .length;
-                final completedCount = _appointments
+                final completedCount = allAppointments
                     .where(
                       (a) =>
                           _normalizeAppointmentStatus(a['status']) ==
                           'completed',
                     )
                     .length;
-                final cancelledCount = _appointments
+                final cancelledCount = allAppointments
                     .where(
                       (a) =>
                           _normalizeAppointmentStatus(a['status']) ==
@@ -820,7 +844,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: const Border(
-                      left: BorderSide(color: Color(0xFF679B6A), width: 6),
+                      left: BorderSide(color: Color(0xFF356042), width: 6),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -849,7 +873,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                           ),
                           const Icon(
                             Icons.check_circle_outline,
-                            color: Color(0xFF679B6A),
+                            color: Color(0xFF356042),
                             size: 20,
                           ),
                         ],
@@ -939,7 +963,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                 height: 140,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF679B6A), width: 3),
+                  border: Border.all(color: const Color(0xFF356042), width: 3),
                   color: const Color(0xFFF8FAFC),
                   image: profilePicture != null
                       ? DecorationImage(
@@ -1055,7 +1079,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(
-                          0xFF679B6A,
+                          0xFF356042,
                         ), // Green brand color
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -1086,7 +1110,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF679B6A), size: 24),
+        Icon(icon, color: const Color(0xFF356042), size: 24),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -1265,7 +1289,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
               child: ElevatedButton(
                 onPressed: _isJoiningQueue ? null : _joinTodayQueue,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF679B6A),
+                  backgroundColor: const Color(0xFF356042),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   shape: RoundedRectangleBorder(
@@ -1356,7 +1380,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF679B6A) : Colors.white,
+          color: isSelected ? const Color(0xFF356042) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: isSelected
               ? null
@@ -1380,7 +1404,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
   }
 
   List<Map<String, dynamic>> _visibleAppointments() {
-    return _appointments.where((appointment) {
+    return _dashboardAppointments().where((appointment) {
       final status = _normalizeAppointmentStatus(appointment['status']);
 
       return switch (_selectedFilter) {
@@ -1405,6 +1429,33 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
       return 'cancelled';
     }
     return 'pending';
+  }
+
+  String _appointmentStatusLabel(String status) {
+    return switch (status) {
+      'approved' => 'APPROVED',
+      'completed' => 'COMPLETED',
+      'cancelled' => 'CANCELLED',
+      _ => 'PENDING',
+    };
+  }
+
+  Color _appointmentStatusColor(String status) {
+    return switch (status) {
+      'approved' => const Color(0xFF1D4ED8),
+      'completed' => const Color(0xFF16A34A),
+      'cancelled' => const Color(0xFFDC2626),
+      _ => const Color(0xFFF97316),
+    };
+  }
+
+  Color _appointmentStatusBackground(String status) {
+    return switch (status) {
+      'approved' => const Color(0xFFEFF5FF),
+      'completed' => const Color(0xFFEFFCF3),
+      'cancelled' => const Color(0xFFFFF1F1),
+      _ => const Color(0xFFFFF7ED),
+    };
   }
 
   String _formatQueueNumber(dynamic value) {
@@ -1446,7 +1497,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                       Icon(
                         Icons.event_available,
                         color: _selectedIndex == 0
-                            ? const Color(0xFF679B6A)
+                            ? const Color(0xFF356042)
                             : Colors.grey,
                       ),
                       const SizedBox(height: 4),
@@ -1454,7 +1505,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                         'Appointments',
                         style: TextStyle(
                           color: _selectedIndex == 0
-                              ? const Color(0xFF679B6A)
+                              ? const Color(0xFF356042)
                               : Colors.grey,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -1483,7 +1534,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                       Icon(
                         Icons.person_outline,
                         color: _selectedIndex == 1
-                            ? const Color(0xFF679B6A)
+                            ? const Color(0xFF356042)
                             : Colors.grey,
                       ),
                       const SizedBox(height: 4),
@@ -1491,7 +1542,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                         'Profile',
                         style: TextStyle(
                           color: _selectedIndex == 1
-                              ? const Color(0xFF679B6A)
+                              ? const Color(0xFF356042)
                               : Colors.grey,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -1528,7 +1579,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
     final time = formattedTime;
     final queue = appt['queue_number']?.toString() ?? '--';
     final initial = serviceType.isNotEmpty ? serviceType[0].toUpperCase() : 'S';
-    final status = appt['status']?.toString().toLowerCase() ?? 'pending';
+    final status = _normalizeAppointmentStatus(appt['status']);
 
     return GestureDetector(
       onTap: () {
@@ -1582,13 +1633,39 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          serviceType,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF1E293B),
-                          ),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              serviceType,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF1E293B),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _appointmentStatusBackground(status),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                _appointmentStatusLabel(status),
+                                style: TextStyle(
+                                  color: _appointmentStatusColor(status),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Row(
@@ -1643,7 +1720,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF679B6A),
+                          color: Color(0xFF356042),
                         ),
                       ),
                     ],
@@ -1651,7 +1728,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView> {
                 ],
               ),
             ),
-            if (status == 'pending' || status == 'confirmed')
+            if (status == 'pending' || status == 'approved')
               InkWell(
                 onTap: () =>
                     _showCancelConfirmationDialog((appt['id'] as num).toInt()),

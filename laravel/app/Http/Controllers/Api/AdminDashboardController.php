@@ -37,6 +37,12 @@ class AdminDashboardController extends Controller
         })
             ->where('is_active', true)
             ->count();
+
+        $internCount = User::whereHas('role', function ($query) {
+            $query->whereRaw('LOWER(name) = ?', ['intern']);
+        })
+            ->where('is_active', true)
+            ->count();
         
         $appointmentsCount = Appointment::count();
 
@@ -44,6 +50,8 @@ class AdminDashboardController extends Controller
             'data' => [
                 'patients_count' => $patientsCount,
                 'staff_count' => $staffCount,
+                'intern_count' => $internCount,
+                'staff_accounts_count' => $staffCount + $internCount,
                 'appointments_count' => $appointmentsCount,
             ]
         ]);

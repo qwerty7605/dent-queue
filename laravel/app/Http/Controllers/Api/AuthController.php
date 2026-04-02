@@ -24,9 +24,18 @@ class AuthController extends Controller
             'username' => 'required|string|max:50|unique:users,username',
             'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
+            'phone_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
+            'contact_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
             'location' => 'nullable|string|max:255',
             'gender' => 'nullable|string|in:male,female,other',
+        ], [
+            'phone_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
+            'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
         ]);
+
+        if (array_key_exists('contact_number', $data) && !array_key_exists('phone_number', $data)) {
+            $data['phone_number'] = $data['contact_number'];
+        }
 
         $user = $this->authService->register($data);
         $token = $user->createToken('auth_token')->plainTextToken;

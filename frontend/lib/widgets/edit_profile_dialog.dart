@@ -529,7 +529,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                       validator: (value) {
                         if (value == null || value.isEmpty) return 'Required';
                         if (!RegExp(r'^09\d{9}$').hasMatch(value.trim())) {
-                          return 'Must be a valid 11-digit mobile number';
+                          return 'Enter an 11-digit number starting with 09';
                         }
                         return null;
                       },

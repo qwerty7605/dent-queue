@@ -9,6 +9,7 @@ import 'services/http_auth_service.dart';
 import 'views/dashboard_view.dart';
 import 'views/login_view.dart';
 import 'views/register_view.dart';
+import 'views/start_page_view.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 Future<void> main() async {
@@ -69,7 +70,7 @@ class AuthSwitcherView extends StatefulWidget {
   State<AuthSwitcherView> createState() => _AuthSwitcherViewState();
 }
 
-enum _AuthPage { loading, login, register, dashboard }
+enum _AuthPage { loading, start, login, register, dashboard }
 
 class _AuthSwitcherViewState extends State<AuthSwitcherView> {
   _AuthPage _page = _AuthPage.loading;
@@ -85,7 +86,7 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
     if (token == null || token.isEmpty) {
       if (!mounted) return;
       setState(() {
-        _page = _AuthPage.login;
+        _page = _AuthPage.start;
       });
       return;
     }
@@ -100,7 +101,7 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
       await widget.tokenStorage.clear();
       if (!mounted) return;
       setState(() {
-        _page = _AuthPage.login;
+        _page = _AuthPage.start;
       });
     }
   }
@@ -116,6 +117,16 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
         authService: widget.authService,
         tokenStorage: widget.tokenStorage,
         onLoggedOut: () {
+          setState(() {
+            _page = _AuthPage.start;
+          });
+        },
+      );
+    }
+
+    if (_page == _AuthPage.start) {
+      return StartPageView(
+        onGetStarted: () {
           setState(() {
             _page = _AuthPage.login;
           });
