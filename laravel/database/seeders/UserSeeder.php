@@ -11,11 +11,7 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        $adminRole = Role::where('name', 'admin')->orWhere('name', 'Admin')->first();
-
-        if (!$adminRole) {
-            throw new \Exception("Admin role not found. Please run RoleSeeder first.");
-        }
+        $adminRole = Role::firstOrCreate(['name' => 'Admin']);
 
         User::updateOrCreate(
             ['email' => 'admin@example.com'],

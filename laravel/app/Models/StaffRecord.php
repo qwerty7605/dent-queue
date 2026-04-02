@@ -15,6 +15,7 @@ class StaffRecord extends Model
         'staff_id',
         'user_id',
         'first_name',
+        'middle_name',
         'last_name',
         'gender',
         'address',
@@ -51,6 +52,7 @@ class StaffRecord extends Model
 
         $staffRecord->fill([
             'first_name' => $user->first_name,
+            'middle_name' => $user->middle_name,
             'last_name' => $user->last_name,
             'gender' => $user->gender,
             'address' => $user->location,

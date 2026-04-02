@@ -67,6 +67,7 @@ class CancelledAppointmentRecycleBinTest extends TestCase
     public function test_patient_recycle_bin_endpoint_returns_cancelled_soft_deleted_appointments(): void
     {
         $patient = $this->createUserWithRole('Patient');
+        $otherPatient = $this->createUserWithRole('Patient');
         $cancelledAppointment = $this->createAppointment(
             $patient->id,
             'pending',
@@ -75,18 +76,38 @@ class CancelledAppointmentRecycleBinTest extends TestCase
             'Needs reschedule',
         );
         $activeAppointment = $this->createAppointment($patient->id, 'pending', '2026-04-24', '11:30');
+        $otherPatientCancelledAppointment = $this->createAppointment(
+            $otherPatient->id,
+            'pending',
+            '2026-04-25',
+            '09:00',
+            'Other patient cancelled booking',
+        );
 
         Sanctum::actingAs($patient);
 
         $this->patchJson('/api/v1/patient/appointments/' . $cancelledAppointment->id . '/cancel')
             ->assertOk();
 
-        $this->getJson('/api/v1/patient/appointments/recycle-bin')
+        Sanctum::actingAs($otherPatient);
+        $this->patchJson('/api/v1/patient/appointments/' . $otherPatientCancelledAppointment->id . '/cancel')
+            ->assertOk();
+
+        Sanctum::actingAs($patient);
+
+        $response = $this->getJson('/api/v1/patient/appointments/recycle-bin')
             ->assertOk()
             ->assertJsonCount(1, 'recycle_bin')
             ->assertJsonPath('recycle_bin.0.id', (int) $cancelledAppointment->id)
             ->assertJsonPath('recycle_bin.0.status', 'Cancelled')
             ->assertJsonPath('recycle_bin.0.notes', 'Needs reschedule');
+
+        $recycleBinIds = array_map(
+            fn (array $appointment): int => (int) ($appointment['id'] ?? 0),
+            $response->json('recycle_bin', []),
+        );
+
+        $this->assertNotContains((int) $otherPatientCancelledAppointment->id, $recycleBinIds);
 
         $this->assertDatabaseHas('appointments', [
             'id' => $activeAppointment->id,

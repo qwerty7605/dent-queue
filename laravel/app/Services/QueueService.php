@@ -14,6 +14,7 @@ class QueueService
 {
     private const DAILY_QUEUE_LIMIT = 50;
     private const MAX_QUEUE_ASSIGNMENT_RETRIES = 5;
+    private const ACTIVE_QUEUE_STATUSES = ['pending', 'confirmed', 'completed'];
     private const ELIGIBLE_CALL_STATUSES = ['confirmed'];
     private const ACTIVE_DISPLAY_STATUSES = ['pending', 'confirmed', 'completed'];
 
@@ -32,33 +33,25 @@ class QueueService
             ]);
         }
 
-        $existingQueue = Queue::query()
-            ->where('appointment_id', $appointmentId)
-            ->first();
-
-        if ($existingQueue !== null) {
-            return $existingQueue;
-        }
-
         $appointmentDate = (string) $appointment->appointment_date;
 
         return DB::transaction(function () use ($appointment, $appointmentDate) {
             for ($attempt = 0; $attempt < self::MAX_QUEUE_ASSIGNMENT_RETRIES; $attempt++) {
-                $nextQueueNumber = $this->resolveNextQueueNumber($appointmentDate);
-
-                if ($nextQueueNumber > self::DAILY_QUEUE_LIMIT) {
-                    throw ValidationException::withMessages([
-                        'appointment_date' => ['The daily limit of ' . self::DAILY_QUEUE_LIMIT . ' patients has been reached for this date.'],
-                    ]);
-                }
-
                 try {
-                    return Queue::query()->create([
-                        'appointment_id' => (int) $appointment->id,
-                        'queue_date' => $appointmentDate,
-                        'queue_number' => $nextQueueNumber,
-                        'is_called' => false,
-                    ]);
+                    $existingQueue = Queue::query()
+                        ->where('appointment_id', (int) $appointment->id)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($existingQueue === null) {
+                        $this->createPlaceholderQueueEntry($appointmentDate, (int) $appointment->id);
+                    }
+
+                    $this->syncQueueNumbersForDate($appointmentDate);
+
+                    return Queue::query()
+                        ->where('appointment_id', (int) $appointment->id)
+                        ->firstOrFail();
                 } catch (QueryException $exception) {
                     if (!$this->isUniqueConstraintViolation($exception)) {
                         throw $exception;
@@ -71,6 +64,104 @@ class QueueService
                     }
                 }
             }
+        });
+    }
+
+    public function syncQueueNumbersForDate(string $appointmentDate): void
+    {
+        $activeAppointments = Appointment::query()
+            ->whereDate('appointment_date', $appointmentDate)
+            ->whereNull('deleted_at')
+            ->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+            ->orderBy('time_slot')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get(['id', 'appointment_date']);
+
+        if ($activeAppointments->count() > self::DAILY_QUEUE_LIMIT) {
+            throw ValidationException::withMessages([
+                'appointment_date' => ['The daily limit of ' . self::DAILY_QUEUE_LIMIT . ' patients has been reached for this date.'],
+            ]);
+        }
+
+        $activeAppointmentIds = $activeAppointments->pluck('id')->map(
+            static fn (mixed $id): int => (int) $id,
+        )->all();
+
+        $existingQueues = Queue::query()
+            ->where('queue_date', $appointmentDate)
+            ->lockForUpdate()
+            ->get()
+            ->keyBy(static fn (Queue $queue): int => (int) $queue->appointment_id);
+
+        $staleQueueIds = $existingQueues
+            ->reject(static fn (Queue $queue, int $appointmentId): bool => in_array($appointmentId, $activeAppointmentIds, true))
+            ->pluck('id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->values()
+            ->all();
+
+        if ($staleQueueIds !== []) {
+            Queue::query()->whereIn('id', $staleQueueIds)->delete();
+            $existingQueues = $existingQueues->except(
+                $existingQueues
+                    ->filter(static fn (Queue $queue): bool => in_array((int) $queue->id, $staleQueueIds, true))
+                    ->keys()
+                    ->all(),
+            );
+        }
+
+        $temporaryQueueNumber = max(
+            1000,
+            ((int) ($existingQueues->max('queue_number') ?? 0)) + 1000,
+        );
+
+        foreach ($activeAppointmentIds as $appointmentId) {
+            if ($existingQueues->has($appointmentId)) {
+                continue;
+            }
+
+            $queue = Queue::query()->create([
+                'appointment_id' => $appointmentId,
+                'queue_date' => $appointmentDate,
+                'queue_number' => $temporaryQueueNumber++,
+                'is_called' => false,
+            ]);
+
+            $existingQueues->put($appointmentId, $queue);
+        }
+
+        foreach ($activeAppointmentIds as $appointmentId) {
+            /** @var Queue $queue */
+            $queue = $existingQueues->get($appointmentId);
+            $queue->forceFill([
+                'queue_date' => $appointmentDate,
+                'queue_number' => $temporaryQueueNumber++,
+            ])->save();
+        }
+
+        $finalQueueNumber = 1;
+
+        foreach ($activeAppointmentIds as $appointmentId) {
+            /** @var Queue $queue */
+            $queue = $existingQueues->get($appointmentId);
+            $queue->forceFill([
+                'queue_date' => $appointmentDate,
+                'queue_number' => $finalQueueNumber++,
+            ])->save();
+        }
+    }
+
+    public function removeQueueForAppointment(Appointment $appointment): void
+    {
+        DB::transaction(function () use ($appointment): void {
+            Queue::query()
+                ->where('appointment_id', (int) $appointment->id)
+                ->lockForUpdate()
+                ->delete();
+
+            $this->syncQueueNumbersForDate((string) $appointment->appointment_date);
         });
     }
 
@@ -137,8 +228,40 @@ class QueueService
         $queueDate = $date !== null
             ? Carbon::createFromFormat('Y-m-d', $date)->toDateString()
             : Carbon::today(config('app.timezone'))->toDateString();
+        $referenceTime = Carbon::now(config('app.timezone'));
+        $today = $referenceTime->copy()->startOfDay()->toDateString();
+        $queueStartTime = $referenceTime->copy()->setTime(8, 0);
+
+        if ($queueDate !== $today) {
+            throw ValidationException::withMessages([
+                'date' => ['Queue calling is only available on the appointment date.'],
+            ]);
+        }
+
+        if ($referenceTime->lt($queueStartTime)) {
+            throw ValidationException::withMessages([
+                'date' => ['Queue calling starts at 8:00 AM.'],
+            ]);
+        }
 
         $calledQueue = DB::transaction(function () use ($queueDate) {
+            $activeCalledQueue = Queue::query()
+                ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
+                ->where('queues.queue_date', $queueDate)
+                ->whereNull('appointments.deleted_at')
+                ->where('queues.is_called', true)
+                ->where('appointments.status', 'confirmed')
+                ->orderByDesc('queues.queue_number')
+                ->select('queues.id')
+                ->lockForUpdate()
+                ->first();
+
+            if ($activeCalledQueue !== null) {
+                throw ValidationException::withMessages([
+                    'queue' => ['The current called appointment must be completed before calling the next patient.'],
+                ]);
+            }
+
             $queue = Queue::query()
                 ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
                 ->where('queues.queue_date', $queueDate)
@@ -293,15 +416,20 @@ class QueueService
         return $status === 'confirmed' ? 'Approved' : ucfirst($status);
     }
 
-    private function resolveNextQueueNumber(string $appointmentDate): int
+    private function createPlaceholderQueueEntry(string $appointmentDate, int $appointmentId): Queue
     {
-        $lastQueue = Queue::query()
+        $nextQueueNumber = Queue::query()
             ->where('queue_date', $appointmentDate)
             ->lockForUpdate()
             ->orderByDesc('queue_number')
-            ->first();
+            ->value('queue_number');
 
-        return $lastQueue ? ((int) $lastQueue->queue_number + 1) : 1;
+        return Queue::query()->create([
+            'appointment_id' => $appointmentId,
+            'queue_date' => $appointmentDate,
+            'queue_number' => ((int) $nextQueueNumber) + 1,
+            'is_called' => false,
+        ]);
     }
 
     private function isUniqueConstraintViolation(QueryException $exception): bool

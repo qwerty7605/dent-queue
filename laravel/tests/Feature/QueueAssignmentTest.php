@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Models\Service;
 use App\Models\PatientRecord;
 use App\Models\User;
+use App\Services\AppointmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -129,6 +130,157 @@ class QueueAssignmentTest extends TestCase
                 ->pluck('queue_number')
                 ->all()
         );
+    }
+
+    public function test_queue_numbers_are_resequenced_by_appointment_time_for_the_same_date(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService();
+        $appointmentDate = now()->next('Friday')->format('Y-m-d');
+        Sanctum::actingAs($staff);
+
+        $laterTimePatient = PatientRecord::syncFromUser($this->createUserWithRole('Patient'));
+        $earlierTimePatient = PatientRecord::syncFromUser($this->createUserWithRole('Patient'));
+
+        $laterResponse = $this->postJson('/api/v1/admin/appointments', [
+            'patient_id' => $laterTimePatient->id,
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '08:05',
+        ]);
+
+        $laterResponse->assertCreated()
+            ->assertJsonPath('appointment.queue_number', '01');
+
+        $earlierResponse = $this->postJson('/api/v1/admin/appointments', [
+            'patient_id' => $earlierTimePatient->id,
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '08:00',
+        ]);
+
+        $earlierResponse->assertCreated()
+            ->assertJsonPath('appointment.queue_number', '01');
+
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => (int) $laterResponse->json('appointment.id'),
+            'queue_date' => $appointmentDate,
+            'queue_number' => 2,
+        ]);
+
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => (int) $earlierResponse->json('appointment.id'),
+            'queue_date' => $appointmentDate,
+            'queue_number' => 1,
+        ]);
+    }
+
+    public function test_same_time_bookings_are_rejected_for_the_same_date(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService();
+        $appointmentDate = now()->next('Saturday')->format('Y-m-d');
+        Sanctum::actingAs($staff);
+
+        $firstPatient = PatientRecord::syncFromUser($this->createUserWithRole('Patient'));
+        $secondPatient = PatientRecord::syncFromUser($this->createUserWithRole('Patient'));
+
+        $firstResponse = $this->postJson('/api/v1/admin/appointments', [
+            'patient_id' => $firstPatient->id,
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '09:00',
+        ]);
+
+        $secondResponse = $this->postJson('/api/v1/admin/appointments', [
+            'patient_id' => $secondPatient->id,
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '09:00',
+        ]);
+
+        $firstResponse->assertCreated()
+            ->assertJsonPath('appointment.queue_number', '01');
+        $secondResponse->assertStatus(422)
+            ->assertJsonValidationErrors(['time_slot'])
+            ->assertJsonPath('errors.time_slot.0', 'This time slot is already booked. Please choose another time.');
+
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => (int) $firstResponse->json('appointment.id'),
+            'queue_date' => $appointmentDate,
+            'queue_number' => 1,
+        ]);
+
+        $this->assertDatabaseCount('queues', 1);
+    }
+
+    public function test_cancelling_and_restoring_resequences_daily_queue_numbers(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService();
+        $appointmentDate = now()->next('Monday')->format('Y-m-d');
+        Sanctum::actingAs($staff);
+
+        $firstPatient = PatientRecord::syncFromUser($this->createUserWithRole('Patient'));
+        $secondPatient = PatientRecord::syncFromUser($this->createUserWithRole('Patient'));
+        $thirdPatient = PatientRecord::syncFromUser($this->createUserWithRole('Patient'));
+
+        $firstId = (int) $this->postJson('/api/v1/admin/appointments', [
+            'patient_id' => $firstPatient->id,
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '09:00',
+        ])->assertCreated()->json('appointment.id');
+
+        $secondId = (int) $this->postJson('/api/v1/admin/appointments', [
+            'patient_id' => $secondPatient->id,
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '10:00',
+        ])->assertCreated()->json('appointment.id');
+
+        $thirdId = (int) $this->postJson('/api/v1/admin/appointments', [
+            'patient_id' => $thirdPatient->id,
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '11:00',
+        ])->assertCreated()->json('appointment.id');
+
+        $appointmentService = app(AppointmentService::class);
+        $appointmentService->updateStatus(
+            \App\Models\Appointment::query()->findOrFail($secondId),
+            'cancelled',
+            (int) $staff->id,
+        );
+
+        $this->assertDatabaseMissing('queues', [
+            'appointment_id' => $secondId,
+        ]);
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $firstId,
+            'queue_number' => 1,
+        ]);
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $thirdId,
+            'queue_number' => 2,
+        ]);
+
+        $appointmentService->restoreAppointment(
+            \App\Models\Appointment::withTrashed()->findOrFail($secondId),
+        );
+
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $firstId,
+            'queue_number' => 1,
+        ]);
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $secondId,
+            'queue_number' => 2,
+        ]);
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $thirdId,
+            'queue_number' => 3,
+        ]);
     }
 
     public function test_booking_is_rejected_once_daily_queue_reaches_fifty(): void

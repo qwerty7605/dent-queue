@@ -53,7 +53,7 @@ class SystemValidationRulesIntegrationTest extends TestCase
             ->assertJsonPath('errors.appointment_date.0', 'Booking date must fall on a selected working day.');
     }
 
-    public function test_booking_rejects_a_conflicting_time_slot_for_the_same_date(): void
+    public function test_booking_rejects_shared_time_slots_on_the_same_date(): void
     {
         $staff = $this->createUserWithRole('Staff');
         $service = $this->createService();
@@ -78,7 +78,7 @@ class SystemValidationRulesIntegrationTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['time_slot'])
-            ->assertJsonPath('errors.time_slot.0', 'This schedule is already booked. Please choose another date or time.');
+            ->assertJsonPath('errors.time_slot.0', 'This time slot is already booked. Please choose another time.');
     }
 
     public function test_booking_rejects_missing_patient_record_without_recreating_identity(): void

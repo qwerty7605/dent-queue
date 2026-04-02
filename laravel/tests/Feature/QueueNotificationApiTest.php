@@ -93,6 +93,8 @@ class QueueNotificationApiTest extends TestCase
             'type' => 'queue_next_up',
         ]);
 
+        $appointment1->update(['status' => 'completed']);
+
         // Call Next again (Calls appointment 2)
         $queueService->callNext($today);
 
@@ -128,8 +130,16 @@ class QueueNotificationApiTest extends TestCase
         $queueService->callNext($today);
         $this->assertDatabaseCount('patient_notifications', 1);
 
-        // 2. Redundant callNext on exhausted queue should not spin out new notifications randomly
-        $queueService->callNext($today);
+        // 2. Calling next again before completing the current patient should be rejected
+        try {
+            $queueService->callNext($today);
+            $this->fail('Expected queue progression to be blocked while the current patient is not yet completed.');
+        } catch (\Illuminate\Validation\ValidationException $exception) {
+            $this->assertSame(
+                'The current called appointment must be completed before calling the next patient.',
+                $exception->errors()['queue'][0] ?? null,
+            );
+        }
         $this->assertDatabaseCount('patient_notifications', 1);
         
         // 3. Simulating concurrent invocation using firstOrCreate signature exactly matches the implementation strategy

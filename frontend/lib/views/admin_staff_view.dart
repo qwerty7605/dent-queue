@@ -446,7 +446,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
         .join(' ')
         .trim();
 
-    return fullName.isEmpty ? '-' : fullName;
+    return fullName.isEmpty ? 'No data yet' : fullName;
   }
 
   String _resolveContact(Map<String, dynamic> staffMember) {
@@ -466,7 +466,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     final staffRecord = _readMap(staffMember['staff_record']);
     final gender = staffRecord['gender'] ?? staffMember['gender'];
     final text = _resolveText(gender);
-    if (text == '-') return text;
+    if (text == 'No data yet') return text;
     return text[0].toUpperCase() + text.substring(1).toLowerCase();
   }
 
@@ -480,7 +480,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
 
     final userId = _readInt(staffMember['id']);
 
-    return userId != null ? 'STAFF-$userId' : '-';
+    return userId != null ? 'STAFF-$userId' : 'No data yet';
   }
 
   Map<String, dynamic> _readMap(dynamic value) {
@@ -497,7 +497,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
 
   String _resolveText(dynamic value) {
     final text = value?.toString().trim() ?? '';
-    return text.isEmpty ? '-' : text;
+    return text.isEmpty ? 'No data yet' : text;
   }
 
 }

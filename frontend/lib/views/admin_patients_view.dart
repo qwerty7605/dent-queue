@@ -180,12 +180,6 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                             ),
                             DataColumn(
                               label: Text(
-                                'Birthday',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
                                 'Gender',
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
@@ -217,19 +211,15 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                                   ),
                                 )),
                                 DataCell(Text(
-                                  patient['full_name']?.toString() ?? '-',
+                                  _displayText(patient['full_name']),
                                   style: const TextStyle(fontSize: 15, color: Colors.black87),
                                 )),
                                 DataCell(Text(
-                                  _formatBirthdate(patient['birthdate']),
+                                  _displayText(patient['gender']),
                                   style: const TextStyle(fontSize: 15, color: Colors.black87),
                                 )),
                                 DataCell(Text(
-                                  patient['gender']?.toString() ?? '-',
-                                  style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                )),
-                                DataCell(Text(
-                                  patient['contact_number']?.toString() ?? '-',
+                                  _displayText(patient['contact_number']),
                                   style: const TextStyle(fontSize: 15, color: Colors.black87),
                                 )),
                                   DataCell(
@@ -254,14 +244,10 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
     );
   }
 
-  String _formatBirthdate(dynamic value) {
+  String _displayText(dynamic value) {
     final text = value?.toString().trim() ?? '';
     if (text.isEmpty) {
-      return '-';
-    }
-
-    if (text.contains('T')) {
-      return text.split('T').first;
+      return 'No data yet';
     }
 
     return text;

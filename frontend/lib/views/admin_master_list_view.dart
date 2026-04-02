@@ -287,8 +287,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                               cells: [
                                 DataCell(
                                   Text(
-                                    appointment['patient_name']?.toString() ??
-                                        '-',
+                                    _displayText(appointment['patient_name']),
                                     style: const TextStyle(
                                       fontSize: 15,
                                       color: Colors.black87,
@@ -297,7 +296,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                                 ),
                                 DataCell(
                                   Text(
-                                    appointment['service']?.toString() ?? '-',
+                                    _displayText(appointment['service']),
                                     style: const TextStyle(
                                       fontSize: 15,
                                       color: Colors.black87,
@@ -306,7 +305,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                                 ),
                                 DataCell(
                                   Text(
-                                    appointment['date']?.toString() ?? '-',
+                                    _displayText(appointment['date']),
                                     style: const TextStyle(
                                       fontSize: 15,
                                       color: Colors.black87,
@@ -315,7 +314,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                                 ),
                                 DataCell(
                                   Text(
-                                    appointment['contact']?.toString() ?? '-',
+                                    _displayText(appointment['contact']),
                                     style: TextStyle(
                                       fontSize: 15,
                                       color: status.toLowerCase() == 'cancelled'
@@ -386,6 +385,11 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
         ),
       ),
     );
+  }
+
+  String _displayText(dynamic value) {
+    final String text = value?.toString().trim() ?? '';
+    return text.isEmpty ? 'No data yet' : text;
   }
 
   Widget _buildFilterButton(String label, _MasterListFilter filter) {

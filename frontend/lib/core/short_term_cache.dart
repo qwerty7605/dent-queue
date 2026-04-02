@@ -43,6 +43,10 @@ class ShortTermCache {
     _entries.remove(_compositeKey(namespace, key));
   }
 
+  static void clear() {
+    _entries.clear();
+  }
+
   static dynamic _clone(dynamic value) {
     if (value is Map) {
       return Map<String, dynamic>.fromEntries(
