@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/models/app_notification.dart';
 import 'package:frontend/core/short_term_cache.dart';
 import 'package:frontend/core/token_storage.dart';
 import 'package:frontend/services/appointment_service.dart';
+import 'package:frontend/services/notification_service.dart';
 import 'package:frontend/views/patient_dashboard_view.dart';
 import 'package:frontend/views/staff_dashboard_view.dart';
 
@@ -99,6 +101,20 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
         : source.length - 1;
 
     return Map<String, dynamic>.from(source[index]);
+  }
+}
+
+class _FakeNotificationService extends Fake implements NotificationService {
+  NotificationListResult nextResult = const NotificationListResult(
+    notifications: <AppNotification>[],
+    unreadCount: 0,
+  );
+  int listCalls = 0;
+
+  @override
+  Future<NotificationListResult> getNotifications(String role) async {
+    listCalls += 1;
+    return nextResult;
   }
 }
 
@@ -219,6 +235,8 @@ void main() {
     (WidgetTester tester) async {
       final String today = todayString();
       final InMemoryTokenStorage tokenStorage = InMemoryTokenStorage();
+      final _FakeNotificationService notificationService =
+          _FakeNotificationService();
       final _FakeAppointmentService appointmentService =
           _FakeAppointmentService()
             ..adminMasterListResults = <List<Map<String, dynamic>>>[
@@ -292,6 +310,7 @@ void main() {
             onLogout: () {},
             loggingOut: false,
             appointmentService: appointmentService,
+            notificationService: notificationService,
           ),
         ),
       );
@@ -302,6 +321,7 @@ void main() {
       expect(appointmentService.adminMasterListCalls, 1);
       expect(appointmentService.adminAppointmentsCalls, 1);
       expect(appointmentService.adminQueueCalls, 1);
+      expect(notificationService.listCalls, 1);
       expect(find.text('Ava Lopez'), findsWidgets);
 
       await triggerRefresh(
@@ -315,6 +335,85 @@ void main() {
       expect(appointmentService.adminAppointmentsCalls, 2);
       expect(appointmentService.adminQueueCalls, 2);
       expect(find.text('Noah Cruz'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'intern dashboard hides restricted actions and skips notification loading',
+    (WidgetTester tester) async {
+      final String today = todayString();
+      final InMemoryTokenStorage tokenStorage = InMemoryTokenStorage();
+      final _FakeNotificationService notificationService =
+          _FakeNotificationService();
+      final _FakeAppointmentService appointmentService =
+          _FakeAppointmentService()
+            ..adminMasterListResults = <List<Map<String, dynamic>>>[
+              <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'appointment_id': 21,
+                  'patient_name': 'Iris Kent',
+                  'service': 'Dental Check-up',
+                  'date': today,
+                  'contact': '09123456789',
+                  'status': 'Approved',
+                  'booking_type': 'Online',
+                  'queue_number': '01',
+                },
+              ],
+            ]
+            ..adminAppointmentsResults = <List<Map<String, dynamic>>>[
+              <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'id': 21,
+                  'patient_name': 'Iris Kent',
+                  'service_type': 'Dental Check-up',
+                  'appointment_date': today,
+                  'time': '09:00',
+                  'status': 'Approved',
+                  'queue_number': 1,
+                  'is_called': false,
+                },
+              ],
+            ]
+            ..adminQueueResults = <Map<String, dynamic>>[
+              <String, dynamic>{
+                'now_serving': <String, dynamic>{
+                  'queue_number': 1,
+                  'patient_name': 'Iris Kent',
+                },
+                'next_up': null,
+              },
+            ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StaffDashboardView(
+            userInfo: const <String, dynamic>{
+              'first_name': 'Ina',
+              'last_name': 'Turner',
+              'role': 'intern',
+            },
+            tokenStorage: tokenStorage,
+            onLogout: () {},
+            loggingOut: false,
+            readOnly: true,
+            appointmentService: appointmentService,
+            notificationService: notificationService,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(notificationService.listCalls, 0);
+      expect(find.text('Walk In'), findsNothing);
+      expect(find.text('Records'), findsNothing);
+      expect(find.byIcon(Icons.notifications_none), findsNothing);
+
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('View Only'), findsOneWidget);
     },
   );
 

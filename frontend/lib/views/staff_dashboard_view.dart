@@ -35,6 +35,7 @@ class StaffDashboardView extends StatefulWidget {
     required this.loggingOut,
     this.readOnly = false,
     this.appointmentService,
+    this.notificationService,
   });
 
   final Map<String, dynamic>? userInfo;
@@ -43,6 +44,7 @@ class StaffDashboardView extends StatefulWidget {
   final bool loggingOut;
   final bool readOnly;
   final AppointmentService? appointmentService;
+  final NotificationService? notificationService;
 
   @override
   State<StaffDashboardView> createState() => _StaffDashboardViewState();
@@ -69,7 +71,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   final int _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
   int _unreadNotificationCount = 0;
 
-  bool get _isReadOnlyAccount => _resolvedRole(_localUserInfo) == 'intern';
+  bool get _isReadOnlyAccount =>
+      widget.readOnly || _resolvedRole(_localUserInfo) == 'intern';
   String get _accountRoleLabel => _isReadOnlyAccount ? 'Intern' : 'Staff';
   String get _accountRoleTag => _isReadOnlyAccount ? 'INTERN' : 'STAFF';
 
@@ -80,13 +83,16 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     _baseService = BaseService(ApiClient(tokenStorage: widget.tokenStorage));
     _appointmentService =
         widget.appointmentService ?? AppointmentService(_baseService);
-    _notificationService = NotificationService(_baseService);
-    _patientRecordService = PatientRecordService(_baseService);
     _localUserInfo = widget.userInfo != null
         ? Map<String, dynamic>.from(widget.userInfo!)
         : <String, dynamic>{};
+    _notificationService =
+        widget.notificationService ?? NotificationService(_baseService);
+    _patientRecordService = PatientRecordService(_baseService);
     _initializeAppointments();
-    _loadUnreadNotificationCount();
+    if (!_isReadOnlyAccount) {
+      _loadUnreadNotificationCount();
+    }
   }
 
   @override
@@ -208,6 +214,14 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Future<void> _loadUnreadNotificationCount() async {
+    if (_isReadOnlyAccount) {
+      if (!mounted) return;
+      setState(() {
+        _unreadNotificationCount = 0;
+      });
+      return;
+    }
+
     try {
       final NotificationListResult result = await _notificationService
           .getNotifications('staff');
@@ -224,6 +238,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Future<void> _openNotifications() async {
+    if (_isReadOnlyAccount) {
+      return;
+    }
+
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const NotificationsView()),
