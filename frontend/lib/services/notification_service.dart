@@ -32,7 +32,9 @@ class NotificationService {
           (cached['notifications'] as List<dynamic>? ?? const <dynamic>[])
               .whereType<Map>()
               .map((Map<dynamic, dynamic> item) {
-                return AppNotification.fromJson(Map<String, dynamic>.from(item));
+                return AppNotification.fromJson(
+                  Map<String, dynamic>.from(item),
+                );
               })
               .toList();
 
@@ -42,55 +44,65 @@ class NotificationService {
       );
     }
 
-    final response = await _baseService.getJson<dynamic>(
-      _notificationsPath(normalizedRole),
-      (data) => data,
-    );
-
-    if (response is! Map<String, dynamic>) {
-      return const NotificationListResult(
-        notifications: <AppNotification>[],
-        unreadCount: 0,
-      );
-    }
-
-    final List<AppNotification> notifications =
-        (response['notifications'] as List<dynamic>? ?? const <dynamic>[])
-            .whereType<Map>()
-            .map((Map<dynamic, dynamic> item) {
-              return AppNotification.fromJson(Map<String, dynamic>.from(item));
-            })
-            .toList();
-
-    final int unreadCount =
-        response['unread_count'] as int? ??
-        notifications.where((AppNotification notification) {
-          return !notification.isRead;
-        }).length;
-
-    ShortTermCache.write(
+    return ShortTermCache.runSingleFlight(
       _notificationsCache,
       normalizedRole,
-      <String, dynamic>{
-        'notifications': notifications
-            .map((AppNotification notification) => <String, dynamic>{
-                  'notification_id': notification.id,
-                  'title': notification.title,
-                  'message': notification.message,
-                  'created_at': notification.createdAt?.toIso8601String(),
-                  'is_read': notification.isRead,
-                  'type': notification.type,
-                  'related_appointment_id': notification.relatedAppointmentId,
-                })
-            .toList(),
-        'unread_count': unreadCount,
-      },
-      ttl: _cacheTtl,
-    );
+      () async {
+        final response = await _baseService.getJson<dynamic>(
+          _notificationsPath(normalizedRole),
+          (data) => data,
+        );
 
-    return NotificationListResult(
-      notifications: notifications,
-      unreadCount: unreadCount,
+        if (response is! Map<String, dynamic>) {
+          return const NotificationListResult(
+            notifications: <AppNotification>[],
+            unreadCount: 0,
+          );
+        }
+
+        final List<AppNotification> notifications =
+            (response['notifications'] as List<dynamic>? ?? const <dynamic>[])
+                .whereType<Map>()
+                .map((Map<dynamic, dynamic> item) {
+                  return AppNotification.fromJson(
+                    Map<String, dynamic>.from(item),
+                  );
+                })
+                .toList();
+
+        final int unreadCount =
+            response['unread_count'] as int? ??
+            notifications.where((AppNotification notification) {
+              return !notification.isRead;
+            }).length;
+
+        ShortTermCache.write(
+          _notificationsCache,
+          normalizedRole,
+          <String, dynamic>{
+            'notifications': notifications
+                .map(
+                  (AppNotification notification) => <String, dynamic>{
+                    'notification_id': notification.id,
+                    'title': notification.title,
+                    'message': notification.message,
+                    'created_at': notification.createdAt?.toIso8601String(),
+                    'is_read': notification.isRead,
+                    'type': notification.type,
+                    'related_appointment_id': notification.relatedAppointmentId,
+                  },
+                )
+                .toList(),
+            'unread_count': unreadCount,
+          },
+          ttl: _cacheTtl,
+        );
+
+        return NotificationListResult(
+          notifications: notifications,
+          unreadCount: unreadCount,
+        );
+      },
     );
   }
 

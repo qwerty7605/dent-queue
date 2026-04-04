@@ -120,17 +120,21 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         _appointmentService.invalidateAppointmentCaches();
       }
 
-      final list = await _appointmentService.getAdminAppointmentsByDate(date);
-      List<Map<String, dynamic>> recycleBinAppointments;
-      try {
-        recycleBinAppointments = await _appointmentService
-            .getRecycleBinAppointments(true);
-      } catch (_) {
-        recycleBinAppointments = [];
-      }
+      final Future<List<Map<String, dynamic>>> appointmentsFuture =
+          _appointmentService.getAdminAppointmentsByDate(date);
+      final Future<List<Map<String, dynamic>>> recycleBinFuture =
+          _appointmentService
+              .getRecycleBinAppointments(true)
+              .catchError((_) => <Map<String, dynamic>>[]);
+      final Future<Map<String, dynamic>> queueFuture = _appointmentService
+          .getAdminTodayQueue(date);
+
+      final List<Map<String, dynamic>> list = await appointmentsFuture;
+      final List<Map<String, dynamic>> recycleBinAppointments =
+          await recycleBinFuture;
       Map<String, dynamic>? queueStatus;
       try {
-        queueStatus = await _appointmentService.getAdminTodayQueue(date);
+        queueStatus = await queueFuture;
       } on ApiException {
         queueStatus = _buildQueueStatusFallback(list, date);
       } catch (_) {

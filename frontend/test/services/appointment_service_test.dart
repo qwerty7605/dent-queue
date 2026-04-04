@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/services/appointment_service.dart';
 import 'package:frontend/services/base_service.dart';
@@ -9,12 +11,16 @@ class FakeBaseService extends Fake implements BaseService {
   int getJsonCallCount = 0;
   int postJsonCallCount = 0;
   int patchJsonCallCount = 0;
+  Completer<dynamic>? pendingGetJsonResponse;
 
   @override
   Future<T> getJson<T>(String path, T Function(dynamic json) mapper) async {
     getJsonCallCount += 1;
     lastPath = path;
-    return mapper(nextResponse);
+    final dynamic response = pendingGetJsonResponse == null
+        ? nextResponse
+        : await pendingGetJsonResponse!.future;
+    return mapper(response);
   }
 
   @override
@@ -95,20 +101,20 @@ void main() {
       ],
     };
 
-    final first = await appointmentService.getAdminMasterList(
-      <String, String>{'status': 'Pending'},
-    );
-    final second = await appointmentService.getAdminMasterList(
-      <String, String>{'status': 'Pending'},
-    );
+    final first = await appointmentService.getAdminMasterList(<String, String>{
+      'status': 'Pending',
+    });
+    final second = await appointmentService.getAdminMasterList(<String, String>{
+      'status': 'Pending',
+    });
 
     expect(first, second);
     expect(fakeBaseService.getJsonCallCount, 1);
 
     appointmentService.invalidateAppointmentCaches();
-    await appointmentService.getAdminMasterList(
-      <String, String>{'status': 'Pending'},
-    );
+    await appointmentService.getAdminMasterList(<String, String>{
+      'status': 'Pending',
+    });
 
     expect(fakeBaseService.getJsonCallCount, 2);
   });
@@ -158,5 +164,37 @@ void main() {
     expect(result['called_queue']['queue_number'], 2);
     expect(fakeBaseService.lastPath, contains('queues/call-next'));
     expect(fakeBaseService.lastBody, {'date': '2026-03-23'});
+  });
+
+  test('getAdminMasterList collapses concurrent matching requests', () async {
+    fakeBaseService.pendingGetJsonResponse = Completer<dynamic>();
+
+    final Future<List<Map<String, dynamic>>> first = appointmentService
+        .getAdminMasterList(<String, String>{'status': 'Approved'});
+    final Future<List<Map<String, dynamic>>> second = appointmentService
+        .getAdminMasterList(<String, String>{'status': 'Approved'});
+
+    expect(fakeBaseService.getJsonCallCount, 1);
+
+    fakeBaseService.pendingGetJsonResponse!.complete(<String, dynamic>{
+      'data': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'patient_name': 'Taylor Cruz',
+          'service': 'Cleaning',
+          'status': 'Approved',
+          'date': '2026-04-04',
+        },
+      ],
+    });
+
+    final List<List<Map<String, dynamic>>> results =
+        await Future.wait<List<Map<String, dynamic>>>(
+          <Future<List<Map<String, dynamic>>>>[first, second],
+        );
+
+    expect(results[0], hasLength(1));
+    expect(results[1], hasLength(1));
+    expect(results[0].first['patient_name'], 'Taylor Cruz');
+    expect(results[1].first['patient_name'], 'Taylor Cruz');
   });
 }

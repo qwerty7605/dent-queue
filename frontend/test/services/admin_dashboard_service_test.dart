@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/services/admin_dashboard_service.dart';
 import 'package:frontend/services/base_service.dart';
@@ -9,12 +11,16 @@ class _FakeBaseService extends Fake implements BaseService {
   String? lastPath;
   Map<String, String>? lastHeaders;
   int getJsonCallCount = 0;
+  Completer<dynamic>? pendingGetJsonResponse;
 
   @override
   Future<T> getJson<T>(String path, T Function(dynamic json) mapper) async {
     getJsonCallCount += 1;
     lastPath = path;
-    return mapper(nextResponse);
+    final dynamic response = pendingGetJsonResponse == null
+        ? nextResponse
+        : await pendingGetJsonResponse!.future;
+    return mapper(response);
   }
 
   @override
@@ -36,7 +42,32 @@ void main() {
   setUp(() {
     fakeBaseService = _FakeBaseService();
     adminDashboardService = AdminDashboardService(fakeBaseService);
+    adminDashboardService.invalidateDashboardStatsCache();
     adminDashboardService.invalidateReportCaches();
+  });
+
+  test('getStats uses a short-term cache until invalidated', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'data': <String, dynamic>{
+        'patients_count': 5,
+        'staff_count': 2,
+        'intern_count': 1,
+        'staff_accounts_count': 3,
+        'appointments_count': 12,
+      },
+    };
+
+    final Map<String, int> first = await adminDashboardService.getStats();
+    final Map<String, int> second = await adminDashboardService.getStats();
+
+    expect(first['patients_count'], 5);
+    expect(second['appointments_count'], 12);
+    expect(fakeBaseService.getJsonCallCount, 1);
+
+    adminDashboardService.invalidateDashboardStatsCache();
+    await adminDashboardService.getStats();
+
+    expect(fakeBaseService.getJsonCallCount, 2);
   });
 
   test('getReportSummary requests the summary endpoint with filters', () async {
@@ -91,6 +122,34 @@ void main() {
     });
 
     expect(fakeBaseService.getJsonCallCount, 2);
+  });
+
+  test('getReportSummary collapses concurrent matching requests', () async {
+    fakeBaseService.pendingGetJsonResponse = Completer<dynamic>();
+
+    final Future<Map<String, int>> first = adminDashboardService
+        .getReportSummary(<String, String>{'status': 'Approved'});
+    final Future<Map<String, int>> second = adminDashboardService
+        .getReportSummary(<String, String>{'status': 'Approved'});
+
+    expect(fakeBaseService.getJsonCallCount, 1);
+
+    fakeBaseService.pendingGetJsonResponse!.complete(<String, dynamic>{
+      'data': <String, dynamic>{
+        'total_appointments': 3,
+        'pending_count': 0,
+        'approved_count': 3,
+        'completed_count': 0,
+        'cancelled_count': 0,
+      },
+    });
+
+    final List<Map<String, int>> results = await Future.wait<Map<String, int>>(
+      <Future<Map<String, int>>>[first, second],
+    );
+
+    expect(results[0]['approved'], 3);
+    expect(results[1]['approved'], 3);
   });
 
   test(

@@ -1,5 +1,6 @@
 import '../core/endpoints.dart';
 import '../core/short_term_cache.dart';
+import 'admin_dashboard_service.dart';
 import 'base_service.dart';
 
 class AdminStaffService {
@@ -70,5 +71,6 @@ class AdminStaffService {
 
   void invalidateStaffCache() {
     ShortTermCache.invalidateNamespace(_staffListCache);
+    AdminDashboardService.invalidateSharedDashboardStatsCache();
   }
 }

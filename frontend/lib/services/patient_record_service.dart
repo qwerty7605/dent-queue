@@ -1,5 +1,6 @@
 import '../core/endpoints.dart';
 import '../core/short_term_cache.dart';
+import 'admin_dashboard_service.dart';
 import 'base_service.dart';
 
 class PatientRecordService {
@@ -34,12 +35,7 @@ class PatientRecordService {
           .whereType<Map>()
           .map((item) => Map<String, dynamic>.from(item))
           .toList();
-      ShortTermCache.write(
-        _allPatientsCache,
-        'all',
-        result,
-        ttl: _cacheTtl,
-      );
+      ShortTermCache.write(_allPatientsCache, 'all', result, ttl: _cacheTtl);
       return result;
     }
 
@@ -116,7 +112,12 @@ class PatientRecordService {
     }
 
     const result = <String, dynamic>{};
-    ShortTermCache.write(_patientDetailCache, patientId, result, ttl: _cacheTtl);
+    ShortTermCache.write(
+      _patientDetailCache,
+      patientId,
+      result,
+      ttl: _cacheTtl,
+    );
     return result;
   }
 
@@ -138,6 +139,7 @@ class PatientRecordService {
   void invalidatePatientCaches({String? patientId}) {
     ShortTermCache.invalidateNamespace(_allPatientsCache);
     ShortTermCache.invalidateNamespace(_searchPatientsCache);
+    AdminDashboardService.invalidateSharedDashboardStatsCache();
     if (patientId != null) {
       ShortTermCache.invalidate(_patientDetailCache, patientId);
     } else {

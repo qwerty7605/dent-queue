@@ -3,6 +3,8 @@ class ShortTermCache {
 
   static final Map<String, _ShortTermCacheEntry> _entries =
       <String, _ShortTermCacheEntry>{};
+  static final Map<String, Future<dynamic>> _inFlightRequests =
+      <String, Future<dynamic>>{};
 
   static T? read<T>(String namespace, String key) {
     final String compositeKey = _compositeKey(namespace, key);
@@ -37,14 +39,46 @@ class ShortTermCache {
       (String compositeKey, _ShortTermCacheEntry _) =>
           compositeKey.startsWith('$namespace::'),
     );
+    _inFlightRequests.removeWhere(
+      (String compositeKey, Future<dynamic> _) =>
+          compositeKey.startsWith('$namespace::'),
+    );
   }
 
   static void invalidate(String namespace, String key) {
-    _entries.remove(_compositeKey(namespace, key));
+    final String compositeKey = _compositeKey(namespace, key);
+    _entries.remove(compositeKey);
+    _inFlightRequests.remove(compositeKey);
   }
 
   static void clear() {
     _entries.clear();
+    _inFlightRequests.clear();
+  }
+
+  static Future<T> runSingleFlight<T>(
+    String namespace,
+    String key,
+    Future<T> Function() loader,
+  ) {
+    final String compositeKey = _compositeKey(namespace, key);
+    final Future<dynamic>? existingRequest = _inFlightRequests[compositeKey];
+    if (existingRequest != null) {
+      return existingRequest.then((dynamic value) => value as T);
+    }
+
+    final Future<T> request = loader();
+    _inFlightRequests[compositeKey] = request;
+
+    return request
+        .whenComplete(() {
+          final Future<dynamic>? activeRequest =
+              _inFlightRequests[compositeKey];
+          if (identical(activeRequest, request)) {
+            _inFlightRequests.remove(compositeKey);
+          }
+        })
+        .then((T value) => value);
   }
 
   static dynamic _clone(dynamic value) {

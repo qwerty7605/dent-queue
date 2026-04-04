@@ -32,38 +32,67 @@ class AdminDashboardService {
   AdminDashboardService(this._baseService);
 
   static const Duration _cacheTtl = Duration(seconds: 30);
+  static const String _dashboardStatsCache = 'dashboard-stats';
   static const String _reportSummaryCache = 'report-summary';
   static const String _reportTrendsCache = 'report-trends';
 
   final BaseService _baseService;
 
   Future<Map<String, int>> getStats() async {
-    final response = await _baseService.getJson<dynamic>(
-      Endpoints.adminDashboardStats,
-      (data) => data,
+    final dynamic cachedStats = ShortTermCache.read<dynamic>(
+      _dashboardStatsCache,
+      'all',
     );
-
-    if (response is Map && response.containsKey('data')) {
-      final dataMap = response['data'];
-      if (dataMap is Map) {
-        final data = Map<String, dynamic>.from(dataMap);
-        return {
-          'patients_count': data['patients_count'] as int? ?? 0,
-          'staff_count': data['staff_count'] as int? ?? 0,
-          'intern_count': data['intern_count'] as int? ?? 0,
-          'staff_accounts_count': data['staff_accounts_count'] as int? ?? 0,
-          'appointments_count': data['appointments_count'] as int? ?? 0,
-        };
-      }
+    if (cachedStats is Map) {
+      return Map<String, int>.from(cachedStats);
     }
 
-    return {
-      'patients_count': 0,
-      'staff_count': 0,
-      'intern_count': 0,
-      'staff_accounts_count': 0,
-      'appointments_count': 0,
-    };
+    return ShortTermCache.runSingleFlight(
+      _dashboardStatsCache,
+      'all',
+      () async {
+        final response = await _baseService.getJson<dynamic>(
+          Endpoints.adminDashboardStats,
+          (data) => data,
+        );
+
+        if (response is Map && response.containsKey('data')) {
+          final dataMap = response['data'];
+          if (dataMap is Map) {
+            final data = Map<String, dynamic>.from(dataMap);
+            final result = <String, int>{
+              'patients_count': data['patients_count'] as int? ?? 0,
+              'staff_count': data['staff_count'] as int? ?? 0,
+              'intern_count': data['intern_count'] as int? ?? 0,
+              'staff_accounts_count': data['staff_accounts_count'] as int? ?? 0,
+              'appointments_count': data['appointments_count'] as int? ?? 0,
+            };
+            ShortTermCache.write(
+              _dashboardStatsCache,
+              'all',
+              result,
+              ttl: _cacheTtl,
+            );
+            return result;
+          }
+        }
+
+        final result = <String, int>{
+          'patients_count': 0,
+          'staff_count': 0,
+          'intern_count': 0,
+          'staff_accounts_count': 0,
+          'appointments_count': 0,
+        };
+        ShortTermCache.write(
+          _dashboardStatsCache,
+          'all',
+          result,
+          ttl: _cacheTtl,
+        );
+        return result;
+      },
+    );
   }
 
   Future<Map<String, int>> getReportSummary([
@@ -78,21 +107,42 @@ class AdminDashboardService {
       return Map<String, int>.from(cachedSummary);
     }
 
-    final response = await _baseService.getJson<dynamic>(
-      Endpoints.adminReportsSummary(filters),
-      (data) => data,
-    );
+    return ShortTermCache.runSingleFlight(
+      _reportSummaryCache,
+      cacheKey,
+      () async {
+        final response = await _baseService.getJson<dynamic>(
+          Endpoints.adminReportsSummary(filters),
+          (data) => data,
+        );
 
-    if (response is Map && response.containsKey('data')) {
-      final dataMap = response['data'];
-      if (dataMap is Map) {
-        final data = Map<String, dynamic>.from(dataMap);
+        if (response is Map && response.containsKey('data')) {
+          final dataMap = response['data'];
+          if (dataMap is Map) {
+            final data = Map<String, dynamic>.from(dataMap);
+            final result = <String, int>{
+              'total': data['total_appointments'] as int? ?? 0,
+              'pending': data['pending_count'] as int? ?? 0,
+              'approved': data['approved_count'] as int? ?? 0,
+              'completed': data['completed_count'] as int? ?? 0,
+              'cancelled': data['cancelled_count'] as int? ?? 0,
+            };
+            ShortTermCache.write(
+              _reportSummaryCache,
+              cacheKey,
+              result,
+              ttl: _cacheTtl,
+            );
+            return result;
+          }
+        }
+
         final result = <String, int>{
-          'total': data['total_appointments'] as int? ?? 0,
-          'pending': data['pending_count'] as int? ?? 0,
-          'approved': data['approved_count'] as int? ?? 0,
-          'completed': data['completed_count'] as int? ?? 0,
-          'cancelled': data['cancelled_count'] as int? ?? 0,
+          'total': 0,
+          'pending': 0,
+          'approved': 0,
+          'completed': 0,
+          'cancelled': 0,
         };
         ShortTermCache.write(
           _reportSummaryCache,
@@ -101,23 +151,8 @@ class AdminDashboardService {
           ttl: _cacheTtl,
         );
         return result;
-      }
-    }
-
-    final result = <String, int>{
-      'total': 0,
-      'pending': 0,
-      'approved': 0,
-      'completed': 0,
-      'cancelled': 0,
-    };
-    ShortTermCache.write(
-      _reportSummaryCache,
-      cacheKey,
-      result,
-      ttl: _cacheTtl,
+      },
     );
-    return result;
   }
 
   Future<List<Map<String, dynamic>>> getAppointmentTrends(
@@ -136,33 +171,40 @@ class AdminDashboardService {
           .toList();
     }
 
-    final response = await _baseService.getJson<dynamic>(
-      Endpoints.adminReportsTrends(trendType, filters),
-      (data) => data,
-    );
-
-    if (response is Map<String, dynamic> && response['data'] is List<dynamic>) {
-      final result = (response['data'] as List<dynamic>)
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList();
-      ShortTermCache.write(
-        _reportTrendsCache,
-        cacheKey,
-        result,
-        ttl: _cacheTtl,
-      );
-      return result;
-    }
-
-    const result = <Map<String, dynamic>>[];
-    ShortTermCache.write(
+    return ShortTermCache.runSingleFlight(
       _reportTrendsCache,
       cacheKey,
-      result,
-      ttl: _cacheTtl,
+      () async {
+        final response = await _baseService.getJson<dynamic>(
+          Endpoints.adminReportsTrends(trendType, filters),
+          (data) => data,
+        );
+
+        if (response is Map<String, dynamic> &&
+            response['data'] is List<dynamic>) {
+          final result = (response['data'] as List<dynamic>)
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
+          ShortTermCache.write(
+            _reportTrendsCache,
+            cacheKey,
+            result,
+            ttl: _cacheTtl,
+          );
+          return result;
+        }
+
+        const result = <Map<String, dynamic>>[];
+        ShortTermCache.write(
+          _reportTrendsCache,
+          cacheKey,
+          result,
+          ttl: _cacheTtl,
+        );
+        return result;
+      },
     );
-    return result;
   }
 
   Future<ReportExportFile> exportDetailedRecords([
@@ -209,9 +251,18 @@ class AdminDashboardService {
     return 'report-records.csv';
   }
 
+  void invalidateDashboardStatsCache() {
+    ShortTermCache.invalidateNamespace(_dashboardStatsCache);
+  }
+
   void invalidateReportCaches() {
+    invalidateDashboardStatsCache();
     ShortTermCache.invalidateNamespace(_reportSummaryCache);
     ShortTermCache.invalidateNamespace(_reportTrendsCache);
+  }
+
+  static void invalidateSharedDashboardStatsCache() {
+    ShortTermCache.invalidateNamespace(_dashboardStatsCache);
   }
 
   static void invalidateSharedReportCaches() {
@@ -234,8 +285,10 @@ class AdminDashboardService {
         return a.value.compareTo(b.value);
       });
 
-    return entries.map((MapEntry<String, String> entry) {
-      return '${entry.key}=${entry.value}';
-    }).join('&');
+    return entries
+        .map((MapEntry<String, String> entry) {
+          return '${entry.key}=${entry.value}';
+        })
+        .join('&');
   }
 }
