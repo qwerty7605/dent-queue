@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../widgets/appointment_status_badge.dart';
+
 class StaffPatientSearchResult {
   const StaffPatientSearchResult({
     required this.patientId,
@@ -165,7 +167,6 @@ class StaffPatientDetailView extends StatelessWidget {
         _AppointmentSection(
           items: patient.upcomingAppointments,
           emptyLabel: 'No upcoming appointments yet.',
-          isHistory: false,
         ),
         const SizedBox(height: 18),
         _SectionHeader(
@@ -177,7 +178,6 @@ class StaffPatientDetailView extends StatelessWidget {
         _AppointmentSection(
           items: patient.clinicalHistory,
           emptyLabel: 'No clinical history yet.',
-          isHistory: true,
         ),
       ],
     );
@@ -391,15 +391,10 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _AppointmentSection extends StatelessWidget {
-  const _AppointmentSection({
-    required this.items,
-    required this.emptyLabel,
-    required this.isHistory,
-  });
+  const _AppointmentSection({required this.items, required this.emptyLabel});
 
   final List<StaffPatientAppointmentItem> items;
   final String emptyLabel;
-  final bool isHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -412,7 +407,7 @@ class _AppointmentSection extends StatelessWidget {
           .map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: _AppointmentCard(item: item, isHistory: isHistory),
+              child: _AppointmentCard(item: item),
             ),
           )
           .toList(),
@@ -421,15 +416,12 @@ class _AppointmentSection extends StatelessWidget {
 }
 
 class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({required this.item, required this.isHistory});
+  const _AppointmentCard({required this.item});
 
   final StaffPatientAppointmentItem item;
-  final bool isHistory;
 
   @override
   Widget build(BuildContext context) {
-    final statusStyle = _statusStyle(item.status, isHistory: isHistory);
-
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -475,48 +467,10 @@ class _AppointmentCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: statusStyle.background,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                item.status.toUpperCase(),
-                style: TextStyle(
-                  color: statusStyle.foreground,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.45,
-                ),
-              ),
-            ),
+            AppointmentStatusBadge(status: item.status, compact: true),
           ],
         ),
       ),
-    );
-  }
-
-  _StatusStyle _statusStyle(String status, {required bool isHistory}) {
-    final normalized = status.toLowerCase();
-
-    if (isHistory || normalized == 'completed') {
-      return const _StatusStyle(
-        background: Color(0xFFE5F8E7),
-        foreground: Color(0xFF67B56B),
-      );
-    }
-
-    if (normalized == 'approved' || normalized == 'confirmed') {
-      return const _StatusStyle(
-        background: Color(0xFFE6F0FF),
-        foreground: Color(0xFF6F98F7),
-      );
-    }
-
-    return const _StatusStyle(
-      background: Color(0xFFF5F0DE),
-      foreground: Color(0xFFB29033),
     );
   }
 }
@@ -570,13 +524,6 @@ class _EmptySection extends StatelessWidget {
       ),
     );
   }
-}
-
-class _StatusStyle {
-  const _StatusStyle({required this.background, required this.foreground});
-
-  final Color background;
-  final Color foreground;
 }
 
 Map<String, dynamic> _readMap(dynamic value) {

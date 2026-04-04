@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/api_exception.dart';
+import '../core/appointment_status.dart';
 import '../core/config.dart';
 import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
@@ -9,9 +10,10 @@ import '../services/appointment_service.dart';
 import '../services/base_service.dart';
 import '../services/notification_service.dart';
 import '../services/patient_record_service.dart';
-import '../widgets/staff_appointment_details_dialog.dart';
 import '../widgets/appointment_success_dialog.dart';
+import '../widgets/appointment_status_badge.dart';
 import '../widgets/edit_profile_dialog.dart';
+import '../widgets/staff_appointment_details_dialog.dart';
 import 'staff_calendar_view.dart';
 import 'notifications_view.dart';
 import 'recycle_bin_view.dart';
@@ -232,7 +234,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       DateTime? nextBookedDate;
 
       for (final appointment in appointments) {
-        final status = _normalizeStatus(appointment['status']);
+        final status = normalizeAppointmentStatus(appointment['status']);
         if (status == 'cancelled') {
           continue;
         }
@@ -339,9 +341,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       await _loadAppointmentsForSelectedDate(showLoader: false);
       if (!mounted) return true;
 
-      final updatedLabel = _statusLabel(_normalizeStatus(nextStatus));
+      final updatedLabel = appointmentStatusLabel(nextStatus);
 
-      if (_normalizeStatus(nextStatus) == 'approved') {
+      if (normalizeAppointmentStatus(nextStatus) == 'approved') {
         await showAppointmentSuccessDialog(
           context,
           title: 'Appointment\nSuccessfully Approved!',
@@ -414,28 +416,30 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       body: SafeArea(
         child: switch (_selectedTab) {
           _StaffTab.appointments => _buildAppointmentsTab(),
-          _StaffTab.walkIn => _isReadOnlyAccount
-              ? _buildReadOnlyPlaceholder()
-              : StaffWalkInView(
-                  appointmentService: _appointmentService,
-                  onWalkInSuccess: () {
-                    if (mounted) {
-                      setState(() {
-                        _selectedTab = _StaffTab.appointments;
-                      });
-                    }
-                    _loadAppointmentsForSelectedDate(showLoader: false);
-                  },
-                ),
+          _StaffTab.walkIn =>
+            _isReadOnlyAccount
+                ? _buildReadOnlyPlaceholder()
+                : StaffWalkInView(
+                    appointmentService: _appointmentService,
+                    onWalkInSuccess: () {
+                      if (mounted) {
+                        setState(() {
+                          _selectedTab = _StaffTab.appointments;
+                        });
+                      }
+                      _loadAppointmentsForSelectedDate(showLoader: false);
+                    },
+                  ),
           _StaffTab.calendar => StaffCalendarView(
             appointmentService: _appointmentService,
           ),
-          _StaffTab.records => _isReadOnlyAccount
-              ? _buildReadOnlyPlaceholder()
-              : StaffPatientRecordsView(
-                  patientRecordService: _patientRecordService,
-                  appointmentService: _appointmentService,
-                ),
+          _StaffTab.records =>
+            _isReadOnlyAccount
+                ? _buildReadOnlyPlaceholder()
+                : StaffPatientRecordsView(
+                    patientRecordService: _patientRecordService,
+                    appointmentService: _appointmentService,
+                  ),
           _StaffTab.profile => _buildProfileTab(profileImageUrl),
         },
       ),
@@ -1311,7 +1315,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed:
-                  (_isReadOnlyAccount || _isCallingNext || _isLoadingAppointments)
+                  (_isReadOnlyAccount ||
+                      _isCallingNext ||
+                      _isLoadingAppointments)
                   ? null
                   : _callNextPatient,
               icon: _isCallingNext
@@ -1583,7 +1589,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         appointment['appointment_time']?.toString() ??
         '--:--';
     final time = _formatDisplayTime(rawTime);
-    final status = _normalizeStatus(appointment['status']);
+    final status = normalizeAppointmentStatus(appointment['status']);
     final queueNumber = _formatQueueNumber(appointment['queue_number']);
     final initial = serviceType.isNotEmpty ? serviceType[0].toUpperCase() : 'S';
     final accent = _serviceAccentColor(serviceType);
@@ -1652,24 +1658,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                                   color: Color(0xFF334155),
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _statusBackground(status),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  _statusLabel(status),
-                                  style: TextStyle(
-                                    fontSize: MobileTypography.caption(context),
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.3,
-                                    color: _statusColor(status),
-                                  ),
-                                ),
+                              AppointmentStatusBadge(
+                                status: status,
+                                compact: true,
                               ),
                             ],
                           ),
@@ -1752,24 +1743,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         ),
       ),
     );
-  }
-
-  Color _statusBackground(String status) {
-    return switch (status) {
-      'approved' => const Color(0xFFEFF5FF),
-      'completed' => const Color(0xFFEFFCF3),
-      'cancelled' => const Color(0xFFFFF1F1),
-      _ => const Color(0xFFFFF7ED),
-    };
-  }
-
-  Color _statusColor(String status) {
-    return switch (status) {
-      'approved' => const Color(0xFF1D4ED8),
-      'completed' => const Color(0xFF16A34A),
-      'cancelled' => const Color(0xFFDC2626),
-      _ => const Color(0xFFF97316),
-    };
   }
 
   Widget _buildBottomNavigationBar() {
@@ -1864,7 +1837,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
   int _countByStatus(String key) {
     return _dashboardAppointments()
-        .where((a) => _normalizeStatus(a['status']) == key)
+        .where((a) => normalizeAppointmentStatus(a['status']) == key)
         .length;
   }
 
@@ -1876,7 +1849,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     final query = _searchController.text.trim().toLowerCase();
 
     final filtered = _dashboardAppointments().where((appointment) {
-      final status = _normalizeStatus(appointment['status']);
+      final status = normalizeAppointmentStatus(appointment['status']);
       final matchesStatus = switch (_selectedFilter) {
         _StaffFilter.all => true,
         _StaffFilter.pending => status == 'pending',
@@ -1925,29 +1898,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       return null;
     }
     return int.tryParse(value.toString());
-  }
-
-  String _normalizeStatus(dynamic value) {
-    final raw = value?.toString().toLowerCase().trim() ?? '';
-    if (raw == 'approved' || raw == 'confirmed') {
-      return 'approved';
-    }
-    if (raw == 'completed') {
-      return 'completed';
-    }
-    if (raw == 'cancelled') {
-      return 'cancelled';
-    }
-    return 'pending';
-  }
-
-  String _statusLabel(String status) {
-    return switch (status) {
-      'approved' => 'APPROVED',
-      'completed' => 'COMPLETED',
-      'cancelled' => 'CANCELLED',
-      _ => 'PENDING',
-    };
   }
 
   Color _serviceAccentColor(String serviceType) {
@@ -2149,7 +2099,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             .where(
               (appointment) =>
                   appointment['is_called'] != true &&
-                  _normalizeStatus(appointment['status']) == 'approved',
+                  normalizeAppointmentStatus(appointment['status']) ==
+                      'approved',
             )
             .toList()
           ..sort(
