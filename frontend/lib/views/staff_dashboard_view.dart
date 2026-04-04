@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/api_exception.dart';
+import '../core/appointment_queue_order.dart';
 import '../core/appointment_status.dart';
 import '../core/config.dart';
 import '../core/mobile_typography.dart';
@@ -128,19 +129,23 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         _appointmentService.invalidateAppointmentCaches();
       }
 
-      final list = await _appointmentService.getAdminAppointmentsByDate(date);
-      List<Map<String, dynamic>> recycleBinAppointments = [];
-      if (!_isReadOnlyAccount) {
-        try {
-          recycleBinAppointments = await _appointmentService
-              .getRecycleBinAppointments(true);
-        } catch (_) {
-          recycleBinAppointments = [];
-        }
-      }
+      final Future<List<Map<String, dynamic>>> appointmentsFuture =
+          _appointmentService.getAdminAppointmentsByDate(date);
+      final Future<List<Map<String, dynamic>>> recycleBinFuture =
+          _isReadOnlyAccount
+          ? Future<List<Map<String, dynamic>>>.value(<Map<String, dynamic>>[])
+          : _appointmentService
+                .getRecycleBinAppointments(true)
+                .catchError((_) => <Map<String, dynamic>>[]);
+      final Future<Map<String, dynamic>> queueFuture = _appointmentService
+          .getAdminTodayQueue(date);
+
+      final List<Map<String, dynamic>> list = await appointmentsFuture;
+      final List<Map<String, dynamic>> recycleBinAppointments =
+          await recycleBinFuture;
       Map<String, dynamic>? queueStatus;
       try {
-        queueStatus = await _appointmentService.getAdminTodayQueue(date);
+        queueStatus = await queueFuture;
       } on ApiException {
         queueStatus = _buildQueueStatusFallback(list, date);
       } catch (_) {
@@ -213,6 +218,14 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Future<void> _loadUnreadNotificationCount() async {
+    if (_isReadOnlyAccount) {
+      if (!mounted) return;
+      setState(() {
+        _unreadNotificationCount = 0;
+      });
+      return;
+    }
+
     try {
       final NotificationListResult result = await _notificationService
           .getNotifications('staff');
@@ -229,6 +242,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Future<void> _openNotifications() async {
+    if (_isReadOnlyAccount) {
+      return;
+    }
+
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const NotificationsView()),
@@ -359,7 +376,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           context,
           title: 'Appointment\nSuccessfully Approved!',
           message: 'The appointment has been successfully approved.',
-          buttonLabel: 'DONE',
+          buttonLabel: 'Return to Queue',
         );
         if (!mounted) return true;
       } else {
@@ -1926,11 +1943,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           queue.contains(query);
     }).toList();
 
-    filtered.sort((a, b) {
-      final queueA = _parseQueueNumber(a['queue_number']);
-      final queueB = _parseQueueNumber(b['queue_number']);
-      return queueA.compareTo(queueB);
-    });
+    filtered.sort(compareAppointmentQueueDisplayOrder);
 
     return filtered;
   }
@@ -2143,11 +2156,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         appointments
             .where((appointment) => appointment['is_called'] == true)
             .toList()
-          ..sort(
-            (a, b) => _parseQueueNumber(
-              b['queue_number'],
-            ).compareTo(_parseQueueNumber(a['queue_number'])),
-          );
+          ..sort(compareAppointmentQueueDisplayOrderDescending);
 
     final nextUpCandidates =
         appointments
@@ -2158,11 +2167,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                       'approved',
             )
             .toList()
-          ..sort(
-            (a, b) => _parseQueueNumber(
-              a['queue_number'],
-            ).compareTo(_parseQueueNumber(b['queue_number'])),
-          );
+          ..sort(compareAppointmentQueueDisplayOrder);
 
     return {
       'date': date,

@@ -33,6 +33,7 @@ class _NotificationsViewState extends State<NotificationsView> {
   int _unreadCount = 0;
   String _role = 'patient';
   String? _loadError;
+  bool _hasResolvedRole = false;
 
   @override
   void initState() {
@@ -48,7 +49,7 @@ class _NotificationsViewState extends State<NotificationsView> {
 
   Future<void> _fetchNotifications({bool showLoader = true}) async {
     final bool hasVisibleContent = _notifications.isNotEmpty;
-    final String resolvedRole = await _resolveRole();
+    final String resolvedRole = _hasResolvedRole ? _role : await _resolveRole();
     if (!mounted) {
       return;
     }
@@ -57,6 +58,7 @@ class _NotificationsViewState extends State<NotificationsView> {
       _isLoading = showLoader || !hasVisibleContent;
       _loadError = null;
       _role = resolvedRole;
+      _hasResolvedRole = true;
     });
 
     try {

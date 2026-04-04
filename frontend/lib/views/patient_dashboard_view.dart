@@ -86,7 +86,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _loadUnreadNotificationCount();
-      _refreshAppointmentsSilently();
+      _refreshAppointmentsSilently(forceRefresh: true);
     }
   }
 
@@ -135,20 +135,24 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
         _appointmentService.invalidateAppointmentCaches();
       }
 
-      final list = await _appointmentService.getPatientAppointments();
-      List<Map<String, dynamic>> recycleBinAppointments;
-      try {
-        recycleBinAppointments = await _appointmentService
-            .getRecycleBinAppointments(false);
-      } catch (_) {
-        recycleBinAppointments = [];
-      }
-      Map<String, dynamic>? queueStatus;
-      try {
-        queueStatus = await _appointmentService.getPatientTodayQueue();
-      } catch (_) {
-        queueStatus = null;
-      }
+      final Future<List<Map<String, dynamic>>> appointmentsFuture =
+          _appointmentService.getPatientAppointments();
+      final Future<List<Map<String, dynamic>>> recycleBinFuture =
+          _appointmentService
+              .getRecycleBinAppointments(false)
+              .catchError((_) => <Map<String, dynamic>>[]);
+      final Future<Map<String, dynamic>?> queueStatusFuture =
+          _appointmentService
+              .getPatientTodayQueue()
+              .then<Map<String, dynamic>?>(
+                (Map<String, dynamic> value) => value,
+              )
+              .catchError((_) => null);
+
+      final List<Map<String, dynamic>> list = await appointmentsFuture;
+      final List<Map<String, dynamic>> recycleBinAppointments =
+          await recycleBinFuture;
+      final Map<String, dynamic>? queueStatus = await queueStatusFuture;
       if (!mounted) return;
       setState(() {
         _appointments = list;
@@ -185,12 +189,32 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     return _loadAppointments(showLoader: false, forceRefresh: true);
   }
 
-  Future<void> _refreshAppointmentsSilently() {
+  Future<void> _refreshAppointmentsSilently({bool forceRefresh = false}) {
     return _loadAppointments(
       showLoader: false,
-      forceRefresh: true,
+      forceRefresh: forceRefresh,
       notifyOnError: false,
     );
+  }
+
+  Future<void> _refreshQueueStatusSilently({bool forceRefresh = false}) async {
+    try {
+      if (forceRefresh) {
+        _appointmentService.invalidatePatientTodayQueueCache();
+      }
+
+      final Map<String, dynamic> queueStatus = await _appointmentService
+          .getPatientTodayQueue();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _todayQueueStatus = queueStatus;
+      });
+    } catch (_) {
+      // Keep the current queue snapshot when a background refresh fails.
+    }
   }
 
   void _startQueueAutoRefresh() {
@@ -200,8 +224,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
         return;
       }
 
-      _loadUnreadNotificationCount();
-      _refreshAppointmentsSilently();
+      _refreshQueueStatusSilently(forceRefresh: true);
     });
   }
 
@@ -1918,7 +1941,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                         ),
                       ),
                       child: const Text(
-                        'No, Keep it',
+                        'Keep Appointment',
                         style: TextStyle(
                           color: Color(0xFF64748B),
                           fontWeight: FontWeight.bold,
@@ -1941,7 +1964,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                         ),
                       ),
                       child: const Text(
-                        'Yes, Cancel',
+                        'Cancel Appointment',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

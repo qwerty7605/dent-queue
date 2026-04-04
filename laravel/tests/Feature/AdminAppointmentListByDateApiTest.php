@@ -17,7 +17,7 @@ class AdminAppointmentListByDateApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_appointments_endpoint_filters_by_date_and_orders_by_queue_number(): void
+    public function test_admin_appointments_endpoint_filters_by_date_and_orders_by_time_then_created_at(): void
     {
         $staff = $this->createUserWithRole('Staff');
         $serviceA = $this->createService('Dental Check-up');
@@ -26,21 +26,39 @@ class AdminAppointmentListByDateApiTest extends TestCase
         $patientA = $this->createUserWithRole('Patient');
         $patientB = $this->createUserWithRole('Patient');
         $patientC = $this->createUserWithRole('Patient');
+        $patientD = $this->createUserWithRole('Patient');
         $otherDatePatient = $this->createUserWithRole('Patient');
 
         $date = '2026-03-17';
         $otherDate = '2026-03-18';
 
-        $appointmentQueue3 = $this->createAppointment($patientA->id, $serviceA->id, $date, '10:00', 'pending');
-        $appointmentQueue1 = $this->createAppointment($patientB->id, $serviceB->id, $date, '09:00', 'confirmed');
-        $appointmentQueue2 = $this->createAppointment($patientC->id, $serviceA->id, $date, '11:00', 'cancelled');
+        $earliestAppointment = $this->createAppointment($patientA->id, $serviceA->id, $date, '08:30', 'confirmed');
+        $sameTimeEarlierCreated = $this->createAppointment($patientB->id, $serviceB->id, $date, '09:00', 'pending');
+        $sameTimeLaterCreated = $this->createAppointment($patientC->id, $serviceA->id, $date, '09:00', 'confirmed');
+        $cancelledAppointment = $this->createAppointment($patientD->id, $serviceA->id, $date, '10:00', 'cancelled');
         $otherDateAppointment = $this->createAppointment($otherDatePatient->id, $serviceA->id, $otherDate, '08:00', 'pending');
-        $appointmentQueue2->delete();
+        $cancelledAppointment->delete();
 
-        $this->createQueue($appointmentQueue3->id, $date, 3);
-        $this->createQueue($appointmentQueue1->id, $date, 1);
-        $this->createQueue($appointmentQueue2->id, $date, 2);
-        $this->createQueue($otherDateAppointment->id, $otherDate, 1);
+        $earliestAppointment->forceFill([
+            'created_at' => '2026-03-10 07:15:00',
+            'updated_at' => '2026-03-10 07:15:00',
+        ])->saveQuietly();
+        $sameTimeEarlierCreated->forceFill([
+            'created_at' => '2026-03-10 07:30:00',
+            'updated_at' => '2026-03-10 07:30:00',
+        ])->saveQuietly();
+        $sameTimeLaterCreated->forceFill([
+            'created_at' => '2026-03-10 07:45:00',
+            'updated_at' => '2026-03-10 07:45:00',
+        ])->saveQuietly();
+
+        // Seed intentionally mismatched queue numbers to verify the endpoint
+        // reuses the same daily ordering as queue generation.
+        $this->createQueue($sameTimeLaterCreated->id, $date, 1);
+        $this->createQueue($earliestAppointment->id, $date, 3);
+        $this->createQueue($sameTimeEarlierCreated->id, $date, 2);
+        $this->createQueue($cancelledAppointment->id, $date, 4);
+        $this->createQueue($otherDateAppointment->id, $otherDate, 9);
 
         Sanctum::actingAs($staff);
 
@@ -48,29 +66,53 @@ class AdminAppointmentListByDateApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('date', $date)
-            ->assertJsonCount(2, 'appointments')
-            ->assertJsonPath('appointments.0.id', $appointmentQueue1->id)
-            ->assertJsonPath('appointments.0.patient_name', trim($patientB->first_name . ' ' . $patientB->last_name))
-            ->assertJsonPath('appointments.0.service_type', $serviceB->name)
-            ->assertJsonPath('appointments.0.time', '09:00')
+            ->assertJsonCount(3, 'appointments')
+            ->assertJsonPath('appointments.0.id', $earliestAppointment->id)
+            ->assertJsonPath('appointments.0.patient_name', trim($patientA->first_name . ' ' . $patientA->last_name))
+            ->assertJsonPath('appointments.0.service_type', $serviceA->name)
+            ->assertJsonPath('appointments.0.time', '08:30')
             ->assertJsonPath('appointments.0.status', 'Confirmed')
             ->assertJsonPath('appointments.0.queue_number', 1)
-            ->assertJsonPath('appointments.1.id', $appointmentQueue3->id)
-            ->assertJsonPath('appointments.1.queue_number', 3);
+            ->assertJsonPath('appointments.1.id', $sameTimeEarlierCreated->id)
+            ->assertJsonPath('appointments.1.time', '09:00')
+            ->assertJsonPath('appointments.1.status', 'Pending')
+            ->assertJsonPath('appointments.1.queue_number', 2)
+            ->assertJsonPath('appointments.2.id', $sameTimeLaterCreated->id)
+            ->assertJsonPath('appointments.2.time', '09:00')
+            ->assertJsonPath('appointments.2.status', 'Confirmed')
+            ->assertJsonPath('appointments.2.queue_number', 3);
 
         $appointmentIds = array_map(
             fn (array $appointment): int => (int) ($appointment['id'] ?? 0),
             $response->json('appointments', []),
         );
 
-        $this->assertNotContains($appointmentQueue2->id, $appointmentIds);
+        $this->assertNotContains($cancelledAppointment->id, $appointmentIds);
+        $this->assertNotContains($otherDateAppointment->id, $appointmentIds);
 
         $appointmentDates = array_map(
             fn (array $appointment): string => (string) ($appointment['appointment_date'] ?? ''),
             $response->json('appointments', []),
         );
 
-        $this->assertSame([$date, $date], $appointmentDates);
+        $this->assertSame([$date, $date, $date], $appointmentDates);
+        $this->assertNotEmpty($response->json('appointments.1.timestamp_created'));
+
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $earliestAppointment->id,
+            'queue_date' => $date,
+            'queue_number' => 1,
+        ]);
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $sameTimeEarlierCreated->id,
+            'queue_date' => $date,
+            'queue_number' => 2,
+        ]);
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $sameTimeLaterCreated->id,
+            'queue_date' => $date,
+            'queue_number' => 3,
+        ]);
     }
 
     public function test_admin_appointments_endpoint_requires_date_parameter(): void

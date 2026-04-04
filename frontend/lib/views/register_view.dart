@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_form_validators.dart';
 import '../core/api_exception.dart';
+import '../core/form_error_helpers.dart';
 import '../core/mobile_typography.dart';
 import '../services/auth_service.dart';
 
@@ -22,6 +23,32 @@ class RegisterView extends StatefulWidget {
 }
 
 class _RegisterViewState extends State<RegisterView> {
+  static const Map<String, List<String>> _apiFieldMappings =
+      <String, List<String>>{
+        'first_name': <String>['first_name'],
+        'middle_name': <String>['middle_name'],
+        'last_name': <String>['last_name'],
+        'contact_number': <String>['contact_number', 'phone_number'],
+        'gender': <String>['gender'],
+        'location': <String>['location', 'address'],
+        'email': <String>['email'],
+        'username': <String>['username'],
+        'password': <String>['password'],
+        'password_confirmation': <String>['password_confirmation'],
+      };
+  static const Map<String, int> _fieldSteps = <String, int>{
+    'first_name': 0,
+    'middle_name': 0,
+    'last_name': 0,
+    'contact_number': 1,
+    'gender': 1,
+    'location': 1,
+    'email': 1,
+    'username': 2,
+    'password': 2,
+    'password_confirmation': 2,
+  };
+
   final _formKey = GlobalKey<FormState>();
   int _currentStep = 0; // 0: Name, 1: Basic Info, 2: Account
 
@@ -36,23 +63,15 @@ class _RegisterViewState extends State<RegisterView> {
   final _confirmPasswordController = TextEditingController();
 
   String? _gender;
-  String? _emailErrorText;
-  String? _usernameErrorText;
   bool _submitting = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _emailController.addListener(_clearEmailError);
-    _usernameController.addListener(_clearUsernameError);
-  }
+  AutovalidateMode _autoValidateMode = AutovalidateMode.onUserInteraction;
+  Map<String, String> _fieldErrors = <String, String>{};
+  String? _formErrorText;
 
   @override
   void dispose() {
-    _emailController.removeListener(_clearEmailError);
-    _usernameController.removeListener(_clearUsernameError);
     _firstNameController.dispose();
     _middleNameController.dispose();
     _lastNameController.dispose();
@@ -65,39 +84,46 @@ class _RegisterViewState extends State<RegisterView> {
     super.dispose();
   }
 
-  void _clearEmailError() {
-    if (_emailErrorText == null) return;
+  void _clearFieldError(String fieldKey) {
+    if (!_fieldErrors.containsKey(fieldKey) && _formErrorText == null) return;
     setState(() {
-      _emailErrorText = null;
+      _fieldErrors.remove(fieldKey);
+      _formErrorText = null;
     });
   }
 
-  void _clearUsernameError() {
-    if (_usernameErrorText == null) return;
-    setState(() {
-      _usernameErrorText = null;
-    });
+  String? _mergeFieldError(String fieldKey, String? localError) {
+    return localError ?? _fieldErrors[fieldKey];
   }
 
-  String? _firstErrorMessage(dynamic value) {
-    if (value is List && value.isNotEmpty) {
-      final first = value.first;
-      if (first is String && first.trim().isNotEmpty) {
-        return first;
+  int _resolveStepForErrors(Map<String, String> fieldErrors) {
+    int? step;
+
+    for (final String field in fieldErrors.keys) {
+      final int? candidate = _fieldSteps[field];
+      if (candidate == null) {
+        continue;
+      }
+
+      if (step == null || candidate < step) {
+        step = candidate;
       }
     }
-    if (value is String && value.trim().isNotEmpty) {
-      return value;
-    }
-    return null;
+
+    return step ?? _currentStep;
   }
 
   Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _autoValidateMode = AutovalidateMode.always;
+      });
+      return;
+    }
 
     setState(() {
-      _emailErrorText = null;
-      _usernameErrorText = null;
+      _fieldErrors = <String, String>{};
+      _formErrorText = null;
       _submitting = true;
     });
 
@@ -119,19 +145,29 @@ class _RegisterViewState extends State<RegisterView> {
       widget.onRegisterSuccess?.call();
     } on ApiException catch (e) {
       if (!mounted) return;
-      final emailError = _firstErrorMessage(e.errors?['email']);
-      final usernameError = _firstErrorMessage(e.errors?['username']);
+      final Map<String, String> fieldErrors = collectApiFieldErrors(
+        e.errors,
+        _apiFieldMappings,
+      );
+      final String? formError =
+          firstUnhandledApiError(
+            e.errors,
+            handledKeys: flattenApiErrorKeys(_apiFieldMappings),
+          ) ??
+          (fieldErrors.isEmpty ? e.message : null);
 
       setState(() {
-        _emailErrorText = emailError;
-        _usernameErrorText = usernameError;
+        _fieldErrors = fieldErrors;
+        _formErrorText = formError;
+        _currentStep = _resolveStepForErrors(fieldErrors);
+        _autoValidateMode = AutovalidateMode.always;
       });
-
-      if (emailError == null && usernameError == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
+      _formKey.currentState?.validate();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _formKey.currentState?.validate();
+        }
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -142,7 +178,12 @@ class _RegisterViewState extends State<RegisterView> {
   }
 
   void _nextStep() {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _autoValidateMode = AutovalidateMode.always;
+      });
+      return;
+    }
     setState(() {
       _currentStep++;
     });
@@ -239,7 +280,7 @@ class _RegisterViewState extends State<RegisterView> {
                         ),
                         child: Form(
                           key: _formKey,
-                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          autovalidateMode: _autoValidateMode,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -313,6 +354,17 @@ class _RegisterViewState extends State<RegisterView> {
                               ),
                               const SizedBox(height: 16),
 
+                              if (_formErrorText != null) ...[
+                                Text(
+                                  _formErrorText!,
+                                  style: const TextStyle(
+                                    color: Color(0xFFFFA0A0),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
                               if (_currentStep == 0) _buildStep0(),
                               if (_currentStep == 1) _buildStep1(),
                               if (_currentStep == 2) _buildStep2(),
@@ -384,14 +436,18 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'First Name',
           child: TextFormField(
             controller: _firstNameController,
+            forceErrorText: _fieldErrors['first_name'],
+            onChanged: (_) => _clearFieldError('first_name'),
             inputFormatters: AppFormValidators.nameInputFormatters(),
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
             decoration: _inputDecoration(hintText: 'Enter First Name'),
-            validator: (val) =>
-                AppFormValidators.requiredName(val, fieldLabel: 'First name'),
+            validator: (val) => _mergeFieldError(
+              'first_name',
+              AppFormValidators.requiredName(val, fieldLabel: 'First name'),
+            ),
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -400,14 +456,18 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Middle Name',
           child: TextFormField(
             controller: _middleNameController,
+            forceErrorText: _fieldErrors['middle_name'],
+            onChanged: (_) => _clearFieldError('middle_name'),
             inputFormatters: AppFormValidators.nameInputFormatters(),
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
             decoration: _inputDecoration(hintText: 'Enter Middle Name'),
-            validator: (val) =>
-                AppFormValidators.optionalName(val, fieldLabel: 'Middle name'),
+            validator: (val) => _mergeFieldError(
+              'middle_name',
+              AppFormValidators.optionalName(val, fieldLabel: 'Middle name'),
+            ),
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -416,14 +476,18 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Last Name',
           child: TextFormField(
             controller: _lastNameController,
+            forceErrorText: _fieldErrors['last_name'],
+            onChanged: (_) => _clearFieldError('last_name'),
             inputFormatters: AppFormValidators.nameInputFormatters(),
             style: const TextStyle(
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
             decoration: _inputDecoration(hintText: 'Enter Last Name'),
-            validator: (val) =>
-                AppFormValidators.requiredName(val, fieldLabel: 'Last name'),
+            validator: (val) => _mergeFieldError(
+              'last_name',
+              AppFormValidators.requiredName(val, fieldLabel: 'Last name'),
+            ),
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _nextStep(),
           ),
@@ -482,6 +546,8 @@ class _RegisterViewState extends State<RegisterView> {
               Expanded(
                 child: TextFormField(
                   controller: _contactNumberController,
+                  forceErrorText: _fieldErrors['contact_number'],
+                  onChanged: (_) => _clearFieldError('contact_number'),
                   inputFormatters:
                       AppFormValidators.contactNumberInputFormatters(),
                   keyboardType: TextInputType.phone,
@@ -494,7 +560,10 @@ class _RegisterViewState extends State<RegisterView> {
                     helperText: 'Use an 11-digit PH mobile number',
                   ),
                   textInputAction: TextInputAction.next,
-                  validator: AppFormValidators.contactNumber,
+                  validator: (value) => _mergeFieldError(
+                    'contact_number',
+                    AppFormValidators.contactNumber(value),
+                  ),
                 ),
               ),
             ],
@@ -505,6 +574,7 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Gender',
           child: DropdownButtonFormField<String>(
             initialValue: _gender,
+            forceErrorText: _fieldErrors['gender'],
             icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
             decoration: _inputDecoration(hintText: 'Enter Gender'),
             style: const TextStyle(
@@ -524,9 +594,12 @@ class _RegisterViewState extends State<RegisterView> {
               setState(() {
                 _gender = val;
               });
+              _clearFieldError('gender');
             },
-            validator: (val) =>
-                AppFormValidators.gender(val, required: true),
+            validator: (val) => _mergeFieldError(
+              'gender',
+              AppFormValidators.gender(val, required: true),
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -534,6 +607,8 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Location',
           child: TextFormField(
             controller: _locationController,
+            forceErrorText: _fieldErrors['location'],
+            onChanged: (_) => _clearFieldError('location'),
             inputFormatters: AppFormValidators.maxLengthInputFormatters(
               AppFormValidators.addressMaxLength,
             ),
@@ -546,8 +621,10 @@ class _RegisterViewState extends State<RegisterView> {
               helperText:
                   'Up to ${AppFormValidators.addressMaxLength} characters',
             ),
-            validator: (value) =>
-                AppFormValidators.address(value, fieldLabel: 'Location'),
+            validator: (value) => _mergeFieldError(
+              'location',
+              AppFormValidators.address(value, fieldLabel: 'Location'),
+            ),
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -556,6 +633,8 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Email',
           child: TextFormField(
             controller: _emailController,
+            forceErrorText: _fieldErrors['email'],
+            onChanged: (_) => _clearFieldError('email'),
             inputFormatters: AppFormValidators.maxLengthInputFormatters(
               AppFormValidators.emailMaxLength,
             ),
@@ -565,21 +644,12 @@ class _RegisterViewState extends State<RegisterView> {
               color: Colors.black87,
             ),
             decoration: _inputDecoration(hintText: 'Enter Email'),
-            validator: AppFormValidators.email,
+            validator: (value) =>
+                _mergeFieldError('email', AppFormValidators.email(value)),
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _nextStep(),
           ),
         ),
-        if (_emailErrorText != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            _emailErrorText!,
-            style: const TextStyle(
-              color: Color(0xFFFF6B6B),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
         const SizedBox(height: 24),
         _buildPrimaryButton(
           label: 'Next',
@@ -598,6 +668,8 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Username',
           child: TextFormField(
             controller: _usernameController,
+            forceErrorText: _fieldErrors['username'],
+            onChanged: (_) => _clearFieldError('username'),
             inputFormatters: AppFormValidators.usernameInputFormatters(),
             style: const TextStyle(
               fontWeight: FontWeight.w700,
@@ -607,25 +679,18 @@ class _RegisterViewState extends State<RegisterView> {
               hintText: 'Enter your Username',
               helperText: 'Letters, numbers, dots, hyphens, underscores',
             ),
-            validator: AppFormValidators.username,
+            validator: (value) =>
+                _mergeFieldError('username', AppFormValidators.username(value)),
             textInputAction: TextInputAction.next,
           ),
         ),
-        if (_usernameErrorText != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            _usernameErrorText!,
-            style: const TextStyle(
-              color: Color(0xFFFF6B6B),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
         const SizedBox(height: 16),
         _buildLabeledField(
           label: 'Password',
           child: TextFormField(
             controller: _passwordController,
+            forceErrorText: _fieldErrors['password'],
+            onChanged: (_) => _clearFieldError('password'),
             obscureText: !_showPassword,
             style: const TextStyle(
               fontWeight: FontWeight.w700,
@@ -647,7 +712,8 @@ class _RegisterViewState extends State<RegisterView> {
                 },
               ),
             ),
-            validator: AppFormValidators.password,
+            validator: (value) =>
+                _mergeFieldError('password', AppFormValidators.password(value)),
             textInputAction: TextInputAction.next,
           ),
         ),
@@ -656,6 +722,8 @@ class _RegisterViewState extends State<RegisterView> {
           label: 'Confirm Password',
           child: TextFormField(
             controller: _confirmPasswordController,
+            forceErrorText: _fieldErrors['password_confirmation'],
+            onChanged: (_) => _clearFieldError('password_confirmation'),
             obscureText: !_showConfirmPassword,
             style: const TextStyle(
               fontWeight: FontWeight.w700,
@@ -677,9 +745,9 @@ class _RegisterViewState extends State<RegisterView> {
                 },
               ),
             ),
-            validator: (val) => AppFormValidators.confirmPassword(
-              val,
-              _passwordController.text,
+            validator: (val) => _mergeFieldError(
+              'password_confirmation',
+              AppFormValidators.confirmPassword(val, _passwordController.text),
             ),
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _register(),

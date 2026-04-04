@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Appointment;
 use App\Models\Queue;
 use App\Models\PatientNotification;
+use App\Support\AppointmentQueueOrder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -73,9 +74,7 @@ class QueueService
             ->whereDate('appointment_date', $appointmentDate)
             ->whereNull('deleted_at')
             ->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
-            ->orderBy('time_slot')
-            ->orderBy('created_at')
-            ->orderBy('id')
+            ->tap(static fn ($query) => AppointmentQueueOrder::apply($query))
             ->lockForUpdate()
             ->get(['id', 'appointment_date']);
 
@@ -189,7 +188,7 @@ class QueueService
             ->whereNull('appointments.deleted_at')
             ->where('queues.is_called', true)
             ->whereIn('appointments.status', ['confirmed', 'completed'])
-            ->orderByDesc('queues.queue_number')
+            ->tap(static fn ($query) => AppointmentQueueOrder::applyDescending($query))
             ->select([
                 'queues.queue_number',
                 'queues.is_called',
@@ -210,7 +209,7 @@ class QueueService
             ->whereNull('appointments.deleted_at')
             ->where('queues.is_called', false)
             ->whereIn('appointments.status', self::ELIGIBLE_CALL_STATUSES)
-            ->orderBy('queues.queue_number')
+            ->tap(static fn ($query) => AppointmentQueueOrder::apply($query))
             ->select([
                 'queues.queue_number',
                 'queues.is_called',
@@ -255,13 +254,15 @@ class QueueService
         }
 
         $calledQueue = DB::transaction(function () use ($queueDate) {
+            $this->syncQueueNumbersForDate($queueDate);
+
             $activeCalledQueue = Queue::query()
                 ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
                 ->where('queues.queue_date', $queueDate)
                 ->whereNull('appointments.deleted_at')
                 ->where('queues.is_called', true)
                 ->where('appointments.status', 'confirmed')
-                ->orderByDesc('queues.queue_number')
+                ->tap(static fn ($query) => AppointmentQueueOrder::applyDescending($query))
                 ->select('queues.id')
                 ->lockForUpdate()
                 ->first();
@@ -278,7 +279,7 @@ class QueueService
                 ->whereNull('appointments.deleted_at')
                 ->where('queues.is_called', false)
                 ->whereIn('appointments.status', self::ELIGIBLE_CALL_STATUSES)
-                ->orderBy('queues.queue_number')
+                ->tap(static fn ($query) => AppointmentQueueOrder::apply($query))
                 ->select('queues.id')
                 ->lockForUpdate()
                 ->first();
@@ -361,7 +362,7 @@ class QueueService
             ->where('queues.queue_date', $queueDate)
             ->whereNull('appointments.deleted_at')
             ->whereIn('appointments.status', self::ACTIVE_DISPLAY_STATUSES)
-            ->orderBy('queues.queue_number')
+            ->tap(static fn ($query) => AppointmentQueueOrder::apply($query))
             ->select([
                 'queues.queue_number',
                 'queues.is_called',

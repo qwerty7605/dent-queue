@@ -1,23 +1,43 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../core/app_form_validators.dart';
 import '../core/api_client.dart';
+import '../core/api_exception.dart';
 import '../core/config.dart';
+import '../core/form_error_helpers.dart';
 import '../core/token_storage.dart';
 import '../services/base_service.dart';
 import '../services/profile_service.dart';
 
 class EditProfileDialog extends StatefulWidget {
   final Map<String, dynamic> userInfo;
+  final ProfileService? profileService;
 
-  const EditProfileDialog({super.key, required this.userInfo});
+  const EditProfileDialog({
+    super.key,
+    required this.userInfo,
+    this.profileService,
+  });
 
   @override
   State<EditProfileDialog> createState() => _EditProfileDialogState();
 }
 
 class _EditProfileDialogState extends State<EditProfileDialog> {
+  static const Map<String, List<String>> _apiFieldMappings =
+      <String, List<String>>{
+        'first_name': <String>['first_name'],
+        'middle_name': <String>['middle_name'],
+        'last_name': <String>['last_name'],
+        'address': <String>['address', 'location'],
+        'gender': <String>['gender'],
+        'contact_number': <String>['contact_number', 'phone_number'],
+        'profile_picture': <String>['profile_picture'],
+      };
+
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _firstNameController;
@@ -30,6 +50,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   File? _selectedImage;
   bool _isLoading = false;
   late final ProfileService _profileService;
+  Map<String, String> _fieldErrors = <String, String>{};
+  String? _formErrorText;
 
   @override
   void initState() {
@@ -76,9 +98,11 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
       text: widget.userInfo['gender']?.toString() ?? '',
     );
 
-    _profileService = ProfileService(
-      BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
-    );
+    _profileService =
+        widget.profileService ??
+        ProfileService(
+          BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
+        );
   }
 
   @override
@@ -98,13 +122,50 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     if (pickedFile != null) {
       setState(() {
         _selectedImage = File(pickedFile.path);
+        _fieldErrors.remove('profile_picture');
+        _formErrorText = null;
       });
     }
   }
 
+  void _clearFieldError(String fieldKey) {
+    if (!_fieldErrors.containsKey(fieldKey) && _formErrorText == null) return;
+    setState(() {
+      _fieldErrors.remove(fieldKey);
+      _formErrorText = null;
+    });
+  }
+
+  String? _mergeFieldError(String fieldKey, String? localError) {
+    return localError ?? _fieldErrors[fieldKey];
+  }
+
+  void _applyApiErrors(ApiException exception) {
+    final Map<String, String> fieldErrors = collectApiFieldErrors(
+      exception.errors,
+      _apiFieldMappings,
+    );
+    final String? formError =
+        firstUnhandledApiError(
+          exception.errors,
+          handledKeys: flattenApiErrorKeys(_apiFieldMappings),
+        ) ??
+        (fieldErrors.isEmpty ? exception.message : null);
+
+    setState(() {
+      _fieldErrors = fieldErrors;
+      _formErrorText = formError;
+    });
+    _formKey.currentState?.validate();
+  }
+
   Future<void> _saveChanges() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+      setState(() {
+        _isLoading = true;
+        _fieldErrors = <String, String>{};
+        _formErrorText = null;
+      });
       try {
         final userId = widget.userInfo['id'] as int;
         final role = _resolveRole(widget.userInfo['role']);
@@ -150,14 +211,15 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
           );
           Navigator.of(context).pop(updatedUserInfo);
         }
+      } on ApiException catch (e) {
+        if (mounted) {
+          _applyApiErrors(e);
+        }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to update profile: $e'),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
+          setState(() {
+            _formErrorText = 'Failed to update profile: $e';
+          });
         }
       } finally {
         if (mounted) {
@@ -325,6 +387,28 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     ),
                     const SizedBox(height: 16),
 
+                    if (_formErrorText != null) ...[
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1F1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.redAccent.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Text(
+                          _formErrorText!,
+                          style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+
                     // Avatar placeholder (Clickable to upload)
                     Center(
                       child: Column(
@@ -424,6 +508,18 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                               letterSpacing: 1.0,
                             ),
                           ),
+                          if (_fieldErrors['profile_picture'] != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _fieldErrors['profile_picture']!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -434,15 +530,19 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _firstNameController,
+                      onChanged: (_) => _clearFieldError('first_name'),
                       inputFormatters: AppFormValidators.nameInputFormatters(),
                       decoration: _inputDecoration(),
                       style: const TextStyle(
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
                       ),
-                      validator: (value) => AppFormValidators.requiredName(
-                        value,
-                        fieldLabel: 'First name',
+                      validator: (value) => _mergeFieldError(
+                        'first_name',
+                        AppFormValidators.requiredName(
+                          value,
+                          fieldLabel: 'First name',
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -452,15 +552,19 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _middleNameController,
+                      onChanged: (_) => _clearFieldError('middle_name'),
                       inputFormatters: AppFormValidators.nameInputFormatters(),
                       decoration: _inputDecoration(),
                       style: const TextStyle(
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
                       ),
-                      validator: (value) => AppFormValidators.optionalName(
-                        value,
-                        fieldLabel: 'Middle name',
+                      validator: (value) => _mergeFieldError(
+                        'middle_name',
+                        AppFormValidators.optionalName(
+                          value,
+                          fieldLabel: 'Middle name',
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -470,15 +574,19 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _lastNameController,
+                      onChanged: (_) => _clearFieldError('last_name'),
                       inputFormatters: AppFormValidators.nameInputFormatters(),
                       decoration: _inputDecoration(),
                       style: const TextStyle(
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
                       ),
-                      validator: (value) => AppFormValidators.requiredName(
-                        value,
-                        fieldLabel: 'Last name',
+                      validator: (value) => _mergeFieldError(
+                        'last_name',
+                        AppFormValidators.requiredName(
+                          value,
+                          fieldLabel: 'Last name',
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -488,9 +596,11 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _addressController,
-                      inputFormatters: AppFormValidators.maxLengthInputFormatters(
-                        AppFormValidators.addressMaxLength,
-                      ),
+                      onChanged: (_) => _clearFieldError('address'),
+                      inputFormatters:
+                          AppFormValidators.maxLengthInputFormatters(
+                            AppFormValidators.addressMaxLength,
+                          ),
                       decoration: _inputDecoration(
                         helperText:
                             'Up to ${AppFormValidators.addressMaxLength} characters',
@@ -499,10 +609,13 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
                       ),
-                      validator: (value) => AppFormValidators.address(
-                        value,
-                        fieldLabel: 'Address',
-                        required: true,
+                      validator: (value) => _mergeFieldError(
+                        'address',
+                        AppFormValidators.address(
+                          value,
+                          fieldLabel: 'Address',
+                          required: true,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -512,9 +625,9 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _genderController,
-                      inputFormatters: AppFormValidators.maxLengthInputFormatters(
-                        10,
-                      ),
+                      onChanged: (_) => _clearFieldError('gender'),
+                      inputFormatters:
+                          AppFormValidators.maxLengthInputFormatters(10),
                       decoration: _inputDecoration(
                         helperText: 'Male, female, or other',
                       ),
@@ -522,8 +635,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
                       ),
-                      validator: (value) =>
-                          AppFormValidators.gender(value, required: false),
+                      validator: (value) => _mergeFieldError(
+                        'gender',
+                        AppFormValidators.gender(value, required: false),
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -532,6 +647,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _contactNumberController,
+                      onChanged: (_) => _clearFieldError('contact_number'),
                       inputFormatters:
                           AppFormValidators.contactNumberInputFormatters(),
                       keyboardType: TextInputType.phone,
@@ -542,8 +658,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                         color: Color(0xFF2C3E50),
                         fontSize: 16,
                       ),
-                      validator: (value) =>
-                          AppFormValidators.contactNumber(value),
+                      validator: (value) => _mergeFieldError(
+                        'contact_number',
+                        AppFormValidators.contactNumber(value),
+                      ),
                     ),
                     const SizedBox(height: 32),
 
@@ -626,5 +744,4 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
       ),
     );
   }
-
 }

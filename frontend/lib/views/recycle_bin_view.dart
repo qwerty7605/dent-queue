@@ -153,6 +153,38 @@ class _RecycleBinViewState extends State<RecycleBinView> {
     }
   }
 
+  Future<void> _confirmRestoreAppointment(RecycleBinEntry entry) async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Restore Appointment?'),
+          content: Text(
+            'Restore ${entry.service} back to the active appointment list?',
+          ),
+          actions: [
+            TextButton(
+              key: const Key('recycle-bin-restore-cancel'),
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Keep in Recycle Bin'),
+            ),
+            FilledButton(
+              key: const Key('recycle-bin-restore-confirm'),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Restore Appointment'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    await _restoreAppointment(entry.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -582,7 +614,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                   alignment: Alignment.centerLeft,
                   child: entry.isRestorable
                       ? OutlinedButton.icon(
-                          onPressed: () => _restoreAppointment(entry.id),
+                          onPressed: () => _confirmRestoreAppointment(entry),
                           icon: const Icon(Icons.restore_outlined),
                           label: const Text('Restore Appointment'),
                         )

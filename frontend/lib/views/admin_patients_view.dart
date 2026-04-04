@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/patient_record_service.dart';
 
 class AdminPatientsView extends StatefulWidget {
-  const AdminPatientsView({
-    super.key,
-    required this.patientRecordService,
-  });
+  const AdminPatientsView({super.key, required this.patientRecordService});
 
   final PatientRecordService patientRecordService;
 
@@ -57,19 +54,21 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Remove Patient'),
-          content: Text('Remove / Deactivate $fullName?'),
+          title: const Text('Deactivate Patient Account'),
+          content: Text(
+            'Are you sure you want to deactivate the account for $fullName?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: const Text('Keep Active'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFD32F2F),
               ),
-              child: const Text('Deactivate'),
+              child: const Text('Deactivate Account'),
             ),
           ],
         );
@@ -79,7 +78,9 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
     if (confirmed != true || !mounted) return;
 
     try {
-      final message = await widget.patientRecordService.deactivatePatient(patientId);
+      final message = await widget.patientRecordService.deactivatePatient(
+        patientId,
+      );
       if (!mounted) return;
 
       await _loadPatients();
@@ -169,31 +170,46 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                             DataColumn(
                               label: Text(
                                 'No.',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                             DataColumn(
                               label: Text(
                                 'Patient',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                             DataColumn(
                               label: Text(
                                 'Gender',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                             DataColumn(
                               label: Text(
                                 'Contact',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                             DataColumn(
                               label: Text(
                                 'Action',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                           ],
@@ -202,33 +218,54 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                             final patient = entry.value;
                             return DataRow(
                               cells: [
-                                DataCell(Text(
-                                  '${index + 1}',
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.black87,
-                                  ),
-                                )),
-                                DataCell(Text(
-                                  _displayText(patient['full_name']),
-                                  style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                )),
-                                DataCell(Text(
-                                  _displayText(patient['gender']),
-                                  style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                )),
-                                DataCell(Text(
-                                  _displayText(patient['contact_number']),
-                                  style: const TextStyle(fontSize: 15, color: Colors.black87),
-                                )),
-                                  DataCell(
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Color(0xFFD32F2F)),
-                                      onPressed: () => _confirmDeactivate(patient),
-                                      tooltip: 'Remove / Deactivate',
+                                DataCell(
+                                  Text(
+                                    '${index + 1}',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.black87,
                                     ),
                                   ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    _displayText(patient['full_name']),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    _displayText(patient['gender']),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    _displayText(patient['contact_number']),
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Color(0xFFD32F2F),
+                                    ),
+                                    onPressed: () =>
+                                        _confirmDeactivate(patient),
+                                    tooltip: 'Deactivate account',
+                                  ),
+                                ),
                               ],
                             );
                           }).toList(),

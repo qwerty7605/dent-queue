@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
+use App\Support\AppointmentQueueOrder;
 use Illuminate\Http\Request;
 use App\Services\QueueService;
 use Illuminate\Http\JsonResponse;
@@ -48,8 +49,7 @@ class QueueController extends Controller
             ->where('patient_id', (int) $patientRecord->id)
             ->whereDate('appointment_date', now(config('app.timezone'))->toDateString())
             ->whereIn('status', ['pending', 'confirmed', 'completed'])
-            ->orderBy('appointment_date')
-            ->orderBy('time_slot')
+            ->tap(static fn ($query) => AppointmentQueueOrder::apply($query, 'appointments'))
             ->first();
 
         if ($appointment === null) {

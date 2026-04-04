@@ -31,6 +31,9 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
   void invalidateAppointmentCaches() {}
 
   @override
+  void invalidatePatientTodayQueueCache() {}
+
+  @override
   Future<List<Map<String, dynamic>>> getPatientAppointments() async {
     patientAppointmentsCalls += 1;
     return _resultAt(patientAppointmentsResults, patientAppointmentsCalls);
@@ -444,6 +447,76 @@ void main() {
       expect(find.text('Records'), findsNothing);
       expect(find.text('Notifications'), findsNothing);
       expect(find.text('Recycle Bin'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'patient dashboard auto refresh updates queue without reloading the full appointment list',
+    (WidgetTester tester) async {
+      final String today = todayString();
+      final _FakeAppointmentService appointmentService =
+          _FakeAppointmentService()
+            ..patientAppointmentsResults = <List<Map<String, dynamic>>>[
+              <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'id': 1,
+                  'service_type': 'Dental Check-up',
+                  'appointment_date': today,
+                  'appointment_time': '09:00',
+                  'status': 'Pending',
+                  'queue_number': '01',
+                  'notes': '',
+                },
+              ],
+            ]
+            ..patientQueueResults = <Map<String, dynamic>>[
+              <String, dynamic>{
+                'now_serving': <String, dynamic>{
+                  'queue_number': 1,
+                  'patient_name': 'Alex Stone',
+                },
+                'patient_queue': <String, dynamic>{
+                  'queue_number': 4,
+                  'people_ahead': 3,
+                  'status': 'Approved',
+                  'is_now_serving': false,
+                },
+              },
+              <String, dynamic>{
+                'now_serving': <String, dynamic>{
+                  'queue_number': 2,
+                  'patient_name': 'Mia Lee',
+                },
+                'patient_queue': <String, dynamic>{
+                  'queue_number': 4,
+                  'people_ahead': 2,
+                  'status': 'Approved',
+                  'is_now_serving': false,
+                },
+              },
+            ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PatientDashboardView(
+            userInfo: const <String, dynamic>{},
+            onLogout: () {},
+            loggingOut: false,
+            appointmentService: appointmentService,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(appointmentService.patientAppointmentsCalls, 1);
+      expect(appointmentService.patientQueueCalls, 1);
+
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pump();
+
+      expect(appointmentService.patientAppointmentsCalls, 1);
+      expect(appointmentService.patientQueueCalls, 2);
     },
   );
 }

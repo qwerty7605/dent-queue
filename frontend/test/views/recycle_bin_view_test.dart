@@ -1,7 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/models/recycle_bin_entry.dart';
+import 'package:frontend/services/appointment_service.dart';
 import 'package:frontend/views/recycle_bin_view.dart';
+
+class _FakeAppointmentService extends Fake implements AppointmentService {
+  final List<int> restoreCalls = <int>[];
+
+  @override
+  Future<Map<String, dynamic>> restoreAppointment(int id) async {
+    restoreCalls.add(id);
+    return <String, dynamic>{'message': 'restored'};
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getRecycleBinAppointments(
+    bool isStaff,
+  ) async {
+    return <Map<String, dynamic>>[];
+  }
+}
 
 void main() {
   testWidgets('renders recycle bin entries with restore and expired states', (
@@ -93,5 +111,52 @@ void main() {
       find.textContaining('Cancelled appointments will appear here'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('requires confirmation before restoring an appointment', (
+    WidgetTester tester,
+  ) async {
+    final _FakeAppointmentService appointmentService =
+        _FakeAppointmentService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RecycleBinView(
+          role: RecycleBinRole.staff,
+          appointmentService: appointmentService,
+          entries: [
+            RecycleBinEntry(
+              id: 12,
+              service: 'Dental Cleaning',
+              appointmentAt: DateTime(2026, 4, 20, 9, 30),
+              deletedAt: DateTime(2026, 3, 30, 10, 0),
+              statusLabel: 'Cancelled',
+              isRestorable: true,
+              expiresAt: DateTime(2026, 4, 5),
+              patientName: 'Ava Stone',
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const Key('recycle-bin-list')),
+      const Offset(0, -250),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restore Appointment'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Restore Appointment?'), findsOneWidget);
+    expect(find.text('Keep in Recycle Bin'), findsOneWidget);
+    expect(appointmentService.restoreCalls, isEmpty);
+
+    await tester.tap(find.byKey(const Key('recycle-bin-restore-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(appointmentService.restoreCalls, <int>[12]);
   });
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/models/app_notification.dart';
 import 'package:frontend/services/base_service.dart';
@@ -9,12 +11,16 @@ class _FakeBaseService extends Fake implements BaseService {
   Object? lastBody;
   int getJsonCallCount = 0;
   int patchJsonCallCount = 0;
+  Completer<dynamic>? pendingGetJsonResponse;
 
   @override
   Future<T> getJson<T>(String path, T Function(dynamic json) mapper) async {
     getJsonCallCount += 1;
     lastPath = path;
-    return mapper(nextResponse);
+    final dynamic response = pendingGetJsonResponse == null
+        ? nextResponse
+        : await pendingGetJsonResponse!.future;
+    return mapper(response);
   }
 
   @override
@@ -70,50 +76,53 @@ void main() {
     },
   );
 
-  test('getNotifications uses cache until a read mutation invalidates it', () async {
-    fakeBaseService.nextResponse = <String, dynamic>{
-      'notifications': <Map<String, dynamic>>[
-        <String, dynamic>{
+  test(
+    'getNotifications uses cache until a read mutation invalidates it',
+    () async {
+      fakeBaseService.nextResponse = <String, dynamic>{
+        'notifications': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'notification_id': 7,
+            'title': 'Reminder',
+            'message': 'Upcoming appointment.',
+            'created_at': '2026-03-30T10:00:00Z',
+            'is_read': false,
+            'type': 'reminder',
+          },
+        ],
+        'unread_count': 1,
+      };
+
+      final NotificationListResult first = await notificationService
+          .getNotifications('patient');
+      final NotificationListResult second = await notificationService
+          .getNotifications('patient');
+
+      expect(first.notifications, hasLength(1));
+      expect(second.notifications, hasLength(1));
+      expect(fakeBaseService.getJsonCallCount, 1);
+
+      fakeBaseService.nextResponse = <String, dynamic>{
+        'notification': <String, dynamic>{
           'notification_id': 7,
           'title': 'Reminder',
           'message': 'Upcoming appointment.',
           'created_at': '2026-03-30T10:00:00Z',
-          'is_read': false,
+          'is_read': true,
           'type': 'reminder',
         },
-      ],
-      'unread_count': 1,
-    };
+      };
+      await notificationService.markAsRead('patient', 7);
 
-    final NotificationListResult first = await notificationService
-        .getNotifications('patient');
-    final NotificationListResult second = await notificationService
-        .getNotifications('patient');
+      fakeBaseService.nextResponse = <String, dynamic>{
+        'notifications': <Map<String, dynamic>>[],
+        'unread_count': 0,
+      };
+      await notificationService.getNotifications('patient');
 
-    expect(first.notifications, hasLength(1));
-    expect(second.notifications, hasLength(1));
-    expect(fakeBaseService.getJsonCallCount, 1);
-
-    fakeBaseService.nextResponse = <String, dynamic>{
-      'notification': <String, dynamic>{
-        'notification_id': 7,
-        'title': 'Reminder',
-        'message': 'Upcoming appointment.',
-        'created_at': '2026-03-30T10:00:00Z',
-        'is_read': true,
-        'type': 'reminder',
-      },
-    };
-    await notificationService.markAsRead('patient', 7);
-
-    fakeBaseService.nextResponse = <String, dynamic>{
-      'notifications': <Map<String, dynamic>>[],
-      'unread_count': 0,
-    };
-    await notificationService.getNotifications('patient');
-
-    expect(fakeBaseService.getJsonCallCount, 2);
-  });
+      expect(fakeBaseService.getJsonCallCount, 2);
+    },
+  );
 
   test('markAsRead requests the staff mark-read endpoint', () async {
     fakeBaseService.nextResponse = <String, dynamic>{
@@ -149,5 +158,40 @@ void main() {
     expect(fakeBaseService.lastPath, '/api/v1/patient/notifications/read-all');
     expect(fakeBaseService.lastBody, <String, dynamic>{});
     expect(updatedCount, 3);
+  });
+
+  test('getNotifications collapses concurrent matching requests', () async {
+    fakeBaseService.pendingGetJsonResponse = Completer<dynamic>();
+
+    final Future<NotificationListResult> first = notificationService
+        .getNotifications('patient');
+    final Future<NotificationListResult> second = notificationService
+        .getNotifications('patient');
+
+    expect(fakeBaseService.getJsonCallCount, 1);
+
+    fakeBaseService.pendingGetJsonResponse!.complete(<String, dynamic>{
+      'notifications': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'notification_id': 12,
+          'title': 'Queue update',
+          'message': 'A queue slot was assigned.',
+          'created_at': '2026-03-30T10:00:00Z',
+          'is_read': false,
+          'type': 'queue',
+        },
+      ],
+      'unread_count': 1,
+    });
+
+    final List<NotificationListResult> results =
+        await Future.wait<NotificationListResult>(
+          <Future<NotificationListResult>>[first, second],
+        );
+
+    expect(results[0].notifications, hasLength(1));
+    expect(results[1].notifications, hasLength(1));
+    expect(results[0].unreadCount, 1);
+    expect(results[1].unreadCount, 1);
   });
 }

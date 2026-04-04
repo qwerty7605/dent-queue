@@ -152,6 +152,72 @@ class QueueNowServingApiTest extends TestCase
         ]);
     }
 
+    public function test_staff_call_next_resequences_same_time_records_by_created_timestamp(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'Asia/Manila'));
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService('Teeth Cleaning');
+        $date = '2026-03-23';
+
+        $earlierCreatedPatient = $this->createUserWithRole('Patient');
+        $laterCreatedPatient = $this->createUserWithRole('Patient');
+
+        $earlierCreatedAppointment = $this->createAppointment(
+            $this->patientRecordId($earlierCreatedPatient),
+            $service->id,
+            $date,
+            '09:00',
+            'confirmed',
+        );
+        $laterCreatedAppointment = $this->createAppointment(
+            $this->patientRecordId($laterCreatedPatient),
+            $service->id,
+            $date,
+            '09:00',
+            'confirmed',
+        );
+
+        $earlierCreatedAppointment->forceFill([
+            'created_at' => '2026-03-20 07:30:00',
+            'updated_at' => '2026-03-20 07:30:00',
+        ])->saveQuietly();
+        $laterCreatedAppointment->forceFill([
+            'created_at' => '2026-03-20 07:45:00',
+            'updated_at' => '2026-03-20 07:45:00',
+        ])->saveQuietly();
+
+        $this->createQueue($laterCreatedAppointment->id, $date, 1, false);
+        $this->createQueue($earlierCreatedAppointment->id, $date, 2, false);
+
+        Sanctum::actingAs($staff);
+
+        $response = $this->postJson('/api/v1/admin/queues/call-next', [
+            'date' => $date,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Next patient called successfully.')
+            ->assertJsonPath('called_queue.appointment_id', $earlierCreatedAppointment->id)
+            ->assertJsonPath('called_queue.queue_number', 1)
+            ->assertJsonPath('now_serving.appointment_id', $earlierCreatedAppointment->id)
+            ->assertJsonPath('now_serving.queue_number', 1)
+            ->assertJsonPath('next_up.appointment_id', $laterCreatedAppointment->id)
+            ->assertJsonPath('next_up.queue_number', 2);
+
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $earlierCreatedAppointment->id,
+            'queue_date' => $date,
+            'queue_number' => 1,
+            'is_called' => true,
+        ]);
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $laterCreatedAppointment->id,
+            'queue_date' => $date,
+            'queue_number' => 2,
+            'is_called' => false,
+        ]);
+    }
+
     public function test_staff_cannot_call_next_before_8_am(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-03-23 07:59:00', 'Asia/Manila'));

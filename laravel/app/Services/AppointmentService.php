@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
 use App\Models\PatientNotification;
+use App\Support\AppointmentQueueOrder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -106,19 +107,22 @@ class AppointmentService
 
     public function getApprovedAppointmentsByDate(string $date)
     {
+        $this->syncDailyQueueNumbers($date);
+
         return Appointment::query()
             ->join('queues', 'queues.appointment_id', '=', 'appointments.id')
             ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->where('appointments.appointment_date', $date)
             ->where('appointments.status', self::STATUS_CONFIRMED)
-            ->orderBy('queues.queue_number')
+            ->tap(static fn (Builder $query) => AppointmentQueueOrder::apply($query))
             ->select([
                 'appointments.id',
                 'appointments.patient_id',
                 'appointments.service_id',
                 'appointments.appointment_date',
                 'appointments.time_slot',
+                'appointments.created_at',
                 'appointments.notes',
                 'appointments.status',
                 'queues.queue_number',
@@ -142,6 +146,9 @@ class AppointmentService
                     'status' => 'Approved',
                     'queue_number' => (int) $appointment->queue_number,
                     'appointment_date' => (string) $appointment->appointment_date,
+                    'timestamp_created' => $appointment->created_at !== null
+                        ? Carbon::parse((string) $appointment->created_at)->toIso8601String()
+                        : null,
                     'notes' => (string) ($appointment->notes ?? ''),
                 ];
             });
@@ -193,21 +200,25 @@ class AppointmentService
 
     public function getAppointmentsByDateOrderedQueue(string $date)
     {
+        $this->syncDailyQueueNumbers($date);
+
         return Appointment::query()
             ->join('queues', 'queues.appointment_id', '=', 'appointments.id')
             ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->where('appointments.appointment_date', $date)
             ->whereIn('appointments.status', self::ACTIVE_BOOKING_STATUSES)
-            ->orderBy('queues.queue_number')
+            ->tap(static fn (Builder $query) => AppointmentQueueOrder::apply($query))
             ->select([
                 'appointments.id',
                 'appointments.patient_id',
                 'appointments.service_id',
                 'appointments.appointment_date',
                 'appointments.time_slot',
+                'appointments.created_at',
                 'appointments.status',
                 'queues.queue_number',
+                'queues.is_called',
                 'patient_records.first_name',
                 'patient_records.last_name',
                 'services.name as service_name',
@@ -228,6 +239,9 @@ class AppointmentService
                     'queue_number' => (int) $appointment->queue_number,
                     'is_called' => (bool) $appointment->is_called,
                     'appointment_date' => (string) $appointment->appointment_date,
+                    'timestamp_created' => $appointment->created_at !== null
+                        ? Carbon::parse((string) $appointment->created_at)->toIso8601String()
+                        : null,
                 ];
             });
     }
@@ -603,6 +617,19 @@ class AppointmentService
             6 => 'Tooth Extraction',
             default => 'Unknown Service',
         };
+    }
+
+    private function syncDailyQueueNumbers(string $date): void
+    {
+        $hasActiveAppointments = Appointment::query()
+            ->whereDate('appointment_date', $date)
+            ->whereNull('deleted_at')
+            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
+            ->exists();
+
+        if ($hasActiveAppointments) {
+            $this->queueService->syncQueueNumbersForDate($date);
+        }
     }
 
     private function assertTimeSlotAvailable(

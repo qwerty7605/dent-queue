@@ -73,21 +73,21 @@ class _AdminStaffViewState extends State<AdminStaffView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Remove Staff'),
+          title: const Text('Deactivate Staff Account'),
           content: Text(
-            'Deactivate ${_resolveStaffName(staffMember)} from the staff list?',
+            'Are you sure you want to deactivate the account for ${_resolveStaffName(staffMember)}?',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: const Text('Keep Active'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFD32F2F),
               ),
-              child: const Text('Deactivate'),
+              child: const Text('Deactivate Account'),
             ),
           ],
         );
