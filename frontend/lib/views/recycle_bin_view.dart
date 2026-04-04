@@ -166,12 +166,12 @@ class _RecycleBinViewState extends State<RecycleBinView> {
             TextButton(
               key: const Key('recycle-bin-restore-cancel'),
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Keep in Bin'),
+              child: const Text('Keep in Recycle Bin'),
             ),
             FilledButton(
               key: const Key('recycle-bin-restore-confirm'),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Restore'),
+              child: const Text('Restore Appointment'),
             ),
           ],
         );

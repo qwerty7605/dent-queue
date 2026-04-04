@@ -193,7 +193,7 @@ class _StaffBookAppointmentDialogState
         title: 'Appointment Booked\nSuccessfully!',
         message:
             'The appointment has been successfully scheduled for the patient.',
-        buttonLabel: 'DONE',
+        buttonLabel: 'Return to Appointments',
       );
 
       if (!mounted) return;

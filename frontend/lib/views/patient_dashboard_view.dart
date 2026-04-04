@@ -1941,7 +1941,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                         ),
                       ),
                       child: const Text(
-                        'No, Keep it',
+                        'Keep Appointment',
                         style: TextStyle(
                           color: Color(0xFF64748B),
                           fontWeight: FontWeight.bold,
@@ -1964,7 +1964,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                         ),
                       ),
                       child: const Text(
-                        'Yes, Cancel',
+                        'Cancel Appointment',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

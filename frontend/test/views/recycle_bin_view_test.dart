@@ -151,6 +151,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Restore Appointment?'), findsOneWidget);
+    expect(find.text('Keep in Recycle Bin'), findsOneWidget);
     expect(appointmentService.restoreCalls, isEmpty);
 
     await tester.tap(find.byKey(const Key('recycle-bin-restore-confirm')));

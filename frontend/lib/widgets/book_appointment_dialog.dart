@@ -157,6 +157,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
           title: 'Appointment Booked\nSuccessfully!',
           message:
               'Your appointment request has been successfully submitted and scheduled.',
+          buttonLabel: 'Return to Dashboard',
         );
 
         if (!mounted) return;

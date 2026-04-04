@@ -372,7 +372,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           context,
           title: 'Appointment\nSuccessfully Approved!',
           message: 'The appointment has been successfully approved.',
-          buttonLabel: 'DONE',
+          buttonLabel: 'Return to Queue',
         );
         if (!mounted) return true;
       } else {

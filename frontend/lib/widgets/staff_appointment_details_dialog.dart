@@ -153,7 +153,7 @@ class _StaffAppointmentDetailsDialogState
   }
 
   Future<void> _handleAction(_AppointmentAction action) async {
-    final confirmed = await _showConfirmationDialog(action.label);
+    final confirmed = await _showConfirmationDialog(action);
     if (!confirmed || !mounted) {
       return;
     }
@@ -186,32 +186,61 @@ class _StaffAppointmentDetailsDialogState
     }
   }
 
-  Future<bool> _showConfirmationDialog(String actionLabel) async {
+  Future<bool> _showConfirmationDialog(_AppointmentAction action) async {
+    final String normalizedStatus = normalizeAppointmentStatus(
+      action.nextStatus,
+    );
     final decision = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('$actionLabel Appointment'),
-          content: Text(
-            'Are you sure you want to mark this appointment as $actionLabel?',
-          ),
+          title: Text(_confirmationTitle(normalizedStatus)),
+          content: Text(_confirmationMessage(normalizedStatus)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('No'),
+              child: const Text('Keep Status'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF679B6A),
               ),
-              child: const Text('Yes'),
+              child: Text(_confirmationButtonLabel(normalizedStatus)),
             ),
           ],
         );
       },
     );
     return decision ?? false;
+  }
+
+  String _confirmationTitle(String nextStatus) {
+    return switch (nextStatus) {
+      'approved' => 'Approve Appointment',
+      'cancelled' => 'Cancel Appointment',
+      'completed' => 'Mark Appointment as Completed',
+      _ => 'Update Appointment',
+    };
+  }
+
+  String _confirmationMessage(String nextStatus) {
+    return switch (nextStatus) {
+      'approved' => 'Are you sure you want to approve this appointment?',
+      'cancelled' => 'Are you sure you want to cancel this appointment?',
+      'completed' =>
+        'Are you sure you want to mark this appointment as completed?',
+      _ => 'Are you sure you want to update this appointment?',
+    };
+  }
+
+  String _confirmationButtonLabel(String nextStatus) {
+    return switch (nextStatus) {
+      'approved' => 'Approve Appointment',
+      'cancelled' => 'Cancel Appointment',
+      'completed' => 'Mark as Completed',
+      _ => 'Confirm Update',
+    };
   }
 
   List<_AppointmentAction> _allowedActionsForStatus(String status) {
@@ -232,7 +261,7 @@ class _StaffAppointmentDetailsDialogState
       ],
       'approved' => [
         const _AppointmentAction(
-          label: 'Complete',
+          label: 'Mark Completed',
           nextStatus: 'completed',
           backgroundColor: Color(0xFFDCF6E4),
           foregroundColor: Color(0xFF15803D),
