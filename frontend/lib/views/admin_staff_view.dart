@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/admin_staff_service.dart';
 import '../widgets/add_staff_dialog.dart';
+import '../widgets/app_empty_state.dart';
 
 class AdminStaffView extends StatefulWidget {
   const AdminStaffView({
@@ -213,10 +214,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: const Border(
-                  top: BorderSide(
-                    color: Color(0xFF679B6A),
-                    width: 6,
-                  ),
+                  top: BorderSide(color: Color(0xFF679B6A), width: 6),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -250,15 +248,20 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                       ),
                     )
                   else if (_staffMembers.isEmpty)
-                    const Expanded(
-                      child: Center(
-                        child: Text(
-                          'No staff or intern accounts found.',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black54,
-                          ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: AppEmptyState(
+                          key: const Key('admin-staff-empty-state'),
+                          icon: Icons.group_off_outlined,
+                          title: 'No staff accounts yet',
+                          message:
+                              'Staff and intern accounts will appear here after they are created.',
+                          actionLabel: 'Add Staff / Intern',
+                          actionIcon: Icons.person_add_alt_1_rounded,
+                          onAction: () {
+                            _showAddStaffDialog();
+                          },
                         ),
                       ),
                     )
@@ -284,37 +287,55 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                               DataColumn(
                                 label: Text(
                                   'No.',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
                               DataColumn(
                                 label: Text(
                                   'Account',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
                               DataColumn(
                                 label: Text(
                                   'Role',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
                               DataColumn(
                                 label: Text(
                                   'Gender',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
                               DataColumn(
                                 label: Text(
                                   'Contact',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
                               DataColumn(
                                 label: Text(
                                   'Action',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
                             ],
@@ -322,7 +343,8 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                               final index = entry.key;
                               final staffMember = entry.value;
                               final staffId = _readInt(staffMember['id']);
-                              final isProcessing = _processingStaffId != null &&
+                              final isProcessing =
+                                  _processingStaffId != null &&
                                   _processingStaffId == staffId;
 
                               return DataRow(
@@ -342,19 +364,30 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                                   ),
                                   DataCell(
                                     ConstrainedBox(
-                                      constraints: const BoxConstraints(minWidth: 220),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 220,
+                                      ),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Text(
                                             _resolveStaffName(staffMember),
-                                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
+                                            ),
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
                                             _resolveStaffRecordId(staffMember),
-                                            style: const TextStyle(fontSize: 13, color: Colors.black54),
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.black54,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -378,7 +411,10 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                                       width: 90,
                                       child: Text(
                                         _resolveGender(staffMember),
-                                        style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          color: Colors.black87,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -387,7 +423,10 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                                       width: 160,
                                       child: Text(
                                         _resolveContact(staffMember),
-                                        style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          color: Colors.black87,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -399,10 +438,16 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                                             ? const SizedBox(
                                                 width: 18,
                                                 height: 18,
-                                                child: CircularProgressIndicator(strokeWidth: 2),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
                                               )
                                             : IconButton(
-                                                onPressed: () => _confirmDeactivate(staffMember),
+                                                onPressed: () =>
+                                                    _confirmDeactivate(
+                                                      staffMember,
+                                                    ),
                                                 icon: const Icon(
                                                   Icons.person_remove_alt_1,
                                                   color: Color(0xFFD32F2F),
@@ -441,17 +486,19 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     final middleName = staffMember['middle_name']?.toString().trim() ?? '';
     final lastName = staffMember['last_name']?.toString().trim() ?? '';
 
-    final fullName = [firstName, middleName, lastName]
-        .where((part) => part.isNotEmpty)
-        .join(' ')
-        .trim();
+    final fullName = [
+      firstName,
+      middleName,
+      lastName,
+    ].where((part) => part.isNotEmpty).join(' ').trim();
 
     return fullName.isEmpty ? 'No data yet' : fullName;
   }
 
   String _resolveContact(Map<String, dynamic> staffMember) {
     final staffRecord = _readMap(staffMember['staff_record']);
-    final contact = staffRecord['contact_number'] ?? staffMember['phone_number'];
+    final contact =
+        staffRecord['contact_number'] ?? staffMember['phone_number'];
 
     return _resolveText(contact);
   }
@@ -499,5 +546,4 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     final text = value?.toString().trim() ?? '';
     return text.isEmpty ? 'No data yet' : text;
   }
-
 }

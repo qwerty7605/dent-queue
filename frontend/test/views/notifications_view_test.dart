@@ -266,4 +266,43 @@ void main() {
     expect(notificationService.listCalls, 2);
     expect(find.text('Refreshed notification state.'), findsOneWidget);
   });
+
+  testWidgets(
+    'renders the reusable empty state when there are no notifications',
+    (WidgetTester tester) async {
+      final InMemoryTokenStorage tokenStorage = InMemoryTokenStorage();
+      await tokenStorage.writeUserInfo(<String, dynamic>{'role': 'patient'});
+
+      final _FakeNotificationService notificationService =
+          _FakeNotificationService()
+            ..nextResult = const NotificationListResult(
+              notifications: <AppNotification>[],
+              unreadCount: 0,
+            );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationsView(
+            notificationService: notificationService,
+            tokenStorage: tokenStorage,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('notifications-empty-state')),
+        findsOneWidget,
+      );
+      expect(find.text('No notifications right now'), findsOneWidget);
+      expect(find.text('Refresh'), findsOneWidget);
+
+      await tester.tap(find.text('Refresh'));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(notificationService.listCalls, 2);
+    },
+  );
 }

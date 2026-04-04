@@ -7,6 +7,7 @@ import '../core/token_storage.dart';
 import '../models/app_notification.dart';
 import '../services/base_service.dart';
 import '../services/notification_service.dart';
+import '../widgets/app_empty_state.dart';
 
 class NotificationsView extends StatefulWidget {
   const NotificationsView({
@@ -382,52 +383,16 @@ class _NotificationsViewState extends State<NotificationsView> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 64),
       children: [
-        Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.notifications_off_outlined,
-                  size: 48,
-                  color: Color(0xFF94A3B8),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'No notifications yet',
-                style: TextStyle(
-                  fontSize: MobileTypography.sectionTitle(context),
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'You currently have no updates or reminders. Check back later!',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: MobileTypography.bodySmall(context),
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF64748B),
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
+        AppEmptyState(
+          icon: Icons.notifications_off_outlined,
+          title: 'No notifications right now',
+          message:
+              'Updates, reminders, and appointment activity will appear here when they are available.',
+          actionLabel: 'Refresh',
+          actionIcon: Icons.refresh_rounded,
+          onAction: () {
+            _refreshNotifications();
+          },
         ),
       ],
     );

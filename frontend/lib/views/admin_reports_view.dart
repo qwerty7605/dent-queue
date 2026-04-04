@@ -6,6 +6,7 @@ import '../core/file_download.dart';
 import '../core/mobile_typography.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
+import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
 
 enum _TrendView { daily, weekly, monthly }
@@ -1587,8 +1588,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                               ),
                             ),
                           )
-                        else if (_trendLoadError != null ||
-                            (hasLoadedSelectedTrend && !hasRealData))
+                        else if (_trendLoadError != null)
                           Center(
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -1605,8 +1605,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                                 ),
                               ),
                               child: Text(
-                                _trendLoadError ??
-                                    'No appointment trend data available yet.',
+                                _trendLoadError!,
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   fontSize: 13,
@@ -1614,6 +1613,18 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                                   color: Color(0xFF5A685E),
                                 ),
                               ),
+                            ),
+                          )
+                        else if (hasLoadedSelectedTrend && !hasRealData)
+                          const Center(
+                            child: AppEmptyState(
+                              key: Key('appointment-trends-empty-state'),
+                              icon: Icons.show_chart_rounded,
+                              title: 'No trend data yet',
+                              message:
+                                  'No appointment trend data available yet.',
+                              compact: true,
+                              maxWidth: 320,
                             ),
                           ),
                       ],
@@ -1957,18 +1968,22 @@ class _AdminReportsViewState extends State<AdminReportsView> {
           else if (_detailedRecords.isEmpty)
             Padding(
               padding: const EdgeInsets.all(32),
-              child: Center(
-                child: Text(
-                  _hasAppliedReportFilters
-                      ? 'No detailed records match the active filters.'
-                      : 'No detailed report records available yet.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF5E6C63),
-                  ),
-                ),
+              child: AppEmptyState(
+                key: const Key('admin-reports-detailed-empty-state'),
+                icon: Icons.table_rows_outlined,
+                title: _hasAppliedReportFilters
+                    ? 'No report data found'
+                    : 'No report records yet',
+                message: _hasAppliedReportFilters
+                    ? 'No detailed records match the selected filters.'
+                    : 'Detailed appointment records will appear here once report data is available.',
+                actionLabel: _hasAppliedReportFilters ? 'Reset Filters' : null,
+                actionIcon: Icons.restart_alt_rounded,
+                onAction: _hasAppliedReportFilters
+                    ? () {
+                        _resetReportFilters();
+                      }
+                    : null,
               ),
             )
           else

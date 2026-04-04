@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/config.dart';
 import '../models/admin_ui_notification.dart';
+import 'app_empty_state.dart';
 
 class AdminLayout extends StatelessWidget {
   const AdminLayout({
@@ -416,14 +417,13 @@ class AdminLayout extends StatelessWidget {
                       color: const Color(0xFFF4F7F4),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Text(
-                      'No notifications yet.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF607063),
-                      ),
+                    child: const AppEmptyState(
+                      icon: Icons.notifications_off_outlined,
+                      title: 'No notifications right now',
+                      message:
+                          'New admin updates and reminders will appear here.',
+                      framed: false,
+                      compact: true,
                     ),
                   )
                 else
