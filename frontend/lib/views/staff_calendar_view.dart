@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_exception.dart';
 import '../services/appointment_service.dart';
+import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 
@@ -340,10 +341,14 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
             )
           else if (_dayAppointments.isEmpty)
             const Expanded(
-              child: Center(
-                child: Text(
-                  'No appointments for this day.',
-                  style: TextStyle(color: Color(0xFF64748B)),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: AppEmptyState(
+                  key: Key('staff-calendar-empty-state'),
+                  icon: Icons.event_busy_outlined,
+                  title: 'No appointments for this day',
+                  message:
+                      'Booked appointments for the selected date will appear here.',
                 ),
               ),
             )

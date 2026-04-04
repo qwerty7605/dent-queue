@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/appointment_status.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
+import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
 
 enum _MasterListFilter { all, approved, cancelled, completed, pending }
@@ -217,15 +218,37 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                       ),
                     )
                   else if (filteredAppointments.isEmpty)
-                    const Expanded(
-                      child: Center(
-                        child: Text(
-                          'No appointments found for this filter.',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black54,
-                          ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: AppEmptyState(
+                          key: const Key('admin-master-list-empty-state'),
+                          icon: Icons.list_alt_outlined,
+                          title:
+                              _selectedFilter == _MasterListFilter.all &&
+                                  _selectedDateFilter ==
+                                      _MasterListDateFilter.all
+                              ? 'No appointments yet'
+                              : 'No appointments found',
+                          message:
+                              _selectedFilter == _MasterListFilter.all &&
+                                  _selectedDateFilter ==
+                                      _MasterListDateFilter.all
+                              ? 'Appointments will appear in the master list once records are available.'
+                              : 'Try clearing the selected status or date filter to view more appointment records.',
+                          actionLabel:
+                              _selectedFilter != _MasterListFilter.all ||
+                                  _selectedDateFilter !=
+                                      _MasterListDateFilter.all
+                              ? 'Clear Filters'
+                              : null,
+                          actionIcon: Icons.restart_alt_rounded,
+                          onAction:
+                              _selectedFilter != _MasterListFilter.all ||
+                                  _selectedDateFilter !=
+                                      _MasterListDateFilter.all
+                              ? _resetFilters
+                              : null,
                         ),
                       ),
                     )
@@ -436,6 +459,13 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
         ),
       ),
     );
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _selectedFilter = _MasterListFilter.all;
+      _selectedDateFilter = _MasterListDateFilter.all;
+    });
   }
 
   String _dateFilterLabel(_MasterListDateFilter filter) {

@@ -13,6 +13,7 @@ import '../core/config.dart';
 import '../widgets/book_appointment_dialog.dart';
 import '../widgets/appointment_details_dialog.dart';
 import '../widgets/appointment_status_badge.dart';
+import '../widgets/app_empty_state.dart';
 import '../widgets/edit_profile_dialog.dart';
 import 'notifications_view.dart';
 import 'recycle_bin_view.dart';
@@ -431,15 +432,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
           : _buildMedicalHistoryView(),
       floatingActionButton: _selectedIndex != 1
           ? FloatingActionButton(
-              onPressed: () async {
-                final result = await showDialog(
-                  context: context,
-                  builder: (context) => const BookAppointmentDialog(),
-                );
-                if (result == true) {
-                  _loadAppointments();
-                }
-              },
+              onPressed: _openBookAppointmentDialog,
               backgroundColor: const Color(0xFF356042),
               shape: const CircleBorder(),
               child: const Icon(Icons.add, color: Colors.white, size: 36),
@@ -582,6 +575,17 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
         ),
       ],
     );
+  }
+
+  Future<void> _openBookAppointmentDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => const BookAppointmentDialog(),
+    );
+
+    if (result == true) {
+      _loadAppointments();
+    }
   }
 
   Widget _buildBody() {
@@ -791,31 +795,37 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (_appointments.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: Center(
-                  child: Text(
-                    'No Appointment Yet',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: AppEmptyState(
+                  key: const Key('patient-appointments-empty-state'),
+                  icon: Icons.event_busy_outlined,
+                  title: 'No appointments yet',
+                  message:
+                      'Your upcoming appointments will appear here after you book one.',
+                  actionLabel: 'Book Appointment',
+                  actionIcon: Icons.add_rounded,
+                  onAction: () {
+                    _openBookAppointmentDialog();
+                  },
                 ),
               )
             else if (visibleAppointments.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: Center(
-                  child: Text(
-                    'No appointments found for this status.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: AppEmptyState(
+                  key: const Key('patient-appointments-filter-empty-state'),
+                  icon: Icons.filter_alt_off_outlined,
+                  title: 'No appointments match this filter',
+                  message:
+                      'Try switching to another status to see your appointment records.',
+                  actionLabel: 'Show All',
+                  actionIcon: Icons.restart_alt_rounded,
+                  onAction: () {
+                    setState(() {
+                      _selectedFilter = _PatientAppointmentFilter.all;
+                    });
+                  },
                 ),
               )
             else
@@ -873,10 +883,14 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
         const SizedBox(height: 24),
         if (completedAppts.isEmpty)
           const Expanded(
-            child: Center(
-              child: Text(
-                'No completed appointments found.',
-                style: TextStyle(color: Colors.grey, fontSize: 16),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: AppEmptyState(
+                key: Key('patient-history-empty-state'),
+                icon: Icons.history_toggle_off_rounded,
+                title: 'No completed appointments yet',
+                message:
+                    'Finished dental visits will appear here as part of your medical history.',
               ),
             ),
           )

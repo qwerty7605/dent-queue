@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api_exception.dart';
 import '../services/appointment_service.dart';
 import '../services/patient_record_service.dart';
+import '../widgets/app_empty_state.dart';
 import '../widgets/staff_book_appointment_dialog.dart';
 import 'staff_patient_detail_view.dart';
 
@@ -146,14 +147,29 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
     });
   }
 
-  Future<void> _openBookAppointmentDialog(StaffPatientRecordData patient) async {
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _hasSearched = false;
+      _isSearching = false;
+      _searchError = null;
+      _detailError = null;
+      _selectedPatient = null;
+      _selectedSearchResult = null;
+      _searchResults = const <StaffPatientSearchResult>[];
+    });
+    FocusScope.of(context).unfocus();
+  }
+
+  Future<void> _openBookAppointmentDialog(
+    StaffPatientRecordData patient,
+  ) async {
     final booked = await showDialog<bool>(
       context: context,
-      builder: (_) =>
-          StaffBookAppointmentDialog(
-            patient: patient.toDialogPatient(),
-            appointmentService: widget.appointmentService,
-          ),
+      builder: (_) => StaffBookAppointmentDialog(
+        patient: patient.toDialogPatient(),
+        appointmentService: widget.appointmentService,
+      ),
     );
 
     if (booked == true && _selectedSearchResult != null) {
@@ -333,9 +349,13 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
     if (!_hasSearched) {
       return const _InfoPanel(
         key: ValueKey<String>('search-empty'),
-        child: _MessageState(
+        child: AppEmptyState(
           icon: Icons.manage_search_rounded,
-          message: 'Search a patient record to view full details.',
+          title: 'Search patient records',
+          message:
+              'Find a patient to view details, history, and upcoming appointments.',
+          framed: false,
+          compact: true,
         ),
       );
     }
@@ -359,11 +379,18 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
     }
 
     if (_searchResults.isEmpty) {
-      return const _InfoPanel(
+      return _InfoPanel(
         key: ValueKey<String>('search-no-results'),
-        child: _MessageState(
+        child: AppEmptyState(
           icon: Icons.search_off_rounded,
-          message: 'No patient records matched your search.',
+          title: 'No patient records found',
+          message:
+              'No patient records matched your search. Try another name or clear the current query.',
+          actionLabel: 'Clear Search',
+          actionIcon: Icons.restart_alt_rounded,
+          onAction: _clearSearch,
+          framed: false,
+          compact: true,
         ),
       );
     }
@@ -496,32 +523,6 @@ class _InfoPanel extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE7EBEE)),
       ),
       child: child,
-    );
-  }
-}
-
-class _MessageState extends StatelessWidget {
-  const _MessageState({required this.icon, required this.message});
-
-  final IconData icon;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, size: 46, color: const Color(0xFFCBD5E1)),
-        const SizedBox(height: 14),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF475569),
-          ),
-        ),
-      ],
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
 
 class StaffPatientSearchResult {
@@ -515,12 +516,13 @@ class _EmptySection extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
       ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xFF8B98AB),
-          fontWeight: FontWeight.w700,
-        ),
+      child: AppEmptyState(
+        icon: Icons.folder_open_rounded,
+        title: label,
+        message:
+            'Records will appear here once appointment activity is available for this patient.',
+        framed: false,
+        compact: true,
       ),
     );
   }

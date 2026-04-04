@@ -10,6 +10,7 @@ import '../services/appointment_service.dart';
 import '../services/base_service.dart';
 import '../services/notification_service.dart';
 import '../services/patient_record_service.dart';
+import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_success_dialog.dart';
 import '../widgets/appointment_status_badge.dart';
 import '../widgets/edit_profile_dialog.dart';
@@ -1602,35 +1603,34 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Widget _buildEmptyState() {
+    final bool hasSearch = _searchController.text.trim().isNotEmpty;
+    final bool hasFilters = _selectedFilter != _StaffFilter.all;
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 30),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.list_alt_outlined, size: 36, color: Color(0xFF94A3B8)),
-          SizedBox(height: 10),
-          Text(
-            'No appointments in queue for this day',
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF475569),
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Try a different status filter or search keyword.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF94A3B8)),
-          ),
-        ],
+      child: AppEmptyState(
+        key: const Key('staff-appointments-empty-state'),
+        icon: Icons.fact_check_outlined,
+        title: hasSearch || hasFilters
+            ? 'No appointments match your view'
+            : 'No appointments in queue for this day',
+        message: hasSearch || hasFilters
+            ? 'Clear the current search or status filter to see the full appointment queue.'
+            : 'New bookings for the selected day will appear here once they are available.',
+        actionLabel: hasSearch || hasFilters ? 'Clear Filters' : null,
+        actionIcon: Icons.restart_alt_rounded,
+        onAction: hasSearch || hasFilters ? _clearAppointmentFilters : null,
       ),
     );
+  }
+
+  void _clearAppointmentFilters() {
+    _searchController.clear();
+    setState(() {
+      _selectedFilter = _StaffFilter.all;
+    });
+    FocusScope.of(context).unfocus();
   }
 
   Widget _buildAppointmentCard(Map<String, dynamic> appointment) {

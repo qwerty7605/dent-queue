@@ -5,6 +5,7 @@ import '../core/api_exception.dart';
 import '../core/mobile_typography.dart';
 import '../models/recycle_bin_entry.dart';
 import '../services/appointment_service.dart';
+import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
 
 enum RecycleBinRole { patient, staff }
@@ -669,53 +670,19 @@ class _RecycleBinViewState extends State<RecycleBinView> {
       key: const Key('recycle-bin-empty-state'),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 80),
       children: [
-        Center(
-          child: Column(
-            children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.auto_delete_outlined,
-                  size: 44,
-                  color: Color(0xFF94A3B8),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Recycle Bin is empty',
-                style: TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: MobileTypography.sectionTitle(context),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                widget.role == RecycleBinRole.patient
-                    ? 'Cancelled appointments will appear here if they are eligible.'
-                    : 'Cancelled appointments will appear here.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Color(0xFF64748B),
-                  fontSize: MobileTypography.bodySmall(context),
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
+        AppEmptyState(
+          icon: Icons.auto_delete_outlined,
+          title: 'Recycle Bin is empty',
+          message: widget.role == RecycleBinRole.patient
+              ? 'Cancelled appointments will appear here if they are still eligible for restore.'
+              : 'Cancelled appointments will appear here when items are moved into recovery.',
+          actionLabel: widget.appointmentService != null ? 'Refresh' : null,
+          actionIcon: Icons.refresh_rounded,
+          onAction: widget.appointmentService != null
+              ? () {
+                  _fetchRecycleBin();
+                }
+              : null,
         ),
       ],
     );
