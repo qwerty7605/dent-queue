@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../core/app_form_validators.dart';
+import '../core/api_exception.dart';
+import '../core/form_error_helpers.dart';
 import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../core/api_client.dart';
@@ -11,17 +14,28 @@ class AdminProfileView extends StatefulWidget {
     required this.activeUser,
     required this.tokenStorage,
     this.onProfileUpdated,
+    this.adminProfileService,
   });
 
   final Map<String, dynamic>? activeUser;
   final TokenStorage tokenStorage;
   final ValueChanged<Map<String, dynamic>>? onProfileUpdated;
+  final AdminProfileService? adminProfileService;
 
   @override
   State<AdminProfileView> createState() => _AdminProfileViewState();
 }
 
 class _AdminProfileViewState extends State<AdminProfileView> {
+  static const Map<String, List<String>> _apiFieldMappings =
+      <String, List<String>>{
+        'first_name': <String>['first_name'],
+        'last_name': <String>['last_name'],
+        'username': <String>['username'],
+        'password': <String>['password'],
+      };
+
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
 
@@ -36,13 +50,18 @@ class _AdminProfileViewState extends State<AdminProfileView> {
   bool _isEditingPassword = false;
   bool _isEditingProfile = false;
   bool _isLoading = false;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+  Map<String, String> _fieldErrors = <String, String>{};
+  String? _formErrorText;
 
   @override
   void initState() {
     super.initState();
-    final apiClient = ApiClient(tokenStorage: widget.tokenStorage);
-    final baseService = BaseService(apiClient);
-    _adminProfileService = AdminProfileService(baseService);
+    _adminProfileService =
+        widget.adminProfileService ??
+        AdminProfileService(
+          BaseService(ApiClient(tokenStorage: widget.tokenStorage)),
+        );
 
     _populateFields();
     _refreshFromStorage();
@@ -87,9 +106,17 @@ class _AdminProfileViewState extends State<AdminProfileView> {
 
   Future<void> _saveChanges() async {
     if (_isLoading) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _autoValidateMode = AutovalidateMode.always;
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = true;
+      _fieldErrors = <String, String>{};
+      _formErrorText = null;
     });
 
     try {
@@ -131,14 +158,30 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       if (widget.onProfileUpdated != null && response['user'] != null) {
         widget.onProfileUpdated!(response['user'] as Map<String, dynamic>);
       }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      final Map<String, String> fieldErrors = collectApiFieldErrors(
+        e.errors,
+        _apiFieldMappings,
+      );
+      final String? formError =
+          firstUnhandledApiError(
+            e.errors,
+            handledKeys: flattenApiErrorKeys(_apiFieldMappings),
+          ) ??
+          (fieldErrors.isEmpty ? e.message : null);
+
+      setState(() {
+        _fieldErrors = fieldErrors;
+        _formErrorText = formError;
+        _autoValidateMode = AutovalidateMode.always;
+      });
+      _formKey.currentState?.validate();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString().replaceAll('Exception: ', '')}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        _formErrorText = 'Error: ${e.toString().replaceAll('Exception: ', '')}';
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -146,6 +189,18 @@ class _AdminProfileViewState extends State<AdminProfileView> {
         });
       }
     }
+  }
+
+  void _clearFieldError(String fieldKey) {
+    if (!_fieldErrors.containsKey(fieldKey) && _formErrorText == null) return;
+    setState(() {
+      _fieldErrors.remove(fieldKey);
+      _formErrorText = null;
+    });
+  }
+
+  String? _mergeFieldError(String fieldKey, String? localError) {
+    return localError ?? _fieldErrors[fieldKey];
   }
 
   @override
@@ -171,6 +226,8 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                 ElevatedButton.icon(
                   onPressed: () {
                     setState(() {
+                      _fieldErrors = <String, String>{};
+                      _formErrorText = null;
                       _isEditingProfile = true;
                     });
                   },
@@ -217,161 +274,251 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                   Expanded(
                     child: SingleChildScrollView(
                       padding: EdgeInsets.all(isPhone ? 16.0 : 24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Personal Information',
-                            style: TextStyle(
-                              fontSize: MobileTypography.sectionTitle(context),
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                      child: Form(
+                        key: _formKey,
+                        autovalidateMode: _autoValidateMode,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_formErrorText != null) ...[
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF1F1),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: Colors.redAccent.withValues(
+                                      alpha: 0.25,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  _formErrorText!,
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            Text(
+                              'Personal Information',
+                              style: TextStyle(
+                                fontSize: MobileTypography.sectionTitle(
+                                  context,
+                                ),
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (isPhone)
-                            Column(
-                              children: [
-                                _buildTextField(
-                                  'First name',
-                                  'Enter First name',
-                                  _firstNameController,
-                                  readOnly: !_isEditingProfile,
-                                ),
-                                const SizedBox(height: 16),
-                                _buildTextField(
-                                  'Last Name',
-                                  'Enter Last name',
-                                  _lastNameController,
-                                  readOnly: !_isEditingProfile,
-                                ),
-                              ],
-                            )
-                          else
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildTextField(
+                            const SizedBox(height: 16),
+                            if (isPhone)
+                              Column(
+                                children: [
+                                  _buildTextField(
                                     'First name',
                                     'Enter First name',
                                     _firstNameController,
+                                    fieldKey: 'first_name',
                                     readOnly: !_isEditingProfile,
+                                    validator: (value) => !_isEditingProfile
+                                        ? null
+                                        : _mergeFieldError(
+                                            'first_name',
+                                            AppFormValidators.requiredName(
+                                              value,
+                                              fieldLabel: 'First name',
+                                            ),
+                                          ),
                                   ),
-                                ),
-                                const SizedBox(width: 24),
-                                Expanded(
-                                  child: _buildTextField(
+                                  const SizedBox(height: 16),
+                                  _buildTextField(
                                     'Last Name',
                                     'Enter Last name',
                                     _lastNameController,
+                                    fieldKey: 'last_name',
                                     readOnly: !_isEditingProfile,
+                                    validator: (value) => !_isEditingProfile
+                                        ? null
+                                        : _mergeFieldError(
+                                            'last_name',
+                                            AppFormValidators.requiredName(
+                                              value,
+                                              fieldLabel: 'Last name',
+                                            ),
+                                          ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'First name',
+                                      'Enter First name',
+                                      _firstNameController,
+                                      fieldKey: 'first_name',
+                                      readOnly: !_isEditingProfile,
+                                      validator: (value) => !_isEditingProfile
+                                          ? null
+                                          : _mergeFieldError(
+                                              'first_name',
+                                              AppFormValidators.requiredName(
+                                                value,
+                                                fieldLabel: 'First name',
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      'Last Name',
+                                      'Enter Last name',
+                                      _lastNameController,
+                                      fieldKey: 'last_name',
+                                      readOnly: !_isEditingProfile,
+                                      validator: (value) => !_isEditingProfile
+                                          ? null
+                                          : _mergeFieldError(
+                                              'last_name',
+                                              AppFormValidators.requiredName(
+                                                value,
+                                                fieldLabel: 'Last name',
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            const SizedBox(height: 32),
+                            Text(
+                              'Account Information',
+                              style: TextStyle(
+                                fontSize: MobileTypography.sectionTitle(
+                                  context,
+                                ),
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildAccountField(
+                                    'Username',
+                                    _usernameController,
+                                    _isEditingUsername
+                                        ? 'LOCK'
+                                        : 'CHANGE USERNAME',
+                                    fieldKey: 'username',
+                                    readOnly: !_isEditingUsername,
+                                    validator: (value) => !_isEditingUsername
+                                        ? null
+                                        : _mergeFieldError(
+                                            'username',
+                                            AppFormValidators.username(value),
+                                          ),
+                                    onActionTap: () {
+                                      setState(() {
+                                        _fieldErrors.remove('username');
+                                        _formErrorText = null;
+                                        _isEditingUsername =
+                                            !_isEditingUsername;
+                                      });
+                                    },
                                   ),
                                 ),
+                                const Spacer(flex: 1),
                               ],
                             ),
-                          const SizedBox(height: 32),
-                          Text(
-                            'Account Information',
-                            style: TextStyle(
-                              fontSize: MobileTypography.sectionTitle(context),
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: _buildAccountField(
-                                  'Username',
-                                  _usernameController,
-                                  _isEditingUsername
-                                      ? 'LOCK'
-                                      : 'CHANGE USERNAME',
-                                  readOnly: !_isEditingUsername,
-                                  onActionTap: () {
-                                    setState(() {
-                                      _isEditingUsername = !_isEditingUsername;
-                                    });
-                                  },
-                                ),
-                              ),
-                              const Spacer(flex: 1),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: _buildAccountField(
-                                  'Password',
-                                  _passwordController,
-                                  _isEditingPassword
-                                      ? 'LOCK'
-                                      : 'CHANGE PASSWORD',
-                                  obscureText: !_isEditingPassword,
-                                  readOnly: !_isEditingPassword,
-                                  onActionTap: () {
-                                    setState(() {
-                                      _isEditingPassword = !_isEditingPassword;
-                                      if (_isEditingPassword) {
-                                        _passwordController.clear();
-                                      } else {
-                                        _passwordController.text = '********';
-                                      }
-                                    });
-                                  },
-                                ),
-                              ),
-                              const Spacer(flex: 1),
-                              if (_isEditingProfile ||
-                                  _isEditingUsername ||
-                                  _isEditingPassword)
-                                ElevatedButton.icon(
-                                  onPressed: _isLoading ? null : _saveChanges,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF436B46),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 16,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
+                            const SizedBox(height: 16),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildAccountField(
+                                    'Password',
+                                    _passwordController,
+                                    _isEditingPassword
+                                        ? 'LOCK'
+                                        : 'CHANGE PASSWORD',
+                                    fieldKey: 'password',
+                                    obscureText: !_isEditingPassword,
+                                    readOnly: !_isEditingPassword,
+                                    validator: (value) => !_isEditingPassword
+                                        ? null
+                                        : _mergeFieldError(
+                                            'password',
+                                            AppFormValidators.password(value),
+                                          ),
+                                    onActionTap: () {
+                                      setState(() {
+                                        _fieldErrors.remove('password');
+                                        _formErrorText = null;
+                                        _isEditingPassword =
+                                            !_isEditingPassword;
+                                        if (_isEditingPassword) {
+                                          _passwordController.clear();
+                                        } else {
+                                          _passwordController.text = '********';
+                                        }
+                                      });
+                                    },
                                   ),
-                                  label: _isLoading
-                                      ? const SizedBox(
-                                          width: 24,
-                                          height: 24,
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : Text(
-                                          'Save Changes',
-                                          style: TextStyle(
-                                            fontSize: MobileTypography.button(
-                                              context,
-                                            ),
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                  icon: _isLoading
-                                      ? const SizedBox.shrink()
-                                      : const Icon(
-                                          Icons.download_for_offline,
-                                          size: 24,
-                                        ),
                                 ),
-                            ],
-                          ),
-                        ],
+                                const Spacer(flex: 1),
+                                if (_isEditingProfile ||
+                                    _isEditingUsername ||
+                                    _isEditingPassword)
+                                  ElevatedButton.icon(
+                                    onPressed: _isLoading ? null : _saveChanges,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF436B46),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                                    label: _isLoading
+                                        ? const SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : Text(
+                                            'Save Changes',
+                                            style: TextStyle(
+                                              fontSize: MobileTypography.button(
+                                                context,
+                                              ),
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                    icon: _isLoading
+                                        ? const SizedBox.shrink()
+                                        : const Icon(
+                                            Icons.download_for_offline,
+                                            size: 24,
+                                          ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -388,7 +535,9 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     String label,
     String hint,
     TextEditingController controller, {
+    required String fieldKey,
     bool readOnly = false,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,9 +551,11 @@ class _AdminProfileViewState extends State<AdminProfileView> {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
+        TextFormField(
           controller: controller,
+          onChanged: (_) => _clearFieldError(fieldKey),
           readOnly: readOnly,
+          validator: validator,
           decoration: InputDecoration(
             filled: !readOnly,
             fillColor: Colors.green.withValues(alpha: 0.05),
@@ -435,6 +586,14 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                 width: 2.0,
               ),
             ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Colors.redAccent),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 2.0),
+            ),
           ),
         ),
       ],
@@ -445,8 +604,10 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     String label,
     TextEditingController controller,
     String actionText, {
+    required String fieldKey,
     bool obscureText = false,
     bool readOnly = true,
+    String? Function(String?)? validator,
     required VoidCallback onActionTap,
   }) {
     return Column(
@@ -461,10 +622,12 @@ class _AdminProfileViewState extends State<AdminProfileView> {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
+        TextFormField(
           controller: controller,
+          onChanged: (_) => _clearFieldError(fieldKey),
           obscureText: obscureText,
           readOnly: readOnly,
+          validator: validator,
           decoration: InputDecoration(
             filled: !readOnly,
             fillColor: Colors.green.withValues(alpha: 0.05),
@@ -492,6 +655,14 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                 color: Color(0xFF679B6A),
                 width: 2.0,
               ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Colors.redAccent),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 2.0),
             ),
             suffixIcon: TextButton(
               onPressed: onActionTap,

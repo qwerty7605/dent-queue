@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_exception.dart';
+import '../core/form_error_helpers.dart';
 import '../core/mobile_typography.dart';
 import '../services/auth_service.dart';
 
@@ -21,12 +22,20 @@ class LoginView extends StatefulWidget {
 }
 
 class _LoginViewState extends State<LoginView> {
+  static const Map<String, List<String>> _apiFieldMappings =
+      <String, List<String>>{
+        'identifier': <String>['username', 'email'],
+        'password': <String>['password'],
+      };
+
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _showPassword = false;
   bool _submitting = false;
-  String? _loginError;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+  Map<String, String> _fieldErrors = <String, String>{};
+  String? _formErrorText;
 
   @override
   void dispose() {
@@ -36,11 +45,17 @@ class _LoginViewState extends State<LoginView> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _autoValidateMode = AutovalidateMode.always;
+      });
+      return;
+    }
 
     setState(() {
       _submitting = true;
-      _loginError = null;
+      _fieldErrors = <String, String>{};
+      _formErrorText = null;
     });
 
     try {
@@ -52,9 +67,23 @@ class _LoginViewState extends State<LoginView> {
       widget.onLoginSuccess?.call();
     } on ApiException catch (e) {
       if (!mounted) return;
+      final Map<String, String> fieldErrors = collectApiFieldErrors(
+        e.errors,
+        _apiFieldMappings,
+      );
+      final String? formError =
+          firstUnhandledApiError(
+            e.errors,
+            handledKeys: flattenApiErrorKeys(_apiFieldMappings),
+          ) ??
+          (fieldErrors.isEmpty ? e.message : null);
+
       setState(() {
-        _loginError = e.message;
+        _fieldErrors = fieldErrors;
+        _formErrorText = formError;
+        _autoValidateMode = AutovalidateMode.always;
       });
+      _formKey.currentState?.validate();
     } finally {
       if (mounted) {
         setState(() {
@@ -64,11 +93,28 @@ class _LoginViewState extends State<LoginView> {
     }
   }
 
-  void _clearLoginError() {
-    if (_loginError == null) return;
+  void _clearIdentifierErrors() {
+    if (!_fieldErrors.containsKey('identifier') && _formErrorText == null) {
+      return;
+    }
     setState(() {
-      _loginError = null;
+      _fieldErrors.remove('identifier');
+      _formErrorText = null;
     });
+  }
+
+  void _clearPasswordErrors() {
+    if (!_fieldErrors.containsKey('password') && _formErrorText == null) {
+      return;
+    }
+    setState(() {
+      _fieldErrors.remove('password');
+      _formErrorText = null;
+    });
+  }
+
+  String? _mergeFieldError(String fieldKey, String? localError) {
+    return localError ?? _fieldErrors[fieldKey];
   }
 
   @override
@@ -158,6 +204,7 @@ class _LoginViewState extends State<LoginView> {
                         ),
                         child: Form(
                           key: _formKey,
+                          autovalidateMode: _autoValidateMode,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -222,11 +269,11 @@ class _LoginViewState extends State<LoginView> {
                               ),
                               SizedBox(height: isDesktop ? 36 : 28),
 
-                              if (_loginError != null)
+                              if (_formErrorText != null)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 16),
                                   child: Text(
-                                    _loginError!,
+                                    _formErrorText!,
                                     style: const TextStyle(
                                       color: Color(0xFFFFA0A0),
                                       fontWeight: FontWeight.w700,
@@ -237,29 +284,31 @@ class _LoginViewState extends State<LoginView> {
 
                               TextFormField(
                                 controller: _usernameController,
-                                onChanged: (_) => _clearLoginError(),
+                                onChanged: (_) => _clearIdentifierErrors(),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   color: Colors.black87,
                                 ),
                                 decoration: _inputDecoration(
-                                  hintText: 'Enter your Username',
+                                  hintText: 'Enter your Username or Email',
                                   suffixIcon: const Icon(
                                     Icons.email,
                                     color: Color(0xFF5E8E69),
                                   ),
                                 ),
-                                validator: (val) =>
-                                    val == null || val.trim().isEmpty
-                                    ? 'Username is required'
-                                    : null,
+                                validator: (val) => _mergeFieldError(
+                                  'identifier',
+                                  val == null || val.trim().isEmpty
+                                      ? 'Username or email is required'
+                                      : null,
+                                ),
                                 textInputAction: TextInputAction.next,
                               ),
                               const SizedBox(height: 16),
 
                               TextFormField(
                                 controller: _passwordController,
-                                onChanged: (_) => _clearLoginError(),
+                                onChanged: (_) => _clearPasswordErrors(),
                                 obscureText: !_showPassword,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
@@ -281,9 +330,12 @@ class _LoginViewState extends State<LoginView> {
                                     },
                                   ),
                                 ),
-                                validator: (val) => val == null || val.isEmpty
-                                    ? 'Password is required'
-                                    : null,
+                                validator: (val) => _mergeFieldError(
+                                  'password',
+                                  val == null || val.isEmpty
+                                      ? 'Password is required'
+                                      : null,
+                                ),
                                 onFieldSubmitted: (_) => _login(),
                                 textInputAction: TextInputAction.done,
                               ),

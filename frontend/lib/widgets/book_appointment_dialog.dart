@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/api_exception.dart';
+import '../core/form_error_helpers.dart';
 import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../services/base_service.dart';
@@ -8,13 +10,23 @@ import '../services/appointment_service.dart';
 import 'appointment_success_dialog.dart';
 
 class BookAppointmentDialog extends StatefulWidget {
-  const BookAppointmentDialog({super.key});
+  const BookAppointmentDialog({super.key, this.appointmentService});
+
+  final AppointmentService? appointmentService;
 
   @override
   State<BookAppointmentDialog> createState() => _BookAppointmentDialogState();
 }
 
 class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
+  static const Map<String, List<String>> _apiFieldMappings =
+      <String, List<String>>{
+        'service': <String>['service_id', 'service_type'],
+        'date': <String>['appointment_date'],
+        'time': <String>['time_slot', 'appointment_time'],
+        'notes': <String>['notes'],
+      };
+
   final _formKey = GlobalKey<FormState>();
 
   late final AppointmentService _appointmentService;
@@ -25,7 +37,8 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   TimeOfDay? _selectedTime;
   final TextEditingController _notesController = TextEditingController();
 
-  String? _apiErrorMessage;
+  Map<String, String> _fieldErrors = <String, String>{};
+  String? _formErrorText;
   AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
 
   final List<Map<String, dynamic>> _services = [
@@ -40,9 +53,11 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   @override
   void initState() {
     super.initState();
-    _appointmentService = AppointmentService(
-      BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
-    );
+    _appointmentService =
+        widget.appointmentService ??
+        AppointmentService(
+          BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
+        );
   }
 
   @override
@@ -51,8 +66,76 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
     super.dispose();
   }
 
+  void _clearFieldError(String fieldKey) {
+    if (!_fieldErrors.containsKey(fieldKey) && _formErrorText == null) return;
+    setState(() {
+      _fieldErrors.remove(fieldKey);
+      _formErrorText = null;
+    });
+  }
+
+  void _setFieldError(String fieldKey, String message) {
+    setState(() {
+      _fieldErrors[fieldKey] = message;
+      _formErrorText = null;
+      _autoValidateMode = AutovalidateMode.always;
+    });
+    _formKey.currentState?.validate();
+  }
+
+  String? _mergeFieldError(String fieldKey, String? localError) {
+    return localError ?? _fieldErrors[fieldKey];
+  }
+
+  void _applyApiErrors(ApiException exception) {
+    final Map<String, String> fieldErrors = collectApiFieldErrors(
+      exception.errors,
+      _apiFieldMappings,
+    );
+    String? formError = firstUnhandledApiError(
+      exception.errors,
+      handledKeys: flattenApiErrorKeys(_apiFieldMappings),
+    );
+
+    if (fieldErrors.isEmpty) {
+      final String normalizedMessage = exception.message.trim();
+      if (normalizedMessage.contains('This schedule is already booked')) {
+        fieldErrors['time'] =
+            'This schedule is already booked. Please choose another schedule.';
+      } else if (normalizedMessage.contains(
+        'already have a booking for this time slot',
+      )) {
+        fieldErrors['time'] = 'You already have a booking for this time slot.';
+      } else if (normalizedMessage.contains(
+        'already have a booking for this date',
+      )) {
+        fieldErrors['date'] = 'You already have a booking for this date.';
+      } else if (normalizedMessage.contains('daily limit')) {
+        fieldErrors['date'] =
+            'The daily limit of 50 patients has been reached for this date.';
+      } else if (normalizedMessage.contains('Sunday')) {
+        fieldErrors['date'] = 'Sunday bookings are not allowed.';
+      } else if (normalizedMessage.contains('Past dates') ||
+          normalizedMessage.contains('in the past')) {
+        fieldErrors['date'] = 'Cannot book an appointment in the past.';
+      } else {
+        formError = normalizedMessage.isNotEmpty ? normalizedMessage : null;
+      }
+    }
+
+    setState(() {
+      _fieldErrors = fieldErrors;
+      _formErrorText = formError;
+      _autoValidateMode = AutovalidateMode.always;
+    });
+    _formKey.currentState?.validate();
+  }
+
   Future<void> _submit() async {
-    setState(() => _apiErrorMessage = null);
+    setState(() {
+      _fieldErrors = <String, String>{};
+      _formErrorText = null;
+    });
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {
@@ -78,49 +161,16 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
 
         if (!mounted) return;
         Navigator.of(context).pop(true);
-      } catch (e) {
+      } on ApiException catch (e) {
         if (!mounted) return;
         setState(() => _isLoading = false);
-        String errorMessage = 'Failed to book appointment.';
-
-        if (e.toString().contains('This schedule is already booked')) {
-          await showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('This schedule is already booked'),
-              content: const Text(
-                'Sorry, the selected date and time are no longer available. Please choose another schedule.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-          return;
-        }
-
-        if (e.toString().contains(
-          'already have a booking for this time slot',
-        )) {
-          errorMessage = 'You already have a booking for this time slot.';
-        } else if (e.toString().contains(
-          'already have a booking for this date',
-        )) {
-          errorMessage = 'You already have a booking for this date.';
-        } else if (e.toString().contains('daily limit')) {
-          errorMessage =
-              'The daily limit of 50 patients has been reached for this date.';
-        } else if (e.toString().contains('Sunday')) {
-          errorMessage = 'Sunday bookings are not allowed.';
-        } else if (e.toString().contains('Past dates')) {
-          errorMessage = 'Cannot book an appointment in the past.';
-        } else {
-          errorMessage = e.toString().replaceAll('ApiException: ', '');
-        }
-        setState(() => _apiErrorMessage = errorMessage);
+        _applyApiErrors(e);
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _formErrorText = 'Failed to book appointment.';
+        });
       }
     } else {
       setState(() => _autoValidateMode = AutovalidateMode.always);
@@ -179,7 +229,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                if (_apiErrorMessage != null)
+                if (_formErrorText != null)
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 16),
@@ -202,7 +252,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            _apiErrorMessage!,
+                            _formErrorText!,
                             style: const TextStyle(
                               color: Colors.redAccent,
                               fontSize: 15,
@@ -269,12 +319,15 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   onChanged: (val) {
                     setState(() {
                       _selectedService = val;
-                      _apiErrorMessage = null;
                       _autoValidateMode = AutovalidateMode.always;
                     });
+                    _clearFieldError('service');
                     _formKey.currentState?.validate();
                   },
-                  validator: (value) => value == null ? 'Required' : null,
+                  validator: (value) => _mergeFieldError(
+                    'service',
+                    value == null ? 'Required' : null,
+                  ),
                 ),
                 const SizedBox(height: 16),
 
@@ -294,6 +347,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _notesController,
+                  onChanged: (_) => _clearFieldError('notes'),
                   maxLines: 4,
                   decoration: InputDecoration(
                     hintText: 'Any concerns?',
@@ -327,7 +381,8 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                     color: Color(0xFF2C3E50),
                     fontSize: 16,
                   ),
-                  validator: (value) => null, // Optional field
+                  validator: (value) =>
+                      _mergeFieldError('notes', null), // Optional field
                 ),
                 const SizedBox(height: 32),
 
@@ -373,7 +428,8 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
 
   Widget _buildDateField() {
     return FormField<DateTime>(
-      validator: (val) => _selectedDate == null ? 'Required' : null,
+      validator: (val) =>
+          _mergeFieldError('date', _selectedDate == null ? 'Required' : null),
       builder: (FormFieldState<DateTime> state) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -418,6 +474,8 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   setState(() {
                     _selectedDate = picked;
                   });
+                  _clearFieldError('date');
+                  _clearFieldError('time');
                   state.didChange(picked);
                 }
               },
@@ -469,6 +527,11 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   Widget _buildTimeField() {
     return FormField<TimeOfDay>(
       validator: (val) {
+        final String? externalError = _fieldErrors['time'];
+        if (externalError != null) {
+          return externalError;
+        }
+
         if (_selectedTime == null) return 'Required';
 
         // Final validation before submit just in case
@@ -499,9 +562,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
             InkWell(
               onTap: () async {
                 if (_selectedDate == null) {
-                  setState(
-                    () => _apiErrorMessage = 'Please select a date first',
-                  );
+                  _setFieldError('date', 'Please select a date first.');
                   return;
                 }
 
@@ -568,9 +629,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   // Rule 1: Prevent time selection outside 7:30 AM (7.5) - 6:00 PM (18.0)
                   if (timeInDouble < 7.5 || timeInDouble > 18.0) {
                     if (!mounted) return;
-                    setState(
-                      () => _apiErrorMessage =
-                          'Please select a time between 7:30 AM and 6:00 PM',
+                    _setFieldError(
+                      'time',
+                      'Please select a time between 7:30 AM and 6:00 PM.',
                     );
                     return;
                   }
@@ -586,9 +647,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                     final double nowInDouble = now.hour + now.minute / 60.0;
                     if (timeInDouble <= nowInDouble) {
                       if (!mounted) return;
-                      setState(
-                        () => _apiErrorMessage =
-                            'Cannot book an appointment in the past',
+                      _setFieldError(
+                        'time',
+                        'Cannot book an appointment in the past.',
                       );
                       return;
                     }
@@ -597,6 +658,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                   setState(() {
                     _selectedTime = picked;
                   });
+                  _clearFieldError('time');
                   state.didChange(picked);
                 }
               },

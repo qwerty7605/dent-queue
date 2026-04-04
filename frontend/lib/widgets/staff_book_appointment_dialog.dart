@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../core/api_exception.dart';
+import '../core/form_error_helpers.dart';
 import '../core/mobile_typography.dart';
 import '../services/appointment_service.dart';
 import 'appointment_success_dialog.dart';
@@ -23,6 +24,14 @@ class StaffBookAppointmentDialog extends StatefulWidget {
 
 class _StaffBookAppointmentDialogState
     extends State<StaffBookAppointmentDialog> {
+  static const Map<String, List<String>> _apiFieldMappings =
+      <String, List<String>>{
+        'service': <String>['service_type', 'service_id'],
+        'date': <String>['appointment_date'],
+        'time': <String>['appointment_time', 'time_slot'],
+        'notes': <String>['notes'],
+      };
+
   final _formKey = GlobalKey<FormState>();
 
   String? _selectedService = 'Dental Check-up';
@@ -34,7 +43,8 @@ class _StaffBookAppointmentDialogState
   final TextEditingController _notesController = TextEditingController();
 
   bool _isSubmitting = false;
-  String? _apiErrorMessage;
+  Map<String, String> _fieldErrors = <String, String>{};
+  String? _formErrorText;
   AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
 
   final List<String> _services = [
@@ -67,6 +77,8 @@ class _StaffBookAppointmentDialogState
         _selectedDate = picked;
         _dateController.text = DateFormat('dd/MM/yyyy').format(picked);
       });
+      _clearFieldError('date');
+      _clearFieldError('time');
     }
   }
 
@@ -85,11 +97,65 @@ class _StaffBookAppointmentDialogState
         );
         _timeController.text = timeString;
       });
+      _clearFieldError('time');
     }
   }
 
+  void _clearFieldError(String fieldKey) {
+    if (!_fieldErrors.containsKey(fieldKey) && _formErrorText == null) return;
+    setState(() {
+      _fieldErrors.remove(fieldKey);
+      _formErrorText = null;
+    });
+  }
+
+  String? _mergeFieldError(String fieldKey, String? localError) {
+    return localError ?? _fieldErrors[fieldKey];
+  }
+
+  void _applyApiErrors(ApiException exception) {
+    final Map<String, String> fieldErrors = collectApiFieldErrors(
+      exception.errors,
+      _apiFieldMappings,
+    );
+    String? formError = firstUnhandledApiError(
+      exception.errors,
+      handledKeys: flattenApiErrorKeys(_apiFieldMappings),
+    );
+
+    if (fieldErrors.isEmpty) {
+      final String message = exception.message.trim();
+      if (message.contains('This schedule is already booked')) {
+        fieldErrors['time'] =
+            'This schedule is already booked. Please choose another schedule.';
+      } else if (message.contains('already have a booking for this date')) {
+        fieldErrors['date'] =
+            'This patient already has a booking for this date.';
+      } else if (message.contains('already booked') ||
+          message.contains('time slot')) {
+        fieldErrors['time'] =
+            'The selected time is unavailable. Please choose another schedule.';
+      } else if (message.contains('daily limit')) {
+        fieldErrors['date'] =
+            'The daily limit of 50 patients has been reached for this date.';
+      } else {
+        formError = message.isNotEmpty ? message : null;
+      }
+    }
+
+    setState(() {
+      _fieldErrors = fieldErrors;
+      _formErrorText = formError;
+      _autoValidateMode = AutovalidateMode.always;
+    });
+    _formKey.currentState?.validate();
+  }
+
   Future<void> _submit() async {
-    setState(() => _apiErrorMessage = null);
+    setState(() {
+      _fieldErrors = <String, String>{};
+      _formErrorText = null;
+    });
 
     if (!_formKey.currentState!.validate()) {
       setState(() => _autoValidateMode = AutovalidateMode.always);
@@ -99,7 +165,7 @@ class _StaffBookAppointmentDialogState
     final patientId = int.tryParse(widget.patient['id'] ?? '');
     if (patientId == null) {
       setState(() {
-        _apiErrorMessage = 'Unable to book appointment for this patient.';
+        _formErrorText = 'Unable to book appointment for this patient.';
       });
       return;
     }
@@ -136,52 +202,16 @@ class _StaffBookAppointmentDialogState
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
-        _apiErrorMessage = _resolveApiError(e);
       });
-
-      if (_apiErrorMessage!.contains('This schedule is already booked')) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text(
-              'This schedule is already booked',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            content: const Text(
-              'Sorry, the selected date and time are no longer available. Please choose another schedule.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
+      _applyApiErrors(e);
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
-        _apiErrorMessage =
+        _formErrorText =
             'Unable to book the appointment right now. Please try again.';
       });
     }
-  }
-
-  String _resolveApiError(ApiException exception) {
-    final errors = exception.errors;
-    if (errors != null && errors.isNotEmpty) {
-      final firstError = errors.values.first;
-      if (firstError is List && firstError.isNotEmpty) {
-        return firstError.first.toString();
-      }
-      if (firstError is String && firstError.isNotEmpty) {
-        return firstError;
-      }
-    }
-
-    return exception.message;
   }
 
   @override
@@ -203,7 +233,7 @@ class _StaffBookAppointmentDialogState
               children: [
                 _buildHeader(),
                 const SizedBox(height: 24),
-                if (_apiErrorMessage != null) ...[
+                if (_formErrorText != null) ...[
                   _buildErrorBanner(),
                   const SizedBox(height: 16),
                 ],
@@ -293,7 +323,10 @@ class _StaffBookAppointmentDialogState
             setState(() {
               _selectedService = value;
             });
+            _clearFieldError('service');
           },
+          validator: (value) =>
+              _mergeFieldError('service', value == null ? 'Required' : null),
         ),
       ],
     );
@@ -315,7 +348,7 @@ class _StaffBookAppointmentDialogState
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              _apiErrorMessage!,
+              _formErrorText!,
               style: const TextStyle(
                 color: Colors.redAccent,
                 fontSize: 15,
@@ -337,8 +370,10 @@ class _StaffBookAppointmentDialogState
           controller: _dateController,
           readOnly: true,
           onTap: _pickDate,
-          validator: (value) =>
-              value == null || value.isEmpty ? 'Required' : null,
+          validator: (value) => _mergeFieldError(
+            'date',
+            value == null || value.isEmpty ? 'Required' : null,
+          ),
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -362,8 +397,10 @@ class _StaffBookAppointmentDialogState
           controller: _timeController,
           readOnly: true,
           onTap: _pickTime,
-          validator: (value) =>
-              value == null || value.isEmpty ? 'Required' : null,
+          validator: (value) => _mergeFieldError(
+            'time',
+            value == null || value.isEmpty ? 'Required' : null,
+          ),
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -385,6 +422,7 @@ class _StaffBookAppointmentDialogState
         _buildFieldLabel('ADDITIONAL NOTES'),
         TextFormField(
           controller: _notesController,
+          onChanged: (_) => _clearFieldError('notes'),
           maxLines: 4,
           style: const TextStyle(
             fontSize: 16,
@@ -392,6 +430,7 @@ class _StaffBookAppointmentDialogState
             color: Color(0xFF1E293B),
           ),
           decoration: _inputDecoration(hint: 'Any concerns?'),
+          validator: (value) => _mergeFieldError('notes', null),
         ),
       ],
     );
