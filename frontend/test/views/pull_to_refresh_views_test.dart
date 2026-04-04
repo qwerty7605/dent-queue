@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/models/app_notification.dart';
 import 'package:frontend/core/short_term_cache.dart';
 import 'package:frontend/core/token_storage.dart';
+import 'package:frontend/models/app_notification.dart';
 import 'package:frontend/services/appointment_service.dart';
 import 'package:frontend/services/notification_service.dart';
 import 'package:frontend/views/patient_dashboard_view.dart';
@@ -17,12 +17,15 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
   List<List<Map<String, dynamic>>> adminAppointmentsResults =
       <List<Map<String, dynamic>>>[];
   List<Map<String, dynamic>> adminQueueResults = <Map<String, dynamic>>[];
+  List<List<Map<String, dynamic>>> recycleBinResults =
+      <List<Map<String, dynamic>>>[];
 
   int patientAppointmentsCalls = 0;
   int patientQueueCalls = 0;
   int adminMasterListCalls = 0;
   int adminAppointmentsCalls = 0;
   int adminQueueCalls = 0;
+  int recycleBinCalls = 0;
 
   @override
   void invalidateAppointmentCaches() {}
@@ -40,13 +43,6 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
   Future<Map<String, dynamic>> getPatientTodayQueue() async {
     patientQueueCalls += 1;
     return _mapResultAt(patientQueueResults, patientQueueCalls);
-  }
-
-  @override
-  Future<List<Map<String, dynamic>>> getRecycleBinAppointments(
-    bool isStaff,
-  ) async {
-    return <Map<String, dynamic>>[];
   }
 
   @override
@@ -69,6 +65,14 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
   Future<Map<String, dynamic>> getAdminTodayQueue([String? date]) async {
     adminQueueCalls += 1;
     return _mapResultAt(adminQueueResults, adminQueueCalls);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getRecycleBinAppointments(
+    bool isStaff,
+  ) async {
+    recycleBinCalls += 1;
+    return _resultAt(recycleBinResults, recycleBinCalls);
   }
 
   List<Map<String, dynamic>> _resultAt(
@@ -105,16 +109,15 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
 }
 
 class _FakeNotificationService extends Fake implements NotificationService {
-  NotificationListResult nextResult = const NotificationListResult(
-    notifications: <AppNotification>[],
-    unreadCount: 0,
-  );
-  int listCalls = 0;
+  int getNotificationsCalls = 0;
 
   @override
   Future<NotificationListResult> getNotifications(String role) async {
-    listCalls += 1;
-    return nextResult;
+    getNotificationsCalls += 1;
+    return const NotificationListResult(
+      notifications: <AppNotification>[],
+      unreadCount: 0,
+    );
   }
 }
 
@@ -321,7 +324,6 @@ void main() {
       expect(appointmentService.adminMasterListCalls, 1);
       expect(appointmentService.adminAppointmentsCalls, 1);
       expect(appointmentService.adminQueueCalls, 1);
-      expect(notificationService.listCalls, 1);
       expect(find.text('Ava Lopez'), findsWidgets);
 
       await triggerRefresh(
@@ -334,29 +336,26 @@ void main() {
       expect(appointmentService.adminMasterListCalls, 1);
       expect(appointmentService.adminAppointmentsCalls, 2);
       expect(appointmentService.adminQueueCalls, 2);
+      expect(notificationService.getNotificationsCalls, 1);
       expect(find.text('Noah Cruz'), findsWidgets);
     },
   );
 
   testWidgets(
-    'intern dashboard hides restricted actions and skips notification loading',
+    'intern dashboard hides restricted controls and skips blocked calls',
     (WidgetTester tester) async {
       final String today = todayString();
       final InMemoryTokenStorage tokenStorage = InMemoryTokenStorage();
-      final _FakeNotificationService notificationService =
-          _FakeNotificationService();
       final _FakeAppointmentService appointmentService =
           _FakeAppointmentService()
             ..adminMasterListResults = <List<Map<String, dynamic>>>[
               <Map<String, dynamic>>[
                 <String, dynamic>{
                   'appointment_id': 21,
-                  'patient_name': 'Iris Kent',
-                  'service': 'Dental Check-up',
+                  'patient_name': 'Mia Flores',
+                  'service': 'Teeth Cleaning',
                   'date': today,
-                  'contact': '09123456789',
-                  'status': 'Approved',
-                  'booking_type': 'Online',
+                  'status': 'Pending',
                   'queue_number': '01',
                 },
               ],
@@ -365,13 +364,12 @@ void main() {
               <Map<String, dynamic>>[
                 <String, dynamic>{
                   'id': 21,
-                  'patient_name': 'Iris Kent',
-                  'service_type': 'Dental Check-up',
+                  'patient_name': 'Mia Flores',
+                  'service_type': 'Teeth Cleaning',
                   'appointment_date': today,
                   'time': '09:00',
-                  'status': 'Approved',
+                  'status': 'Pending',
                   'queue_number': 1,
-                  'is_called': false,
                 },
               ],
             ]
@@ -379,20 +377,26 @@ void main() {
               <String, dynamic>{
                 'now_serving': <String, dynamic>{
                   'queue_number': 1,
-                  'patient_name': 'Iris Kent',
+                  'patient_name': 'Mia Flores',
                 },
-                'next_up': null,
+                'next_up': <String, dynamic>{
+                  'queue_number': 2,
+                  'patient_name': 'Lia Santos',
+                },
               },
+            ]
+            ..recycleBinResults = <List<Map<String, dynamic>>>[
+              <Map<String, dynamic>>[
+                <String, dynamic>{'id': 99, 'patient_name': 'Blocked Item'},
+              ],
             ];
+      final _FakeNotificationService notificationService =
+          _FakeNotificationService();
 
       await tester.pumpWidget(
         MaterialApp(
           home: StaffDashboardView(
-            userInfo: const <String, dynamic>{
-              'first_name': 'Ina',
-              'last_name': 'Turner',
-              'role': 'intern',
-            },
+            userInfo: const <String, dynamic>{},
             tokenStorage: tokenStorage,
             onLogout: () {},
             loggingOut: false,
@@ -405,15 +409,44 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(notificationService.listCalls, 0);
+      expect(appointmentService.adminMasterListCalls, 1);
+      expect(appointmentService.adminAppointmentsCalls, 1);
+      expect(appointmentService.adminQueueCalls, 1);
+      expect(appointmentService.recycleBinCalls, 0);
+      expect(notificationService.getNotificationsCalls, 0);
+
+      expect(find.text('Call Next'), findsNothing);
+      expect(find.byIcon(Icons.notifications_none), findsNothing);
       expect(find.text('Walk In'), findsNothing);
       expect(find.text('Records'), findsNothing);
-      expect(find.byIcon(Icons.notifications_none), findsNothing);
 
+      await tester.ensureVisible(find.text('Teeth Cleaning'));
+      await tester.tap(find.text('Teeth Cleaning'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Approve'), findsNothing);
+      expect(find.text('Cancel'), findsNothing);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Profile'));
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
 
-      expect(find.text('View Only'), findsOneWidget);
+      expect(find.text('Edit Profile'), findsNothing);
+      expect(
+        find.text('Profile details are view-only for intern accounts.'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Walk-in'), findsNothing);
+      expect(find.text('Records'), findsNothing);
+      expect(find.text('Notifications'), findsNothing);
+      expect(find.text('Recycle Bin'), findsNothing);
     },
   );
 
