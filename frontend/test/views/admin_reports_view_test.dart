@@ -5,6 +5,7 @@ import 'package:frontend/services/admin_dashboard_service.dart';
 import 'package:frontend/services/appointment_service.dart';
 import 'package:frontend/services/base_service.dart';
 import 'package:frontend/views/admin_reports_view.dart';
+import 'package:http/http.dart' as http;
 
 class _FakeBaseService extends Fake implements BaseService {
   _FakeBaseService({List<Map<String, dynamic>>? records})
@@ -64,6 +65,8 @@ class _FakeBaseService extends Fake implements BaseService {
 
   final List<Map<String, dynamic>> records;
   final List<String> requestedPaths = <String>[];
+  final List<String> rawRequestedPaths = <String>[];
+  Map<String, String>? lastRawHeaders;
 
   @override
   Future<T> getJson<T>(String path, T Function(dynamic json) mapper) async {
@@ -95,6 +98,24 @@ class _FakeBaseService extends Fake implements BaseService {
     }
 
     return mapper(<String, dynamic>{});
+  }
+
+  @override
+  Future<http.Response> getRaw(
+    String path, {
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    rawRequestedPaths.add(path);
+    lastRawHeaders = headers;
+
+    return http.Response.bytes(
+      <int>[1, 2, 3],
+      200,
+      headers: <String, String>{
+        'content-disposition': 'attachment; filename=report-records.csv',
+        'content-type': 'text/csv',
+      },
+    );
   }
 
   List<Map<String, dynamic>> _filterRecords(Map<String, String> query) {
@@ -441,6 +462,92 @@ void main() {
       expect(find.text('2026-04'), findsOneWidget);
     },
   );
+
+  testWidgets('exports the same filtered report data currently shown on screen', (
+    WidgetTester tester,
+  ) async {
+    final _FakeBaseService baseService = _FakeBaseService();
+    final AdminDashboardService adminDashboardService = AdminDashboardService(
+      baseService,
+    );
+    final AppointmentService appointmentService = AppointmentService(
+      baseService,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminReportsView(
+            adminDashboardService: adminDashboardService,
+            appointmentService: appointmentService,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final Finder statusField = find.byKey(
+      const Key('report-filter-status-field'),
+    );
+    await tester.ensureVisible(statusField);
+    await tester.tap(statusField);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('report-filter-status-option-approved')),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder bookingTypeField = find.byKey(
+      const Key('report-filter-booking-type-field'),
+    );
+    await tester.ensureVisible(bookingTypeField);
+    await tester.tap(bookingTypeField);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('report-filter-booking-type-option-online-booking')),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder applyButton = find.byKey(const Key('report-filter-apply'));
+    await tester.ensureVisible(applyButton);
+    await tester.tap(applyButton);
+    await tester.pumpAndSettle();
+
+    final Finder exportButton = find.byKey(const Key('report-export-button'));
+    await tester.ensureVisible(exportButton);
+    await tester.tap(exportButton);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Current report filters will be exported'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Choose the file format. The export will use the same filters applied to the report table.',
+      ),
+      findsOneWidget,
+    );
+
+    final Finder exportDialog = find.byType(AlertDialog);
+    await tester.tap(
+      find.descendant(
+        of: exportDialog,
+        matching: find.widgetWithText(FilledButton, 'Export'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      baseService.rawRequestedPaths,
+      contains(
+        '/api/v1/admin/reports/export?status=Approved&booking_type=Online+Booking&format=csv',
+      ),
+    );
+    expect(baseService.lastRawHeaders, <String, String>{'Accept': 'text/csv'});
+  });
 
   testWidgets('renders empty trends state safely when api returns no points', (
     WidgetTester tester,

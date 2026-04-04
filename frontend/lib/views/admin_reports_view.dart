@@ -11,16 +11,6 @@ import '../widgets/appointment_status_badge.dart';
 
 enum _TrendView { daily, weekly, monthly }
 
-enum _ExportDatePreset {
-  currentFilters,
-  today,
-  yesterday,
-  thisWeek,
-  past7Days,
-  thisMonth,
-  allDates,
-}
-
 class _AppointmentTrendPoint {
   const _AppointmentTrendPoint({required this.label, required this.count});
 
@@ -33,20 +23,6 @@ class _ReportFilterChipData {
 
   final String label;
   final String value;
-}
-
-class _ExportDateRange {
-  const _ExportDateRange({this.startDate, this.endDate});
-
-  final DateTime? startDate;
-  final DateTime? endDate;
-}
-
-class _ExportSelection {
-  const _ExportSelection({required this.format, required this.filters});
-
-  final ReportExportFormat format;
-  final Map<String, String> filters;
 }
 
 class AdminReportsView extends StatefulWidget {
@@ -83,16 +59,6 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     'Online Booking',
     'Walk-In Booking',
   ];
-  static const Map<_ExportDatePreset, String> _exportPresetLabels =
-      <_ExportDatePreset, String>{
-        _ExportDatePreset.currentFilters: 'Current filters',
-        _ExportDatePreset.today: 'Today',
-        _ExportDatePreset.yesterday: 'Yesterday',
-        _ExportDatePreset.thisWeek: 'This week',
-        _ExportDatePreset.past7Days: 'Past 7 days',
-        _ExportDatePreset.thisMonth: 'This month',
-        _ExportDatePreset.allDates: 'All dates',
-      };
 
   bool _isLoading = true;
   bool _isTrendLoading = true;
@@ -300,6 +266,22 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     return 'No filters are active. Apply a date range, status, or booking type to narrow the report results.';
   }
 
+  String get _reportExportScopeTitle {
+    if (_hasAppliedReportFilters) {
+      return 'Current report filters will be exported';
+    }
+
+    return 'Export will include all report records';
+  }
+
+  String get _reportExportScopeBody {
+    if (_hasAppliedReportFilters) {
+      return 'The downloaded file uses the same date range, status, and booking type filters currently applied to the report cards, trends, and detailed table.';
+    }
+
+    return 'No filters are active, so the download will include the same unfiltered report data currently shown on screen.';
+  }
+
   void _clearTrendCache() {
     _loadedTrendViews.clear();
 
@@ -327,10 +309,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  Future<void> _exportReport(
-    ReportExportFormat format, {
-    Map<String, String>? overrideFilters,
-  }) async {
+  Future<void> _exportReport(ReportExportFormat format) async {
     if (_isExporting) {
       return;
     }
@@ -341,10 +320,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
     try {
       final exportFile = await widget.adminDashboardService
-          .exportDetailedRecords(
-            format,
-            overrideFilters ?? _activeReportFilters,
-          );
+          .exportDetailedRecords(format, _activeReportFilters);
       final savedPath = await saveDownloadedFile(
         filename: exportFile.filename,
         bytes: exportFile.bytes,
@@ -400,15 +376,12 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     return FilledButton.icon(
       key: const Key('report-export-button'),
       onPressed: () async {
-        final _ExportSelection? selection = await _showExportDialog();
-        if (selection == null) {
+        final ReportExportFormat? selectedFormat = await _showExportDialog();
+        if (selectedFormat == null) {
           return;
         }
 
-        await _exportReport(
-          selection.format,
-          overrideFilters: selection.filters,
-        );
+        await _exportReport(selectedFormat);
       },
       icon: const Icon(Icons.download_outlined),
       label: const Text('Export'),
@@ -419,108 +392,138 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     );
   }
 
-  Future<_ExportSelection?> _showExportDialog() async {
+  Future<ReportExportFormat?> _showExportDialog() async {
     ReportExportFormat selectedFormat = ReportExportFormat.csv;
-    _ExportDatePreset selectedPreset = _ExportDatePreset.currentFilters;
 
-    return showDialog<_ExportSelection>(
+    return showDialog<ReportExportFormat>(
       context: context,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
               title: const Text('Export Report'),
-              content: SizedBox(
-                width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Choose the file format and date range to export.',
-                    ),
-                    const SizedBox(height: 20),
-                    DropdownButtonFormField<ReportExportFormat>(
-                      initialValue: selectedFormat,
-                      decoration: _reportFilterInputDecoration(
-                        hintText: 'Select format',
-                        prefixIcon: const Icon(
-                          Icons.description_outlined,
-                          size: 18,
-                          color: Color(0xFF55655B),
-                        ),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: 420,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Choose the file format. The export will use the same filters applied to the report table.',
                       ),
-                      items: ReportExportFormat.values
-                          .map(
-                            (ReportExportFormat format) =>
-                                DropdownMenuItem<ReportExportFormat>(
-                                  value: format,
-                                  child: Text(format.label),
-                                ),
-                          )
-                          .toList(),
-                      onChanged: (ReportExportFormat? value) {
-                        if (value == null) {
-                          return;
-                        }
+                      const SizedBox(height: 20),
+                      DropdownButtonFormField<ReportExportFormat>(
+                        initialValue: selectedFormat,
+                        decoration: _reportFilterInputDecoration(
+                          hintText: 'Select format',
+                          prefixIcon: const Icon(
+                            Icons.description_outlined,
+                            size: 18,
+                            color: Color(0xFF55655B),
+                          ),
+                        ),
+                        items: ReportExportFormat.values
+                            .map(
+                              (ReportExportFormat format) =>
+                                  DropdownMenuItem<ReportExportFormat>(
+                                    value: format,
+                                    child: Text(format.label),
+                                  ),
+                            )
+                            .toList(),
+                        onChanged: (ReportExportFormat? value) {
+                          if (value == null) {
+                            return;
+                          }
 
-                        setDialogState(() {
-                          selectedFormat = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<_ExportDatePreset>(
-                      initialValue: selectedPreset,
-                      decoration: _reportFilterInputDecoration(
-                        hintText: 'Select date range',
-                        prefixIcon: const Icon(
-                          Icons.date_range_outlined,
-                          size: 18,
-                          color: Color(0xFF55655B),
-                        ),
+                          setDialogState(() {
+                            selectedFormat = value;
+                          });
+                        },
                       ),
-                      items: _exportPresetLabels.entries
-                          .map(
-                            (MapEntry<_ExportDatePreset, String> entry) =>
-                                DropdownMenuItem<_ExportDatePreset>(
-                                  value: entry.key,
-                                  child: Text(entry.value),
+                      const SizedBox(height: 18),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FBF8),
+                          borderRadius: BorderRadius.circular(
+                            _reportSectionRadius,
+                          ),
+                          border: Border.all(color: const Color(0xFFDCE7DE)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.filter_alt_outlined,
+                                  size: 18,
+                                  color: _reportAccent,
                                 ),
-                          )
-                          .toList(),
-                      onChanged: (_ExportDatePreset? value) {
-                        if (value == null) {
-                          return;
-                        }
-
-                        setDialogState(() {
-                          selectedPreset = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FBF8),
-                        borderRadius: BorderRadius.circular(
-                          _reportSectionRadius,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _reportExportScopeTitle,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _reportExportScopeBody,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF5E6C63),
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            if (_hasAppliedReportFilters)
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: _appliedFilterChips.map((chip) {
+                                  return _buildAppliedFilterChip(chip);
+                                }).toList(),
+                              )
+                            else
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(
+                                    _reportSectionRadius,
+                                  ),
+                                  border: Border.all(
+                                    color: const Color(0xFFDCE7DE),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'All dates, statuses, and booking types are included in this export.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF5E6C63),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                        border: Border.all(color: const Color(0xFFDCE7DE)),
                       ),
-                      child: Text(
-                        _exportPresetDescription(selectedPreset),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF5E6C63),
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -532,12 +535,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                 ),
                 FilledButton(
                   onPressed: () {
-                    Navigator.of(dialogContext).pop(
-                      _ExportSelection(
-                        format: selectedFormat,
-                        filters: _buildExportFilters(selectedPreset),
-                      ),
-                    );
+                    Navigator.of(dialogContext).pop(selectedFormat);
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: _exportButtonColor,
@@ -551,92 +549,6 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         );
       },
     );
-  }
-
-  String _exportPresetDescription(_ExportDatePreset preset) {
-    final _ExportDateRange range = _resolveExportDateRange(preset);
-    final String statusText = _appliedStatus == null
-        ? 'all statuses'
-        : 'status ${_appliedStatus!}';
-    final String bookingTypeText = _appliedBookingType ?? 'all booking types';
-
-    switch (preset) {
-      case _ExportDatePreset.currentFilters:
-        return 'Uses the currently applied report filters, including any custom start and end dates, plus $statusText and $bookingTypeText.';
-      case _ExportDatePreset.allDates:
-        return 'Exports all dates while still keeping $statusText and $bookingTypeText.';
-      default:
-        return 'Exports ${_exportPresetLabels[preset]!.toLowerCase()} from ${_formatReportFilterDate(range.startDate)} to ${_formatReportFilterDate(range.endDate)} while keeping $statusText and $bookingTypeText.';
-    }
-  }
-
-  Map<String, String> _buildExportFilters(_ExportDatePreset preset) {
-    if (preset == _ExportDatePreset.currentFilters) {
-      return Map<String, String>.from(_activeReportFilters);
-    }
-
-    final Map<String, String> filters = <String, String>{};
-
-    if (_appliedStatus != null) {
-      filters['status'] = _appliedStatus!;
-    }
-
-    if (_appliedBookingType != null) {
-      filters['booking_type'] = _appliedBookingType!;
-    }
-
-    if (preset == _ExportDatePreset.allDates) {
-      return filters;
-    }
-
-    final _ExportDateRange range = _resolveExportDateRange(preset);
-
-    if (range.startDate != null) {
-      filters['start_date'] = _formatReportFilterDate(range.startDate);
-    }
-
-    if (range.endDate != null) {
-      filters['end_date'] = _formatReportFilterDate(range.endDate);
-    }
-
-    return filters;
-  }
-
-  _ExportDateRange _resolveExportDateRange(_ExportDatePreset preset) {
-    final DateTime now = DateTime.now();
-    final DateTime today = DateTime(now.year, now.month, now.day);
-
-    switch (preset) {
-      case _ExportDatePreset.currentFilters:
-        return _ExportDateRange(
-          startDate: _appliedStartDate,
-          endDate: _appliedEndDate,
-        );
-      case _ExportDatePreset.today:
-        return _ExportDateRange(startDate: today, endDate: today);
-      case _ExportDatePreset.yesterday:
-        final DateTime yesterday = today.subtract(const Duration(days: 1));
-        return _ExportDateRange(startDate: yesterday, endDate: yesterday);
-      case _ExportDatePreset.thisWeek:
-        return _ExportDateRange(
-          startDate: today.subtract(Duration(days: today.weekday - 1)),
-          endDate: today.add(
-            Duration(days: DateTime.daysPerWeek - today.weekday),
-          ),
-        );
-      case _ExportDatePreset.past7Days:
-        return _ExportDateRange(
-          startDate: today.subtract(const Duration(days: 6)),
-          endDate: today,
-        );
-      case _ExportDatePreset.thisMonth:
-        return _ExportDateRange(
-          startDate: DateTime(today.year, today.month, 1),
-          endDate: DateTime(today.year, today.month + 1, 0),
-        );
-      case _ExportDatePreset.allDates:
-        return const _ExportDateRange();
-    }
   }
 
   @override

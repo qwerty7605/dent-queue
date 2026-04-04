@@ -75,8 +75,9 @@ void main() {
       },
     };
 
-    final Map<String, int> first = await adminDashboardService
-        .getReportSummary(<String, String>{'status': 'Approved'});
+    final Map<String, int> first = await adminDashboardService.getReportSummary(
+      <String, String>{'status': 'Approved'},
+    );
     final Map<String, int> second = await adminDashboardService
         .getReportSummary(<String, String>{'status': 'Approved'});
 
@@ -139,7 +140,7 @@ void main() {
   );
 
   test(
-    'exportDetailedRecords requests the export endpoint with the format',
+    'exportDetailedRecords requests the export endpoint with active report filters',
     () async {
       fakeBaseService.nextRawResponse = http.Response.bytes(
         <int>[1, 2, 3],
@@ -152,12 +153,15 @@ void main() {
 
       final ReportExportFile result = await adminDashboardService
           .exportDetailedRecords(ReportExportFormat.pdf, <String, String>{
+            'start_date': '2026-04-01',
+            'end_date': '2026-04-30',
             'status': 'Approved',
+            'booking_type': 'Online Booking',
           });
 
       expect(
         fakeBaseService.lastPath,
-        '/api/v1/admin/reports/export?status=Approved&format=pdf',
+        '/api/v1/admin/reports/export?start_date=2026-04-01&end_date=2026-04-30&status=Approved&booking_type=Online+Booking&format=pdf',
       );
       expect(fakeBaseService.lastHeaders, <String, String>{
         'Accept': 'application/pdf',
