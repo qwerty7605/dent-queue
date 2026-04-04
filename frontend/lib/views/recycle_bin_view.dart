@@ -5,6 +5,7 @@ import '../core/api_exception.dart';
 import '../core/mobile_typography.dart';
 import '../models/recycle_bin_entry.dart';
 import '../services/appointment_service.dart';
+import '../widgets/appointment_status_badge.dart';
 
 enum RecycleBinRole { patient, staff }
 
@@ -448,10 +449,9 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _buildTag(
-                          label: entry.statusLabel,
-                          backgroundColor: const Color(0xFFF8E5E5),
-                          textColor: const Color(0xFF9F3030),
+                        AppointmentStatusBadge(
+                          status: entry.statusLabel,
+                          compact: true,
                         ),
                         _buildTag(
                           key: Key(

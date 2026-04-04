@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/appointment_status_badge.dart';
+
 class AppointmentDetailsDialog extends StatelessWidget {
   final Map<String, dynamic> appointment;
 
@@ -24,26 +26,6 @@ class AppointmentDetailsDialog extends StatelessWidget {
       }
     }
     final time = formattedTime;
-    final normalizedStatus = _normalizeStatus(appointment['status']);
-
-    String statusText = 'PENDING';
-    Color statusColor = const Color(0xFFE8C355);
-    Color statusBgColor = const Color(0xFFFFF7EF);
-
-    if (normalizedStatus == 'approved') {
-      statusText = 'APPROVED';
-      statusColor = Colors.blue;
-      statusBgColor = const Color(0xFFF1F7FF);
-    } else if (normalizedStatus == 'completed') {
-      statusText = 'COMPLETED';
-      statusColor = Colors.green;
-      statusBgColor = const Color(0xFFF1FFF7);
-    } else if (normalizedStatus == 'cancelled') {
-      statusText = 'CANCELLED';
-      statusColor = Colors.redAccent;
-      statusBgColor = const Color(0xFFFFF1F1);
-    }
-
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       backgroundColor: Colors.white,
@@ -66,24 +48,9 @@ class AppointmentDetailsDialog extends StatelessWidget {
                     color: Color(0xFF2C3E50),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusBgColor,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    statusText,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: statusColor,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
+                AppointmentStatusBadge(
+                  status: appointment['status'],
+                  compact: true,
                 ),
               ],
             ),
@@ -251,21 +218,5 @@ class AppointmentDetailsDialog extends StatelessWidget {
       // ignore
     }
     return dateStr;
-  }
-
-  String _normalizeStatus(dynamic value) {
-    final raw = value?.toString().trim().toLowerCase() ?? '';
-
-    if (raw == 'approved' || raw == 'confirmed') {
-      return 'approved';
-    }
-    if (raw == 'completed') {
-      return 'completed';
-    }
-    if (raw == 'cancelled' || raw == 'canceled') {
-      return 'cancelled';
-    }
-
-    return 'pending';
   }
 }

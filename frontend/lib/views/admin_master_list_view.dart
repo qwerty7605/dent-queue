@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+
+import '../core/appointment_status.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
+import '../widgets/appointment_status_badge.dart';
 
 enum _MasterListFilter { all, approved, cancelled, completed, pending }
 
@@ -69,7 +72,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
 
   List<Map<String, dynamic>> get _filteredAppointments {
     return _appointments.where((appointment) {
-      final status = _normalizeStatus(appointment['status']?.toString());
+      final status = normalizeAppointmentStatus(appointment['status']);
       final matchesStatus = switch (_selectedFilter) {
         _MasterListFilter.approved => status == 'approved',
         _MasterListFilter.cancelled => status == 'cancelled',
@@ -94,22 +97,25 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
           appointmentDate != null && _isSameDay(appointmentDate, today),
         _MasterListDateFilter.yesterday =>
           appointmentDate != null &&
-          _isSameDay(
-            appointmentDate,
-            today.subtract(const Duration(days: 1)),
-          ),
+              _isSameDay(
+                appointmentDate,
+                today.subtract(const Duration(days: 1)),
+              ),
         _MasterListDateFilter.thisWeek =>
-          appointmentDate != null && _isWithinCurrentWeek(appointmentDate, today),
+          appointmentDate != null &&
+              _isWithinCurrentWeek(appointmentDate, today),
         _MasterListDateFilter.lastWeek =>
           appointmentDate != null && _isWithinLastWeek(appointmentDate, today),
         _MasterListDateFilter.thisMonth =>
           appointmentDate != null &&
-          appointmentDate.year == today.year &&
-          appointmentDate.month == today.month,
+              appointmentDate.year == today.year &&
+              appointmentDate.month == today.month,
         _MasterListDateFilter.pastMonth =>
           appointmentDate != null &&
-          !appointmentDate.isAfter(today) &&
-          !appointmentDate.isBefore(today.subtract(const Duration(days: 30))),
+              !appointmentDate.isAfter(today) &&
+              !appointmentDate.isBefore(
+                today.subtract(const Duration(days: 30)),
+              ),
       };
     }).toList();
   }
@@ -166,10 +172,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
             ),
           ),
           const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: _buildDateFilterMenu(),
-          ),
+          Align(alignment: Alignment.centerLeft, child: _buildDateFilterMenu()),
           const SizedBox(height: 16),
           Expanded(
             child: Container(
@@ -328,7 +331,12 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                                     ),
                                   ),
                                 ),
-                                DataCell(_buildStatusBadge(status)),
+                                DataCell(
+                                  AppointmentStatusBadge(
+                                    status: status,
+                                    compact: true,
+                                  ),
+                                ),
                               ],
                             );
                           }).toList(),
@@ -340,49 +348,6 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(String status) {
-    Color backgroundColor;
-    Color textColor;
-
-    switch (status.toLowerCase()) {
-      case 'completed':
-        backgroundColor = const Color(0xFF81C784); // Light Green
-        textColor = const Color(0xFF1B5E20); // Dark Green
-        break;
-      case 'cancelled':
-        backgroundColor = const Color(0xFFE57373); // Light Red
-        textColor = const Color(0xFFB71C1C); // Dark Red
-        break;
-      case 'pending':
-        backgroundColor = const Color(0xFFFFD54F); // Light Yellow
-        textColor = const Color(0xFFF57F17); // Dark Orange/Yellow
-        break;
-      case 'approved':
-        backgroundColor = const Color(0xFF64B5F6); // Light Blue
-        textColor = const Color(0xFF0D47A1); // Dark Blue
-        break;
-      default:
-        backgroundColor = Colors.grey[300]!;
-        textColor = Colors.black87;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: backgroundColor.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(
-          color: textColor,
-          fontWeight: FontWeight.bold,
-          fontSize: 14,
-        ),
       ),
     );
   }
@@ -512,28 +477,14 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
   }
 
   bool _isWithinLastWeek(DateTime date, DateTime today) {
-    final startOfCurrentWeek = today.subtract(Duration(days: today.weekday - 1));
-    final startOfLastWeek = startOfCurrentWeek.subtract(const Duration(days: 7));
+    final startOfCurrentWeek = today.subtract(
+      Duration(days: today.weekday - 1),
+    );
+    final startOfLastWeek = startOfCurrentWeek.subtract(
+      const Duration(days: 7),
+    );
     final endOfLastWeek = startOfCurrentWeek.subtract(const Duration(days: 1));
 
     return !date.isBefore(startOfLastWeek) && !date.isAfter(endOfLastWeek);
-  }
-
-  String _normalizeStatus(String? status) {
-    final raw = status?.trim().toLowerCase() ?? 'pending';
-
-    if (raw == 'approved' || raw == 'confirmed') {
-      return 'approved';
-    }
-
-    if (raw == 'cancelled') {
-      return 'cancelled';
-    }
-
-    if (raw == 'completed') {
-      return 'completed';
-    }
-
-    return 'pending';
   }
 }

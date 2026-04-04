@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
 import '../core/file_download.dart';
 import '../core/mobile_typography.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
+import '../widgets/appointment_status_badge.dart';
 
 enum _TrendView { daily, weekly, monthly }
 
@@ -337,10 +339,11 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     });
 
     try {
-      final exportFile = await widget.adminDashboardService.exportDetailedRecords(
-        format,
-        overrideFilters ?? _activeReportFilters,
-      );
+      final exportFile = await widget.adminDashboardService
+          .exportDetailedRecords(
+            format,
+            overrideFilters ?? _activeReportFilters,
+          );
       final savedPath = await saveDownloadedFile(
         filename: exportFile.filename,
         bytes: exportFile.bytes,
@@ -401,7 +404,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
           return;
         }
 
-        await _exportReport(selection.format, overrideFilters: selection.filters);
+        await _exportReport(
+          selection.format,
+          overrideFilters: selection.filters,
+        );
       },
       icon: const Icon(Icons.download_outlined),
       label: const Text('Export'),
@@ -613,7 +619,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       case _ExportDatePreset.thisWeek:
         return _ExportDateRange(
           startDate: today.subtract(Duration(days: today.weekday - 1)),
-          endDate: today.add(Duration(days: DateTime.daysPerWeek - today.weekday)),
+          endDate: today.add(
+            Duration(days: DateTime.daysPerWeek - today.weekday),
+          ),
         );
       case _ExportDatePreset.past7Days:
         return _ExportDateRange(
@@ -2048,8 +2056,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                                 Text(record['queue_number']?.toString() ?? '-'),
                               ),
                               DataCell(
-                                _buildStatusBadge(
-                                  record['status']?.toString() ?? 'Pending',
+                                AppointmentStatusBadge(
+                                  status:
+                                      record['status']?.toString() ?? 'Pending',
+                                  compact: true,
                                 ),
                               ),
                             ],
@@ -2063,49 +2073,6 @@ class _AdminReportsViewState extends State<AdminReportsView> {
             ),
           const SizedBox(height: 16),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(String status) {
-    Color backgroundColor;
-    Color textColor;
-
-    switch (status.toLowerCase()) {
-      case 'completed':
-        backgroundColor = const Color(0xFF81C784); // Light Green
-        textColor = const Color(0xFF1B5E20); // Dark Green
-        break;
-      case 'cancelled':
-        backgroundColor = const Color(0xFFE57373); // Light Red
-        textColor = const Color(0xFFB71C1C); // Dark Red
-        break;
-      case 'pending':
-        backgroundColor = const Color(0xFFFFD54F); // Light Yellow
-        textColor = const Color(0xFFF57F17); // Dark Orange/Yellow
-        break;
-      case 'approved':
-        backgroundColor = const Color(0xFF64B5F6); // Light Blue
-        textColor = const Color(0xFF0D47A1); // Dark Blue
-        break;
-      default:
-        backgroundColor = Colors.grey[300]!;
-        textColor = Colors.black87;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: backgroundColor.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(
-          color: textColor,
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
       ),
     );
   }

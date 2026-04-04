@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/appointment_service.dart';
+
 import '../core/api_exception.dart';
+import '../services/appointment_service.dart';
+import '../widgets/appointment_status_badge.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 
 class StaffCalendarView extends StatefulWidget {
@@ -373,10 +375,6 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
           appointment['time'] ??
           appointment['time_slot'],
     );
-    final status = _normalizeStatusLabel(
-      appointment['status']?.toString() ?? 'pending',
-    );
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -442,7 +440,10 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
                   child: CircularProgressIndicator(strokeWidth: 2.2),
                 )
               else
-                _buildStatusBadge(status),
+                AppointmentStatusBadge(
+                  status: appointment['status'],
+                  compact: true,
+                ),
             ],
           ),
         ),
@@ -467,40 +468,6 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'approved':
-      case 'confirmed':
-        return const Color(0xFF1D4ED8);
-      case 'completed':
-        return const Color(0xFF16A34A);
-      case 'cancelled':
-        return const Color(0xFFDC2626);
-      default:
-        return const Color(0xFFF97316);
-    }
-  }
-
-  Widget _buildStatusBadge(String status) {
-    final statusKey = status.toLowerCase();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: _getStatusColor(statusKey).withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        status,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: _getStatusColor(statusKey),
-        ),
-      ),
-    );
   }
 
   String _formatScheduleDate(DateTime date) {
@@ -533,23 +500,6 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
     final suffix = hour >= 12 ? 'PM' : 'AM';
     final normalizedHour = hour % 12 == 0 ? 12 : hour % 12;
     return '$normalizedHour:$minute $suffix';
-  }
-
-  String _normalizeStatusLabel(String rawStatus) {
-    final normalized = rawStatus.trim().toLowerCase();
-    switch (normalized) {
-      case 'confirmed':
-      case 'approved':
-        return 'Approved';
-      case 'completed':
-        return 'Completed';
-      case 'cancelled':
-        return 'Cancelled';
-      default:
-        return normalized.isEmpty
-            ? 'Pending'
-            : '${normalized[0].toUpperCase()}${normalized.substring(1)}';
-    }
   }
 
   String _getMonthName(int month) {

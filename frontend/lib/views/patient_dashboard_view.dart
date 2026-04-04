@@ -2,16 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../core/api_client.dart';
+import '../core/appointment_status.dart';
 import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
-import '../services/base_service.dart';
 import '../services/appointment_service.dart';
+import '../services/base_service.dart';
 import '../services/notification_service.dart';
 import '../core/config.dart';
 
 import '../widgets/book_appointment_dialog.dart';
-import '../widgets/edit_profile_dialog.dart';
 import '../widgets/appointment_details_dialog.dart';
+import '../widgets/appointment_status_badge.dart';
+import '../widgets/edit_profile_dialog.dart';
 import 'notifications_view.dart';
 import 'recycle_bin_view.dart';
 
@@ -565,7 +567,11 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                           ? NetworkImage('${AppConfig.baseUrl}$profilePicture')
                           : null,
                       child: profilePicture == null
-                          ? const Icon(Icons.person, color: Colors.grey, size: 20)
+                          ? const Icon(
+                              Icons.person,
+                              color: Colors.grey,
+                              size: 20,
+                            )
                           : null,
                     ),
                   ],
@@ -658,27 +664,26 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                 final pendingCount = allAppointments
                     .where(
                       (a) =>
-                          _normalizeAppointmentStatus(a['status']) == 'pending',
+                          normalizeAppointmentStatus(a['status']) == 'pending',
                     )
                     .length;
                 final approvedCount = allAppointments
                     .where(
                       (a) =>
-                          _normalizeAppointmentStatus(a['status']) ==
-                          'approved',
+                          normalizeAppointmentStatus(a['status']) == 'approved',
                     )
                     .length;
                 final completedCount = allAppointments
                     .where(
                       (a) =>
-                          _normalizeAppointmentStatus(a['status']) ==
+                          normalizeAppointmentStatus(a['status']) ==
                           'completed',
                     )
                     .length;
                 final cancelledCount = allAppointments
                     .where(
                       (a) =>
-                          _normalizeAppointmentStatus(a['status']) ==
+                          normalizeAppointmentStatus(a['status']) ==
                           'cancelled',
                     )
                     .length;
@@ -1382,8 +1387,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                 child: _buildQueueMetricCard(
                   label: 'NEXT UP',
                   value: _formatQueueNumber(nextUp?['queue_number']),
-                  caption:
-                      isPatientNextUp
+                  caption: isPatientNextUp
                       ? 'You are next in line'
                       : nextUp?['patient_name']?.toString() ?? 'No one in line',
                   color: const Color(0xFF0F766E),
@@ -1544,7 +1548,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
 
   List<Map<String, dynamic>> _visibleAppointments() {
     return _dashboardAppointments().where((appointment) {
-      final status = _normalizeAppointmentStatus(appointment['status']);
+      final status = normalizeAppointmentStatus(appointment['status']);
 
       return switch (_selectedFilter) {
         _PatientAppointmentFilter.all => true,
@@ -1554,47 +1558,6 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
         _PatientAppointmentFilter.cancelled => status == 'cancelled',
       };
     }).toList();
-  }
-
-  String _normalizeAppointmentStatus(dynamic value) {
-    final raw = value?.toString().toLowerCase().trim() ?? '';
-    if (raw == 'confirmed' || raw == 'approved') {
-      return 'approved';
-    }
-    if (raw == 'completed') {
-      return 'completed';
-    }
-    if (raw == 'cancelled') {
-      return 'cancelled';
-    }
-    return 'pending';
-  }
-
-  String _appointmentStatusLabel(String status) {
-    return switch (status) {
-      'approved' => 'APPROVED',
-      'completed' => 'COMPLETED',
-      'cancelled' => 'CANCELLED',
-      _ => 'PENDING',
-    };
-  }
-
-  Color _appointmentStatusColor(String status) {
-    return switch (status) {
-      'approved' => const Color(0xFF1D4ED8),
-      'completed' => const Color(0xFF16A34A),
-      'cancelled' => const Color(0xFFDC2626),
-      _ => const Color(0xFFF97316),
-    };
-  }
-
-  Color _appointmentStatusBackground(String status) {
-    return switch (status) {
-      'approved' => const Color(0xFFEFF5FF),
-      'completed' => const Color(0xFFEFFCF3),
-      'cancelled' => const Color(0xFFFFF1F1),
-      _ => const Color(0xFFFFF7ED),
-    };
   }
 
   String _formatQueueNumber(dynamic value) {
@@ -1718,7 +1681,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     final time = formattedTime;
     final queue = appt['queue_number']?.toString() ?? '--';
     final initial = serviceType.isNotEmpty ? serviceType[0].toUpperCase() : 'S';
-    final status = _normalizeAppointmentStatus(appt['status']);
+    final status = normalizeAppointmentStatus(appt['status']);
 
     return GestureDetector(
       onTap: () {
@@ -1785,24 +1748,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                 color: Color(0xFF1E293B),
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _appointmentStatusBackground(status),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                _appointmentStatusLabel(status),
-                                style: TextStyle(
-                                  color: _appointmentStatusColor(status),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
+                            AppointmentStatusBadge(
+                              status: status,
+                              compact: true,
                             ),
                           ],
                         ),

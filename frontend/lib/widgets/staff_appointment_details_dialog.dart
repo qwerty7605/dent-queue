@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../core/appointment_status.dart';
+import 'appointment_status_badge.dart';
+
 typedef StaffAppointmentStatusUpdater =
     Future<bool> Function(String nextStatus);
 
@@ -37,7 +40,7 @@ class _StaffAppointmentDetailsDialogState
           '',
     );
     final notes = widget.appointment['notes']?.toString().trim() ?? '';
-    final status = _normalizeStatus(widget.appointment['status']);
+    final status = normalizeAppointmentStatus(widget.appointment['status']);
     final queueNumber = _formatQueueNumber(widget.appointment['queue_number']);
     final actions = widget.showStatusActions && widget.onStatusUpdate != null
         ? _allowedActionsForStatus(status)
@@ -77,25 +80,7 @@ class _StaffAppointmentDetailsDialogState
                 ],
               ),
               const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: _statusBackground(status),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  _statusLabel(status),
-                  style: TextStyle(
-                    color: _statusColor(status),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 10,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ),
+              AppointmentStatusBadge(status: status, compact: true),
               const SizedBox(height: 18),
               _DetailBlock(label: 'PATIENT NAME', value: patientName),
               const SizedBox(height: 14),
@@ -123,7 +108,7 @@ class _StaffAppointmentDetailsDialogState
                   Expanded(
                     child: _DetailBlock(
                       label: 'STATUS',
-                      value: _statusLabel(status),
+                      value: appointmentStatusLabel(status),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -266,47 +251,6 @@ class _StaffAppointmentDetailsDialogState
   String _readValue(String key, {required String fallback}) {
     final value = widget.appointment[key]?.toString().trim() ?? '';
     return value.isEmpty ? fallback : value;
-  }
-
-  String _normalizeStatus(dynamic value) {
-    final raw = value?.toString().toLowerCase().trim() ?? '';
-    if (raw == 'approved' || raw == 'confirmed') {
-      return 'approved';
-    }
-    if (raw == 'completed') {
-      return 'completed';
-    }
-    if (raw == 'cancelled') {
-      return 'cancelled';
-    }
-    return 'pending';
-  }
-
-  String _statusLabel(String status) {
-    return switch (status) {
-      'approved' => 'APPROVED',
-      'completed' => 'COMPLETED',
-      'cancelled' => 'CANCELLED',
-      _ => 'PENDING',
-    };
-  }
-
-  Color _statusColor(String status) {
-    return switch (status) {
-      'approved' => const Color(0xFF1D4ED8),
-      'completed' => const Color(0xFF16A34A),
-      'cancelled' => const Color(0xFFDC2626),
-      _ => const Color(0xFFF59E0B),
-    };
-  }
-
-  Color _statusBackground(String status) {
-    return switch (status) {
-      'approved' => const Color(0xFFEFF5FF),
-      'completed' => const Color(0xFFEFFCF3),
-      'cancelled' => const Color(0xFFFFF0F0),
-      _ => const Color(0xFFFFF7DF),
-    };
   }
 
   String _formatQueueNumber(dynamic value) {
