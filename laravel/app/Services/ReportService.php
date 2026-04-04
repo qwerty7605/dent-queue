@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Appointment;
+use App\Support\AppointmentQueueOrder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -204,10 +205,7 @@ class ReportService
         return $this->newFilteredAppointmentsQuery($filters)
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id')
-            ->orderByRaw($this->statusSortExpression())
-            ->orderBy('appointments.id')
-            ->orderBy('appointments.appointment_date')
-            ->orderBy('appointments.time_slot')
+            ->tap(static fn (Builder $query) => AppointmentQueueOrder::apply($query))
             ->select([
                 'appointments.id as appointment_id',
                 'patient_records.first_name',
@@ -224,23 +222,6 @@ class ReportService
                 'queues.queue_number',
             ])
             ->get();
-    }
-
-    private function statusSortExpression(): string
-    {
-        return sprintf(
-            "CASE appointments.status
-                WHEN '%s' THEN 1
-                WHEN '%s' THEN 2
-                WHEN '%s' THEN 3
-                WHEN '%s' THEN 4
-                ELSE 5
-            END",
-            self::STATUS_PENDING,
-            self::STATUS_CONFIRMED,
-            self::STATUS_COMPLETED,
-            self::STATUS_CANCELLED,
-        );
     }
 
     private function mapDetailedRecord(object $appointment): array

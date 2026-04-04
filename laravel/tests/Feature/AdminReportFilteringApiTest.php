@@ -83,6 +83,72 @@ class AdminReportFilteringApiTest extends TestCase
         $this->assertSame('Cancelled', $data[1]['status']);
     }
 
+    public function test_master_list_orders_records_by_date_time_and_created_at(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        $service = Service::create([
+            'name' => 'Sorting Checkup',
+            'is_active' => true,
+        ]);
+
+        $patientA = $this->createUserWithRole('Patient');
+        $patientB = $this->createUserWithRole('Patient');
+        $patientC = $this->createUserWithRole('Patient');
+
+        $earliest = $this->createAppointment(
+            $patientA->patientRecord,
+            $service,
+            '2026-04-05',
+            '08:30',
+            'cancelled',
+        );
+        $sameTimeEarlierCreated = $this->createAppointment(
+            $patientB->patientRecord,
+            $service,
+            '2026-04-05',
+            '09:00',
+            'pending',
+        );
+        $sameTimeLaterCreated = $this->createAppointment(
+            $patientC->patientRecord,
+            $service,
+            '2026-04-05',
+            '09:00',
+            'completed',
+        );
+
+        $earliest->forceFill([
+            'created_at' => '2026-04-01 07:15:00',
+            'updated_at' => '2026-04-01 07:15:00',
+        ])->saveQuietly();
+        $sameTimeEarlierCreated->forceFill([
+            'created_at' => '2026-04-01 07:30:00',
+            'updated_at' => '2026-04-01 07:30:00',
+        ])->saveQuietly();
+        $sameTimeLaterCreated->forceFill([
+            'created_at' => '2026-04-01 07:45:00',
+            'updated_at' => '2026-04-01 07:45:00',
+        ])->saveQuietly();
+
+        Sanctum::actingAs($admin);
+
+        $response = $this->getJson('/api/v1/admin/appointments/master-list');
+
+        $response->assertOk()->assertJsonCount(3, 'data');
+
+        $data = $response->json('data');
+
+        $this->assertSame($earliest->id, $data[0]['appointment_id']);
+        $this->assertSame('Cancelled', $data[0]['status']);
+        $this->assertSame('08:30', $data[0]['appointment_time']);
+        $this->assertSame($sameTimeEarlierCreated->id, $data[1]['appointment_id']);
+        $this->assertSame('Pending', $data[1]['status']);
+        $this->assertSame('09:00', $data[1]['appointment_time']);
+        $this->assertSame($sameTimeLaterCreated->id, $data[2]['appointment_id']);
+        $this->assertSame('Completed', $data[2]['status']);
+        $this->assertSame('09:00', $data[2]['appointment_time']);
+    }
+
     public function test_combined_filters_apply_consistently_across_report_endpoints(): void
     {
         $admin = $this->createFilteringFixture();

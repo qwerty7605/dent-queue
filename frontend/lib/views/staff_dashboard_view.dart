@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/api_exception.dart';
+import '../core/appointment_queue_order.dart';
 import '../core/appointment_status.dart';
 import '../core/config.dart';
 import '../core/mobile_typography.dart';
@@ -1875,11 +1876,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           queue.contains(query);
     }).toList();
 
-    filtered.sort((a, b) {
-      final queueA = _parseQueueNumber(a['queue_number']);
-      final queueB = _parseQueueNumber(b['queue_number']);
-      return queueA.compareTo(queueB);
-    });
+    filtered.sort(compareAppointmentQueueDisplayOrder);
 
     return filtered;
   }
@@ -2092,11 +2089,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         appointments
             .where((appointment) => appointment['is_called'] == true)
             .toList()
-          ..sort(
-            (a, b) => _parseQueueNumber(
-              b['queue_number'],
-            ).compareTo(_parseQueueNumber(a['queue_number'])),
-          );
+          ..sort(compareAppointmentQueueDisplayOrderDescending);
 
     final nextUpCandidates =
         appointments
@@ -2107,11 +2100,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                       'approved',
             )
             .toList()
-          ..sort(
-            (a, b) => _parseQueueNumber(
-              a['queue_number'],
-            ).compareTo(_parseQueueNumber(b['queue_number'])),
-          );
+          ..sort(compareAppointmentQueueDisplayOrder);
 
     return {
       'date': date,
