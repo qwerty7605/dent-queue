@@ -34,6 +34,7 @@ class StaffDashboardView extends StatefulWidget {
     required this.loggingOut,
     this.readOnly = false,
     this.appointmentService,
+    this.notificationService,
   });
 
   final Map<String, dynamic>? userInfo;
@@ -42,6 +43,7 @@ class StaffDashboardView extends StatefulWidget {
   final bool loggingOut;
   final bool readOnly;
   final AppointmentService? appointmentService;
+  final NotificationService? notificationService;
 
   @override
   State<StaffDashboardView> createState() => _StaffDashboardViewState();
@@ -68,7 +70,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   final int _profileImageVersion = DateTime.now().millisecondsSinceEpoch;
   int _unreadNotificationCount = 0;
 
-  bool get _isReadOnlyAccount => _resolvedRole(_localUserInfo) == 'intern';
+  bool get _isReadOnlyAccount =>
+      widget.readOnly || _resolvedRole(_localUserInfo) == 'intern';
   String get _accountRoleLabel => _isReadOnlyAccount ? 'Intern' : 'Staff';
   String get _accountRoleTag => _isReadOnlyAccount ? 'INTERN' : 'STAFF';
 
@@ -79,13 +82,18 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     _baseService = BaseService(ApiClient(tokenStorage: widget.tokenStorage));
     _appointmentService =
         widget.appointmentService ?? AppointmentService(_baseService);
-    _notificationService = NotificationService(_baseService);
+    _notificationService =
+        widget.notificationService ?? NotificationService(_baseService);
     _patientRecordService = PatientRecordService(_baseService);
     _localUserInfo = widget.userInfo != null
         ? Map<String, dynamic>.from(widget.userInfo!)
         : <String, dynamic>{};
     _initializeAppointments();
-    _loadUnreadNotificationCount();
+    if (_isReadOnlyAccount) {
+      _unreadNotificationCount = 0;
+    } else {
+      _loadUnreadNotificationCount();
+    }
   }
 
   @override
@@ -121,12 +129,14 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       }
 
       final list = await _appointmentService.getAdminAppointmentsByDate(date);
-      List<Map<String, dynamic>> recycleBinAppointments;
-      try {
-        recycleBinAppointments = await _appointmentService
-            .getRecycleBinAppointments(true);
-      } catch (_) {
-        recycleBinAppointments = [];
+      List<Map<String, dynamic>> recycleBinAppointments = [];
+      if (!_isReadOnlyAccount) {
+        try {
+          recycleBinAppointments = await _appointmentService
+              .getRecycleBinAppointments(true);
+        } catch (_) {
+          recycleBinAppointments = [];
+        }
       }
       Map<String, dynamic>? queueStatus;
       try {
@@ -414,38 +424,40 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       backgroundColor: const Color(0xFFF4F5ED),
       appBar: _buildAppBar(chipName, profileImageUrl),
       drawer: _buildDrawer(name, profileImageUrl),
-      body: SafeArea(
-        child: switch (_selectedTab) {
-          _StaffTab.appointments => _buildAppointmentsTab(),
-          _StaffTab.walkIn =>
-            _isReadOnlyAccount
-                ? _buildReadOnlyPlaceholder()
-                : StaffWalkInView(
-                    appointmentService: _appointmentService,
-                    onWalkInSuccess: () {
-                      if (mounted) {
-                        setState(() {
-                          _selectedTab = _StaffTab.appointments;
-                        });
-                      }
-                      _loadAppointmentsForSelectedDate(showLoader: false);
-                    },
-                  ),
-          _StaffTab.calendar => StaffCalendarView(
-            appointmentService: _appointmentService,
-          ),
-          _StaffTab.records =>
-            _isReadOnlyAccount
-                ? _buildReadOnlyPlaceholder()
-                : StaffPatientRecordsView(
-                    patientRecordService: _patientRecordService,
-                    appointmentService: _appointmentService,
-                  ),
-          _StaffTab.profile => _buildProfileTab(profileImageUrl),
-        },
-      ),
+      body: SafeArea(child: _buildSelectedTab(profileImageUrl)),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
+  }
+
+  Widget _buildSelectedTab(String? profileImageUrl) {
+    return switch (_selectedTab) {
+      _StaffTab.appointments => _buildAppointmentsTab(),
+      _StaffTab.walkIn =>
+        _isReadOnlyAccount
+            ? _buildRestrictedSectionState('Walk-in')
+            : StaffWalkInView(
+                appointmentService: _appointmentService,
+                onWalkInSuccess: () {
+                  if (mounted) {
+                    setState(() {
+                      _selectedTab = _StaffTab.appointments;
+                    });
+                  }
+                  _loadAppointmentsForSelectedDate(showLoader: false);
+                },
+              ),
+      _StaffTab.calendar => StaffCalendarView(
+        appointmentService: _appointmentService,
+      ),
+      _StaffTab.records =>
+        _isReadOnlyAccount
+            ? _buildRestrictedSectionState('Records')
+            : StaffPatientRecordsView(
+                patientRecordService: _patientRecordService,
+                appointmentService: _appointmentService,
+              ),
+      _StaffTab.profile => _buildProfileTab(profileImageUrl),
+    };
   }
 
   PreferredSizeWidget _buildAppBar(String name, String? profileImageUrl) {
@@ -896,33 +908,64 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                     label: 'CONTACT NUMBER',
                     value: contactNumber,
                   ),
-                  const SizedBox(height: 28),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _isReadOnlyAccount
-                          ? null
-                          : () async {
-                              await _openEditProfileDialog();
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF356042),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                  const SizedBox(height: 24),
+                  if (_isReadOnlyAccount)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
                       ),
-                      child: Text(
-                        _isReadOnlyAccount ? 'View Only' : 'Edit Profile',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(
+                            Icons.visibility_outlined,
+                            size: 18,
+                            color: Color(0xFF64748B),
+                          ),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Profile details are view-only for intern accounts.',
+                              style: TextStyle(
+                                color: Color(0xFF475569),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await _openEditProfileDialog();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF356042),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Edit Profile',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -1311,38 +1354,33 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed:
-                  (_isReadOnlyAccount ||
-                      _isCallingNext ||
-                      _isLoadingAppointments)
-                  ? null
-                  : _callNextPatient,
-              icon: _isCallingNext
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.campaign_outlined, size: 18),
-              label: Text(
-                _isReadOnlyAccount
-                    ? 'View Only Queue'
-                    : (_isCallingNext ? 'Calling...' : 'Call Next'),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF356042),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+          if (!_isReadOnlyAccount) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: (_isCallingNext || _isLoadingAppointments)
+                    ? null
+                    : _callNextPatient,
+                icon: _isCallingNext
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.campaign_outlined, size: 18),
+                label: Text(_isCallingNext ? 'Calling...' : 'Call Next'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF356042),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1468,7 +1506,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     );
   }
 
-  Widget _buildReadOnlyPlaceholder() {
+  Widget _buildRestrictedSectionState(String sectionName) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -1480,18 +1518,35 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.lock_outline, size: 36, color: Color(0xFF64748B)),
-              SizedBox(height: 12),
+              const Icon(
+                Icons.lock_outline,
+                size: 36,
+                color: Color(0xFF64748B),
+              ),
+              const SizedBox(height: 12),
               Text(
-                'This section is not available for intern accounts.',
+                '$sectionName is not available for intern accounts.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   color: Color(0xFF334155),
                 ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedTab = _StaffTab.appointments;
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF356042),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Back to Appointments'),
               ),
             ],
           ),
