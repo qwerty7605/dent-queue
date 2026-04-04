@@ -135,6 +135,32 @@ class AdminReportsCsvExportTest extends TestCase
         $this->assertSame('Online Booking', $rows[1][6]);
     }
 
+    public function test_export_respects_date_range_status_and_booking_type_filters(): void
+    {
+        $admin = $this->createReportFixture();
+        Sanctum::actingAs($admin);
+
+        $response = $this->get(
+            '/api/v1/admin/reports/export?'.http_build_query([
+                'start_date' => '2026-04-02',
+                'end_date' => '2026-04-04',
+                'status' => 'Approved',
+                'booking_type' => 'Online Booking',
+            ]),
+        );
+
+        $rows = array_map(
+            'str_getcsv',
+            preg_split("/\r\n|\n|\r/", trim($response->streamedContent())),
+        );
+
+        $this->assertCount(2, $rows);
+        $this->assertSame('1', $rows[1][0]);
+        $this->assertSame('2026-04-03', $rows[1][3]);
+        $this->assertSame('Approved', $rows[1][5]);
+        $this->assertSame('Online Booking', $rows[1][6]);
+    }
+
     public function test_export_with_no_matching_rows_returns_header_only_csv(): void
     {
         $admin = $this->createReportFixture();
