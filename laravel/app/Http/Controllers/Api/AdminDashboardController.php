@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
 use App\Models\User;
+use App\Services\CentralizedCacheService;
 use App\Services\ReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,39 +22,43 @@ class AdminDashboardController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function stats(): JsonResponse
+    public function stats(CentralizedCacheService $cacheService): JsonResponse
     {
-        $patientsCount = PatientRecord::query()
-            ->where(function ($query) {
-                $query->whereNull('user_id')
-                    ->orWhereHas('user', function ($userQuery) {
-                        $userQuery->where('is_active', true);
-                    });
+        $stats = $cacheService->rememberDashboardStats(function (): array {
+            $patientsCount = PatientRecord::query()
+                ->where(function ($query) {
+                    $query->whereNull('user_id')
+                        ->orWhereHas('user', function ($userQuery) {
+                            $userQuery->where('is_active', true);
+                        });
+                })
+                ->count();
+
+            $staffCount = User::whereHas('role', function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['staff']);
             })
-            ->count();
-        
-        $staffCount = User::whereHas('role', function ($query) {
-            $query->whereRaw('LOWER(name) = ?', ['staff']);
-        })
-            ->where('is_active', true)
-            ->count();
+                ->where('is_active', true)
+                ->count();
 
-        $internCount = User::whereHas('role', function ($query) {
-            $query->whereRaw('LOWER(name) = ?', ['intern']);
-        })
-            ->where('is_active', true)
-            ->count();
-        
-        $appointmentsCount = Appointment::count();
+            $internCount = User::whereHas('role', function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['intern']);
+            })
+                ->where('is_active', true)
+                ->count();
 
-        return response()->json([
-            'data' => [
+            $appointmentsCount = Appointment::count();
+
+            return [
                 'patients_count' => $patientsCount,
                 'staff_count' => $staffCount,
                 'intern_count' => $internCount,
                 'staff_accounts_count' => $staffCount + $internCount,
                 'appointments_count' => $appointmentsCount,
-            ]
+            ];
+        });
+
+        return response()->json([
+            'data' => $stats,
         ]);
     }
 

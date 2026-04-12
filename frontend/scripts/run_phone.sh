@@ -12,6 +12,32 @@ fi
 API_PORT="${API_PORT:-8080}"
 API_HOST="${API_HOST:-}"
 
+find_adb() {
+  if command -v adb >/dev/null 2>&1; then
+    command -v adb
+    return 0
+  fi
+
+  local candidates=(
+    "${ANDROID_SDK_ROOT:-}/platform-tools/adb"
+    "${ANDROID_HOME:-}/platform-tools/adb"
+    "$HOME/Android/Sdk/platform-tools/adb"
+    "$HOME/Android/sdk/platform-tools/adb"
+    "/opt/android-sdk/platform-tools/adb"
+    "/usr/lib/android-sdk/platform-tools/adb"
+  )
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 if [[ -z "$API_HOST" ]] && command -v ip >/dev/null 2>&1; then
   API_HOST="$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')"
 fi
@@ -38,21 +64,34 @@ if [[ "${1:-}" != "" ]] && [[ "${1:-}" != --* ]]; then
   shift
 fi
 
-BASE_URL="http://${API_HOST}:${API_PORT}"
-echo "Running with API_BASE_URL=${BASE_URL}"
+ADB_BIN="${ADB_BIN:-}"
+if [[ -z "$ADB_BIN" ]]; then
+  ADB_BIN="$(find_adb || true)"
+fi
 
-if command -v adb >/dev/null 2>&1; then
+USE_LOCALHOST=0
+if [[ -n "$ADB_BIN" ]]; then
   if [[ -z "$DEVICE_ID" ]]; then
-    DEVICE_ID="$(adb devices | awk '$2=="device"{print $1; exit}')"
+    DEVICE_ID="$("$ADB_BIN" devices | awk '$2=="device"{print $1; exit}')"
   fi
 
   if [[ -n "$DEVICE_ID" ]]; then
-    if adb -s "$DEVICE_ID" reverse "tcp:${API_PORT}" "tcp:${API_PORT}" >/dev/null 2>&1; then
+    if "$ADB_BIN" -s "$DEVICE_ID" reverse "tcp:${API_PORT}" "tcp:${API_PORT}" >/dev/null 2>&1; then
       echo "adb reverse enabled: ${DEVICE_ID} tcp:${API_PORT} -> host tcp:${API_PORT}"
+      USE_LOCALHOST=1
     else
       echo "Warning: could not enable adb reverse for ${DEVICE_ID}"
     fi
   fi
+else
+  echo "Warning: adb not found; falling back to LAN host ${API_HOST}"
 fi
 
+if [[ "$USE_LOCALHOST" -eq 1 ]]; then
+  BASE_URL="http://localhost:${API_PORT}"
+else
+  BASE_URL="http://${API_HOST}:${API_PORT}"
+fi
+
+echo "Running with API_BASE_URL=${BASE_URL}"
 flutter run "${DEVICE_ARGS[@]}" --dart-define=API_BASE_URL="$BASE_URL" "$@"
