@@ -25,6 +25,9 @@ class CentralizedCacheStrategyTest extends TestCase
         parent::setUp();
 
         Cache::flush();
+        config()->set('cache.centralized_ttl_seconds.dashboard', 60);
+        config()->set('cache.centralized_ttl_seconds.reports', 120);
+        config()->set('cache.centralized_ttl_seconds.notifications', 30);
     }
 
     public function test_dashboard_stats_are_served_from_cache_and_invalidated_on_model_changes(): void
@@ -126,6 +129,72 @@ class CentralizedCacheStrategyTest extends TestCase
             ->assertJsonPath('data.cancelled_count', 1);
     }
 
+    public function test_dashboard_cache_expires_after_configured_ttl(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        $patient = $this->createUserWithRole('Patient');
+        $service = $this->createService();
+
+        Appointment::create([
+            'patient_id' => $patient->id,
+            'service_id' => $service->id,
+            'appointment_date' => '2026-04-12',
+            'time_slot' => '09:00',
+            'status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/v1/admin/dashboard/stats')
+            ->assertOk()
+            ->assertJsonPath('data.appointments_count', 1);
+
+        DB::table('appointments')->delete();
+
+        $this->travel(59)->seconds();
+        $this->getJson('/api/v1/admin/dashboard/stats')
+            ->assertOk()
+            ->assertJsonPath('data.appointments_count', 1);
+
+        $this->travel(2)->seconds();
+        $this->getJson('/api/v1/admin/dashboard/stats')
+            ->assertOk()
+            ->assertJsonPath('data.appointments_count', 0);
+    }
+
+    public function test_report_cache_expires_after_configured_ttl(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        $patient = $this->createUserWithRole('Patient');
+        $service = $this->createService();
+
+        Appointment::create([
+            'patient_id' => $patient->id,
+            'service_id' => $service->id,
+            'appointment_date' => '2026-04-12',
+            'time_slot' => '09:00',
+            'status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/v1/admin/reports/summary')
+            ->assertOk()
+            ->assertJsonPath('data.total_appointments', 1);
+
+        DB::table('appointments')->delete();
+
+        $this->travel(119)->seconds();
+        $this->getJson('/api/v1/admin/reports/summary')
+            ->assertOk()
+            ->assertJsonPath('data.total_appointments', 1);
+
+        $this->travel(2)->seconds();
+        $this->getJson('/api/v1/admin/reports/summary')
+            ->assertOk()
+            ->assertJsonPath('data.total_appointments', 0);
+    }
+
     public function test_notifications_are_cached_then_refreshed_when_notifications_change(): void
     {
         $patient = $this->createUserWithRole('Patient');
@@ -185,6 +254,50 @@ class CentralizedCacheStrategyTest extends TestCase
             ->assertJsonPath('unread_count', 2)
             ->assertJsonCount(2, 'notifications')
             ->assertJsonPath('notifications.0.title', 'New notification B');
+    }
+
+    public function test_notification_cache_expires_after_configured_ttl(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $service = $this->createService();
+        $patientRecord = PatientRecord::resolveForUser($patient);
+
+        $appointment = Appointment::create([
+            'patient_id' => $patientRecord->id,
+            'service_id' => $service->id,
+            'appointment_date' => '2026-04-12',
+            'time_slot' => '09:00',
+            'status' => 'pending',
+        ]);
+
+        PatientNotification::create([
+            'patient_id' => $patientRecord->id,
+            'appointment_id' => $appointment->id,
+            'type' => 'appointment_created',
+            'title' => 'TTL notification',
+            'message' => 'Will expire after the configured window.',
+        ]);
+
+        Sanctum::actingAs($patient);
+
+        $this->getJson('/api/v1/patient/notifications')
+            ->assertOk()
+            ->assertJsonPath('unread_count', 1)
+            ->assertJsonCount(1, 'notifications');
+
+        DB::table('patient_notifications')->delete();
+
+        $this->travel(29)->seconds();
+        $this->getJson('/api/v1/patient/notifications')
+            ->assertOk()
+            ->assertJsonPath('unread_count', 1)
+            ->assertJsonCount(1, 'notifications');
+
+        $this->travel(2)->seconds();
+        $this->getJson('/api/v1/patient/notifications')
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0)
+            ->assertJsonCount(0, 'notifications');
     }
 
     private function createService(): Service

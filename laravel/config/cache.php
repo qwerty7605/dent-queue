@@ -114,4 +114,21 @@ return [
 
     'prefix' => env('CACHE_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-cache-'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Centralized Cache TTL Rules
+    |--------------------------------------------------------------------------
+    |
+    | These TTL values control how long centralized dashboard, reports, and
+    | notifications cache entries remain valid before Laravel fetches fresh
+    | data from the database again.
+    |
+    */
+
+    'centralized_ttl_seconds' => [
+        'dashboard' => (int) env('CACHE_TTL_DASHBOARD_SECONDS', 300),
+        'reports' => (int) env('CACHE_TTL_REPORTS_SECONDS', 900),
+        'notifications' => (int) env('CACHE_TTL_NOTIFICATIONS_SECONDS', 180),
+    ],
+
 ];

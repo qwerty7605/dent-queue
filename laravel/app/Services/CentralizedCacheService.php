@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\PatientRecord;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 
 class CentralizedCacheService
@@ -17,7 +18,7 @@ class CentralizedCacheService
         return $this->remember(
             self::DASHBOARD_NAMESPACE,
             'stats',
-            now()->addMinutes(5),
+            $this->ttlFor('dashboard'),
             $resolver,
         );
     }
@@ -27,7 +28,7 @@ class CentralizedCacheService
         return $this->remember(
             self::REPORTS_NAMESPACE,
             'summary:' . $this->filtersHash($filters),
-            now()->addMinutes(10),
+            $this->ttlFor('reports'),
             $resolver,
         );
     }
@@ -37,7 +38,7 @@ class CentralizedCacheService
         return $this->remember(
             self::REPORTS_NAMESPACE,
             'status_distribution:' . $this->filtersHash($filters),
-            now()->addMinutes(10),
+            $this->ttlFor('reports'),
             $resolver,
         );
     }
@@ -47,7 +48,7 @@ class CentralizedCacheService
         return $this->remember(
             self::REPORTS_NAMESPACE,
             'trends:' . $trendType . ':' . $this->filtersHash($filters),
-            now()->addMinutes(10),
+            $this->ttlFor('reports'),
             $resolver,
         );
     }
@@ -57,7 +58,7 @@ class CentralizedCacheService
         return $this->remember(
             self::REPORTS_NAMESPACE,
             'detailed_records:' . $this->filtersHash($filters),
-            now()->addMinutes(10),
+            $this->ttlFor('reports'),
             $resolver,
         );
     }
@@ -67,7 +68,7 @@ class CentralizedCacheService
         return $this->remember(
             self::REPORTS_NAMESPACE,
             'export_records:' . $this->filtersHash($filters),
-            now()->addMinutes(10),
+            $this->ttlFor('reports'),
             $resolver,
         );
     }
@@ -77,7 +78,7 @@ class CentralizedCacheService
         return $this->remember(
             $this->notificationsNamespace($user),
             'list',
-            now()->addMinutes(3),
+            $this->ttlFor('notifications'),
             $resolver,
         );
     }
@@ -87,7 +88,7 @@ class CentralizedCacheService
         return (int) $this->remember(
             $this->notificationsNamespace($user),
             'unread_count',
-            now()->addMinutes(3),
+            $this->ttlFor('notifications'),
             $resolver,
         );
     }
@@ -137,6 +138,16 @@ class CentralizedCacheService
         );
 
         return Cache::remember($key, $ttl, $resolver);
+    }
+
+    private function ttlFor(string $module): CarbonInterface
+    {
+        $seconds = max(
+            1,
+            (int) config('cache.centralized_ttl_seconds.' . $module, 300),
+        );
+
+        return now()->addSeconds($seconds);
     }
 
     private function currentVersion(string $namespace): int
