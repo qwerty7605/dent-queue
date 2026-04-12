@@ -204,7 +204,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
       }
 
       final Map<String, dynamic> queueStatus = await _appointmentService
-          .getPatientTodayQueue();
+          .getPatientTodayQueue(forceRefresh: forceRefresh);
       if (!mounted) {
         return;
       }

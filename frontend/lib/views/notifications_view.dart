@@ -47,7 +47,10 @@ class _NotificationsViewState extends State<NotificationsView> {
     _fetchNotifications();
   }
 
-  Future<void> _fetchNotifications({bool showLoader = true}) async {
+  Future<void> _fetchNotifications({
+    bool showLoader = true,
+    bool forceRefresh = false,
+  }) async {
     final bool hasVisibleContent = _notifications.isNotEmpty;
     final String resolvedRole = _hasResolvedRole ? _role : await _resolveRole();
     if (!mounted) {
@@ -63,7 +66,7 @@ class _NotificationsViewState extends State<NotificationsView> {
 
     try {
       final NotificationListResult result = await _notificationService
-          .getNotifications(resolvedRole);
+          .getNotifications(resolvedRole, forceRefresh: forceRefresh);
       if (!mounted) {
         return;
       }
@@ -111,7 +114,7 @@ class _NotificationsViewState extends State<NotificationsView> {
   }
 
   Future<void> _refreshNotifications() {
-    return _fetchNotifications(showLoader: false);
+    return _fetchNotifications(showLoader: false, forceRefresh: true);
   }
 
   Future<void> _markAsRead(int id) async {
@@ -366,7 +369,7 @@ class _NotificationsViewState extends State<NotificationsView> {
               ),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: _fetchNotifications,
+                onPressed: () => _fetchNotifications(forceRefresh: true),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF679B6A),
                 ),

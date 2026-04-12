@@ -18,10 +18,11 @@ class NotificationController extends Controller
     {
         /** @var \App\Models\User $user */
         $user = $request->user();
+        $forceRefresh = $request->boolean('force_refresh');
 
         return response()->json([
-            'notifications' => $this->notificationService->listForUser($user)->values(),
-            'unread_count' => $this->notificationService->unreadCountForUser($user),
+            'notifications' => $this->notificationService->listForUser($user, $forceRefresh)->values(),
+            'unread_count' => $this->notificationService->unreadCountForUser($user, $forceRefresh),
         ]);
     }
 

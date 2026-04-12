@@ -12,10 +12,14 @@ class Endpoints {
   static const services = '$_base/patient/services';
   static const appointments = '$_base/patient/appointments';
   static const medicalHistory = '$_base/patient/appointments/history';
-  static const patientNotifications = '$_base/patient/notifications';
+  static String patientNotifications([
+    Map<String, String> queryParameters = const <String, String>{},
+  ]) => _withQueryParameters('$_base/patient/notifications', queryParameters);
   static const patientNotificationsMarkAllRead =
       '$_base/patient/notifications/read-all';
-  static const patientTodayQueue = '$_base/patient/queues/today';
+  static String patientTodayQueue([
+    Map<String, String> queryParameters = const <String, String>{},
+  ]) => _withQueryParameters('$_base/patient/queues/today', queryParameters);
   static const patientJoinQueue = '$_base/patient/queues/join';
   static String cancelAppointment(int id) =>
       '$_base/patient/appointments/$id/cancel';
@@ -26,7 +30,9 @@ class Endpoints {
   static String patientNotificationMarkRead(int id) =>
       '$_base/patient/notifications/$id/read';
   static String updatePatientProfile(int id) => '$_base/patient/profile/$id';
-  static const staffNotifications = '$_base/staff/notifications';
+  static String staffNotifications([
+    Map<String, String> queryParameters = const <String, String>{},
+  ]) => _withQueryParameters('$_base/staff/notifications', queryParameters);
   static const staffNotificationsMarkAllRead =
       '$_base/staff/notifications/read-all';
   static String staffNotificationMarkRead(int id) =>
@@ -39,7 +45,9 @@ class Endpoints {
       '$_base/admin/calendar/appointments?date=$date';
   static String adminCalendarAppointmentDetails(int id) =>
       '$_base/admin/calendar/appointments/$id';
-  static const adminDashboardStats = '$_base/admin/dashboard/stats';
+  static String adminDashboardStats([
+    Map<String, String> queryParameters = const <String, String>{},
+  ]) => _withQueryParameters('$_base/admin/dashboard/stats', queryParameters);
   static String adminReportsSummary([
     Map<String, String> queryParameters = const <String, String>{},
   ]) => _withQueryParameters('$_base/admin/reports/summary', queryParameters);
@@ -63,9 +71,13 @@ class Endpoints {
   );
   static const staffRecycleBin = '$_base/admin/appointments/recycle-bin';
   static const adminClinicSettings = '$_base/admin/settings/clinic';
-  static String adminTodayQueue([String? date]) => date == null || date.isEmpty
-      ? '$_base/admin/queues/today'
-      : '$_base/admin/queues/today?date=$date';
+  static String adminTodayQueue(
+    String? date, {
+    Map<String, String> queryParameters = const <String, String>{},
+  }) => _withQueryParameters('$_base/admin/queues/today', <String, String>{
+    if (date != null && date.isNotEmpty) 'date': date,
+    ...queryParameters,
+  });
   static const adminCallNextQueue = '$_base/admin/queues/call-next';
   static String adminUpdateAppointmentStatus(int id) =>
       '$_base/admin/appointments/$id/status';

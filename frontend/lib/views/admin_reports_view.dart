@@ -157,6 +157,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     try {
       final stats = await widget.adminDashboardService.getReportSummary(
         filters,
+        forceRefresh,
       );
       if (!mounted) return;
       setState(() {
@@ -205,6 +206,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       final trendRows = await widget.adminDashboardService.getAppointmentTrends(
         view.name,
         effectiveFilters,
+        forceRefresh,
       );
 
       if (!mounted) return;

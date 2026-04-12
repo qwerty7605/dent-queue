@@ -16,11 +16,16 @@ class _FakeNotificationService extends Fake implements NotificationService {
   int markAllCalls = 0;
   int listCalls = 0;
   String? lastListedRole;
+  bool lastForceRefresh = false;
 
   @override
-  Future<NotificationListResult> getNotifications(String role) async {
+  Future<NotificationListResult> getNotifications(
+    String role, {
+    bool forceRefresh = false,
+  }) async {
     listCalls += 1;
     lastListedRole = role;
+    lastForceRefresh = forceRefresh;
     if (queuedResults.isNotEmpty) {
       final int index = listCalls <= queuedResults.length
           ? listCalls - 1
@@ -264,6 +269,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(notificationService.listCalls, 2);
+    expect(notificationService.lastForceRefresh, isTrue);
     expect(find.text('Refreshed notification state.'), findsOneWidget);
   });
 
@@ -303,6 +309,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(notificationService.listCalls, 2);
+      expect(notificationService.lastForceRefresh, isTrue);
     },
   );
 }

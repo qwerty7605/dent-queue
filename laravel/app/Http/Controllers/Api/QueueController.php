@@ -34,6 +34,7 @@ class QueueController extends Controller
         $snapshot = $this->queueService->getQueueSnapshot(
             $patientRecordId,
             $payload['date'] ?? null,
+            $request->boolean('force_refresh'),
         );
 
         return response()->json($snapshot);

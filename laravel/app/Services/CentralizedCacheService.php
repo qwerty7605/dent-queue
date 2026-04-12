@@ -14,93 +14,102 @@ class CentralizedCacheService
     private const QUEUE_NAMESPACE = 'queue';
     private const VERSION_SUFFIX = 'version';
 
-    public function rememberDashboardStats(callable $resolver): array
+    public function rememberDashboardStats(callable $resolver, bool $forceRefresh = false): array
     {
         return $this->remember(
             self::DASHBOARD_NAMESPACE,
             'stats',
             $this->ttlFor('dashboard'),
             $resolver,
+            $forceRefresh,
         );
     }
 
-    public function rememberReportSummary(array $filters, callable $resolver): array
+    public function rememberReportSummary(array $filters, callable $resolver, bool $forceRefresh = false): array
     {
         return $this->remember(
             self::REPORTS_NAMESPACE,
             'summary:' . $this->filtersHash($filters),
             $this->ttlFor('reports'),
             $resolver,
+            $forceRefresh,
         );
     }
 
-    public function rememberReportStatusDistribution(array $filters, callable $resolver): array
+    public function rememberReportStatusDistribution(array $filters, callable $resolver, bool $forceRefresh = false): array
     {
         return $this->remember(
             self::REPORTS_NAMESPACE,
             'status_distribution:' . $this->filtersHash($filters),
             $this->ttlFor('reports'),
             $resolver,
+            $forceRefresh,
         );
     }
 
-    public function rememberReportTrends(string $trendType, array $filters, callable $resolver): array
+    public function rememberReportTrends(string $trendType, array $filters, callable $resolver, bool $forceRefresh = false): array
     {
         return $this->remember(
             self::REPORTS_NAMESPACE,
             'trends:' . $trendType . ':' . $this->filtersHash($filters),
             $this->ttlFor('reports'),
             $resolver,
+            $forceRefresh,
         );
     }
 
-    public function rememberReportDetailedRecords(array $filters, callable $resolver): array
+    public function rememberReportDetailedRecords(array $filters, callable $resolver, bool $forceRefresh = false): array
     {
         return $this->remember(
             self::REPORTS_NAMESPACE,
             'detailed_records:' . $this->filtersHash($filters),
             $this->ttlFor('reports'),
             $resolver,
+            $forceRefresh,
         );
     }
 
-    public function rememberReportExportRecords(array $filters, callable $resolver): array
+    public function rememberReportExportRecords(array $filters, callable $resolver, bool $forceRefresh = false): array
     {
         return $this->remember(
             self::REPORTS_NAMESPACE,
             'export_records:' . $this->filtersHash($filters),
             $this->ttlFor('reports'),
             $resolver,
+            $forceRefresh,
         );
     }
 
-    public function rememberNotificationsListForUser(User $user, callable $resolver): array
+    public function rememberNotificationsListForUser(User $user, callable $resolver, bool $forceRefresh = false): array
     {
         return $this->remember(
             $this->notificationsNamespace($user),
             'list',
             $this->ttlFor('notifications'),
             $resolver,
+            $forceRefresh,
         );
     }
 
-    public function rememberNotificationsUnreadCountForUser(User $user, callable $resolver): int
+    public function rememberNotificationsUnreadCountForUser(User $user, callable $resolver, bool $forceRefresh = false): int
     {
         return (int) $this->remember(
             $this->notificationsNamespace($user),
             'unread_count',
             $this->ttlFor('notifications'),
             $resolver,
+            $forceRefresh,
         );
     }
 
-    public function rememberQueueSummary(string $date, callable $resolver): array
+    public function rememberQueueSummary(string $date, callable $resolver, bool $forceRefresh = false): array
     {
         return $this->remember(
             self::QUEUE_NAMESPACE,
             'summary:' . $date,
             $this->ttlFor('queue'),
             $resolver,
+            $forceRefresh,
         );
     }
 
@@ -144,7 +153,7 @@ class CentralizedCacheService
         }
     }
 
-    private function remember(string $namespace, string $suffix, mixed $ttl, callable $resolver): mixed
+    private function remember(string $namespace, string $suffix, mixed $ttl, callable $resolver, bool $forceRefresh = false): mixed
     {
         $key = sprintf(
             'central_cache:%s:v%s:%s',
@@ -152,6 +161,13 @@ class CentralizedCacheService
             $this->currentVersion($namespace),
             $suffix,
         );
+
+        if ($forceRefresh) {
+            $freshValue = $resolver();
+            Cache::put($key, $freshValue, $ttl);
+
+            return $freshValue;
+        }
 
         return Cache::remember($key, $ttl, $resolver);
     }

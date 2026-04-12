@@ -40,7 +40,9 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
   }
 
   @override
-  Future<Map<String, dynamic>> getPatientTodayQueue() async {
+  Future<Map<String, dynamic>> getPatientTodayQueue({
+    bool forceRefresh = false,
+  }) async {
     patientQueueCalls += 1;
     return _mapResultAt(patientQueueResults, patientQueueCalls);
   }
@@ -62,7 +64,10 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
   }
 
   @override
-  Future<Map<String, dynamic>> getAdminTodayQueue([String? date]) async {
+  Future<Map<String, dynamic>> getAdminTodayQueue([
+    String? date,
+    bool forceRefresh = false,
+  ]) async {
     adminQueueCalls += 1;
     return _mapResultAt(adminQueueResults, adminQueueCalls);
   }
@@ -112,7 +117,10 @@ class _FakeNotificationService extends Fake implements NotificationService {
   int getNotificationsCalls = 0;
 
   @override
-  Future<NotificationListResult> getNotifications(String role) async {
+  Future<NotificationListResult> getNotifications(
+    String role, {
+    bool forceRefresh = false,
+  }) async {
     getNotificationsCalls += 1;
     return const NotificationListResult(
       notifications: <AppNotification>[],

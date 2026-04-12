@@ -96,6 +96,36 @@ class QueueSummaryCacheTest extends TestCase
             ->assertJsonPath('next_up.queue_number', 2);
     }
 
+    public function test_queue_force_refresh_bypasses_cached_summary(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService('Forced Queue Refresh');
+        $date = '2026-04-12';
+
+        $patientA = $this->createUserWithRole('Patient');
+        $patientB = $this->createUserWithRole('Patient');
+
+        $appointmentA = $this->createAppointment((int) $patientA->id, $service->id, $date, '09:00', 'confirmed');
+        $appointmentB = $this->createAppointment((int) $patientB->id, $service->id, $date, '10:00', 'confirmed');
+
+        $this->createQueue($appointmentA->id, $date, 1, true);
+        $this->createQueue($appointmentB->id, $date, 2, false);
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/admin/queues/today?date=' . $date)
+            ->assertOk()
+            ->assertJsonPath('queue_summary.total_queued', 2)
+            ->assertJsonPath('next_up.queue_number', 2);
+
+        DB::table('appointments')->delete();
+
+        $this->getJson('/api/v1/admin/queues/today?date=' . $date . '&force_refresh=true')
+            ->assertOk()
+            ->assertJsonPath('queue_summary.total_queued', 0)
+            ->assertJsonPath('next_up', null);
+    }
+
     private function createQueue(int $appointmentId, string $date, int $queueNumber, bool $isCalled): Queue
     {
         return Queue::create([

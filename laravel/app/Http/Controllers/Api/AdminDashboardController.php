@@ -24,6 +24,8 @@ class AdminDashboardController extends Controller
      */
     public function stats(CentralizedCacheService $cacheService): JsonResponse
     {
+        $forceRefresh = request()->boolean('force_refresh');
+
         $stats = $cacheService->rememberDashboardStats(function (): array {
             $patientsCount = PatientRecord::query()
                 ->where(function ($query) {
@@ -55,7 +57,7 @@ class AdminDashboardController extends Controller
                 'staff_accounts_count' => $staffCount + $internCount,
                 'appointments_count' => $appointmentsCount,
             ];
-        });
+        }, $forceRefresh);
 
         return response()->json([
             'data' => $stats,
@@ -70,7 +72,10 @@ class AdminDashboardController extends Controller
     public function reportSummary(Request $request, ReportService $reportService): JsonResponse
     {
         $filters = $this->validateReportFilters($request);
-        $summary = $reportService->getReportSummary($filters);
+        $summary = $reportService->getReportSummary(
+            $filters,
+            $request->boolean('force_refresh'),
+        );
 
         return response()->json([
             'data' => $summary,
@@ -87,7 +92,10 @@ class AdminDashboardController extends Controller
         $filters = $this->validateReportFilters($request);
 
         return response()->json([
-            'data' => $reportService->getStatusDistribution($filters),
+            'data' => $reportService->getStatusDistribution(
+                $filters,
+                $request->boolean('force_refresh'),
+            ),
         ]);
     }
 
@@ -111,7 +119,11 @@ class AdminDashboardController extends Controller
         )->validate();
 
         return response()->json([
-            'data' => $reportService->getAppointmentTrends($trendType, $filters),
+            'data' => $reportService->getAppointmentTrends(
+                $trendType,
+                $filters,
+                $request->boolean('force_refresh'),
+            ),
         ]);
     }
 }

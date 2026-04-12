@@ -153,7 +153,7 @@ class QueueService
         });
     }
 
-    public function getQueueSnapshot(?int $patientRecordId = null, ?string $date = null): array
+    public function getQueueSnapshot(?int $patientRecordId = null, ?string $date = null, bool $forceRefresh = false): array
     {
         $queueDate = $date !== null
             ? Carbon::createFromFormat('Y-m-d', $date)->toDateString()
@@ -230,7 +230,7 @@ class QueueService
                     'next_slot' => $nextUp !== null ? (string) $nextUp->time_slot : null,
                 ],
             ];
-        });
+        }, $forceRefresh);
 
         return [
             'date' => $queueDate,

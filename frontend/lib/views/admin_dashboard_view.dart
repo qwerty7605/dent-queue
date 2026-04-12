@@ -70,9 +70,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     _loadDashboardStats();
   }
 
-  Future<void> _loadDashboardStats() async {
+  Future<void> _loadDashboardStats({bool forceRefresh = false}) async {
+    if (mounted) {
+      setState(() {
+        _isLoadingStats = true;
+      });
+    }
+
     try {
-      final stats = await _adminDashboardService.getStats();
+      final stats = await _adminDashboardService.getStats(
+        forceRefresh: forceRefresh,
+      );
       if (!mounted) return;
       setState(() {
         _dashboardStats = stats;
@@ -240,6 +248,14 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _isLoadingStats
+                ? null
+                : () => _loadDashboardStats(forceRefresh: true),
+            icon: const Icon(Icons.refresh),
+            label: Text(_isLoadingStats ? 'Refreshing...' : 'Refresh'),
           ),
           SizedBox(height: MobileTypography.isPhone(context) ? 24 : 48),
 
