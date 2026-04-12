@@ -458,12 +458,14 @@ class AppointmentService {
     return response as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getPatientTodayQueue() async {
+  Future<Map<String, dynamic>> getPatientTodayQueue({
+    bool forceRefresh = false,
+  }) async {
     final dynamic cached = ShortTermCache.read<dynamic>(
       _patientTodayQueueCache,
       'current-user',
     );
-    if (cached is Map) {
+    if (!forceRefresh && cached is Map) {
       return Map<String, dynamic>.from(cached);
     }
 
@@ -472,7 +474,11 @@ class AppointmentService {
       'current-user',
       () async {
         final response = await _baseService.getJson<dynamic>(
-          Endpoints.patientTodayQueue,
+          Endpoints.patientTodayQueue(
+            forceRefresh
+                ? const <String, String>{'force_refresh': 'true'}
+                : const <String, String>{},
+          ),
           (data) => data,
         );
         final result = Map<String, dynamic>.from(response as Map);
@@ -497,13 +503,16 @@ class AppointmentService {
     return response as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getAdminTodayQueue([String? date]) async {
+  Future<Map<String, dynamic>> getAdminTodayQueue([
+    String? date,
+    bool forceRefresh = false,
+  ]) async {
     final String cacheKey = date == null || date.isEmpty ? 'today' : date;
     final dynamic cached = ShortTermCache.read<dynamic>(
       _adminTodayQueueCache,
       cacheKey,
     );
-    if (cached is Map) {
+    if (!forceRefresh && cached is Map) {
       return Map<String, dynamic>.from(cached);
     }
 
@@ -512,7 +521,12 @@ class AppointmentService {
       cacheKey,
       () async {
         final response = await _baseService.getJson<dynamic>(
-          Endpoints.adminTodayQueue(date),
+          Endpoints.adminTodayQueue(
+            date,
+            queryParameters: forceRefresh
+                ? const <String, String>{'force_refresh': 'true'}
+                : const <String, String>{},
+          ),
           (data) => data,
         );
         final result = Map<String, dynamic>.from(response as Map);

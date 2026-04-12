@@ -162,6 +162,33 @@ class CentralizedCacheStrategyTest extends TestCase
             ->assertJsonPath('data.appointments_count', 0);
     }
 
+    public function test_dashboard_force_refresh_bypasses_cached_stats(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        $patient = $this->createUserWithRole('Patient');
+        $service = $this->createService();
+
+        Appointment::create([
+            'patient_id' => $patient->id,
+            'service_id' => $service->id,
+            'appointment_date' => '2026-04-12',
+            'time_slot' => '09:00',
+            'status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/v1/admin/dashboard/stats')
+            ->assertOk()
+            ->assertJsonPath('data.appointments_count', 1);
+
+        DB::table('appointments')->delete();
+
+        $this->getJson('/api/v1/admin/dashboard/stats?force_refresh=true')
+            ->assertOk()
+            ->assertJsonPath('data.appointments_count', 0);
+    }
+
     public function test_report_cache_expires_after_configured_ttl(): void
     {
         $admin = $this->createUserWithRole('Admin');
@@ -295,6 +322,43 @@ class CentralizedCacheStrategyTest extends TestCase
 
         $this->travel(2)->seconds();
         $this->getJson('/api/v1/patient/notifications')
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0)
+            ->assertJsonCount(0, 'notifications');
+    }
+
+    public function test_notifications_force_refresh_bypasses_cached_list(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $service = $this->createService();
+        $patientRecord = PatientRecord::resolveForUser($patient);
+
+        $appointment = Appointment::create([
+            'patient_id' => $patientRecord->id,
+            'service_id' => $service->id,
+            'appointment_date' => '2026-04-12',
+            'time_slot' => '09:00',
+            'status' => 'pending',
+        ]);
+
+        PatientNotification::create([
+            'patient_id' => $patientRecord->id,
+            'appointment_id' => $appointment->id,
+            'type' => 'appointment_created',
+            'title' => 'Cached notification',
+            'message' => 'Cached notification.',
+        ]);
+
+        Sanctum::actingAs($patient);
+
+        $this->getJson('/api/v1/patient/notifications')
+            ->assertOk()
+            ->assertJsonPath('unread_count', 1)
+            ->assertJsonCount(1, 'notifications');
+
+        DB::table('patient_notifications')->delete();
+
+        $this->getJson('/api/v1/patient/notifications?force_refresh=true')
             ->assertOk()
             ->assertJsonPath('unread_count', 0)
             ->assertJsonCount(0, 'notifications');

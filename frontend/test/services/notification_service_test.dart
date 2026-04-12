@@ -76,6 +76,20 @@ void main() {
     },
   );
 
+  test('getNotifications appends force refresh when requested', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'notifications': <Map<String, dynamic>>[],
+      'unread_count': 0,
+    };
+
+    await notificationService.getNotifications('patient', forceRefresh: true);
+
+    expect(
+      fakeBaseService.lastPath,
+      '/api/v1/patient/notifications?force_refresh=true',
+    );
+  });
+
   test(
     'getNotifications uses cache until a read mutation invalidates it',
     () async {

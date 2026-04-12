@@ -21,13 +21,16 @@ class NotificationService {
 
   final BaseService _baseService;
 
-  Future<NotificationListResult> getNotifications(String role) async {
+  Future<NotificationListResult> getNotifications(
+    String role, {
+    bool forceRefresh = false,
+  }) async {
     final String normalizedRole = _normalizedRole(role);
     final dynamic cached = ShortTermCache.read<dynamic>(
       _notificationsCache,
       normalizedRole,
     );
-    if (cached is Map<String, dynamic>) {
+    if (!forceRefresh && cached is Map<String, dynamic>) {
       final List<AppNotification> notifications =
           (cached['notifications'] as List<dynamic>? ?? const <dynamic>[])
               .whereType<Map>()
@@ -49,7 +52,7 @@ class NotificationService {
       normalizedRole,
       () async {
         final response = await _baseService.getJson<dynamic>(
-          _notificationsPath(normalizedRole),
+          _notificationsPath(normalizedRole, forceRefresh: forceRefresh),
           (data) => data,
         );
 
@@ -144,10 +147,14 @@ class NotificationService {
     return 0;
   }
 
-  String _notificationsPath(String role) {
+  String _notificationsPath(String role, {bool forceRefresh = false}) {
+    final queryParameters = forceRefresh
+        ? const <String, String>{'force_refresh': 'true'}
+        : const <String, String>{};
+
     return _normalizedRole(role) == 'staff'
-        ? Endpoints.staffNotifications
-        : Endpoints.patientNotifications;
+        ? Endpoints.staffNotifications(queryParameters)
+        : Endpoints.patientNotifications(queryParameters);
   }
 
   String _markAsReadPath(String role, int notificationId) {

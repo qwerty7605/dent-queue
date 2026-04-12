@@ -73,7 +73,7 @@ class ReportService
         };
     }
 
-    public function getReportSummary(array $filters = []): array
+    public function getReportSummary(array $filters = [], bool $forceRefresh = false): array
     {
         return $this->cacheService->rememberReportSummary($filters, function () use ($filters): array {
             $summary = $this->newFilteredAppointmentsQuery($filters)
@@ -103,10 +103,10 @@ class ReportService
                 'completed_count' => (int) ($summary->completed_count ?? 0),
                 'cancelled_count' => (int) ($summary->cancelled_count ?? 0),
             ];
-        });
+        }, $forceRefresh);
     }
 
-    public function getStatusDistribution(array $filters = []): array
+    public function getStatusDistribution(array $filters = [], bool $forceRefresh = false): array
     {
         return $this->cacheService->rememberReportStatusDistribution($filters, function () use ($filters): array {
             $counts = $this->newFilteredAppointmentsQuery($filters)
@@ -132,10 +132,10 @@ class ReportService
             }
 
             return $data;
-        });
+        }, $forceRefresh);
     }
 
-    public function getAppointmentTrends(string $trendType, array $filters = []): array
+    public function getAppointmentTrends(string $trendType, array $filters = [], bool $forceRefresh = false): array
     {
         return $this->cacheService->rememberReportTrends($trendType, $filters, function () use ($trendType, $filters): array {
             $appointments = $this->newFilteredAppointmentsQuery($filters)
@@ -159,10 +159,10 @@ class ReportService
                 })
                 ->values()
                 ->all();
-        });
+        }, $forceRefresh);
     }
 
-    public function getDetailedRecords(array $filters = []): array
+    public function getDetailedRecords(array $filters = [], bool $forceRefresh = false): array
     {
         return $this->cacheService->rememberReportDetailedRecords($filters, function () use ($filters): array {
             $appointments = $this->getDetailedRecordRows($filters);
@@ -188,10 +188,10 @@ class ReportService
                 })
                 ->values()
                 ->all();
-        });
+        }, $forceRefresh);
     }
 
-    public function getDetailedRecordsForExport(array $filters = []): array
+    public function getDetailedRecordsForExport(array $filters = [], bool $forceRefresh = false): array
     {
         return $this->cacheService->rememberReportExportRecords($filters, function () use ($filters): array {
             return $this->getDetailedRecordRows($filters)
@@ -212,7 +212,7 @@ class ReportService
                 })
                 ->values()
                 ->all();
-        });
+        }, $forceRefresh);
     }
 
     private function getDetailedRecordRows(array $filters)

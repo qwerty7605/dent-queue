@@ -138,7 +138,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 .getRecycleBinAppointments(true)
                 .catchError((_) => <Map<String, dynamic>>[]);
       final Future<Map<String, dynamic>> queueFuture = _appointmentService
-          .getAdminTodayQueue(date);
+          .getAdminTodayQueue(date, forceRefresh);
 
       final List<Map<String, dynamic>> list = await appointmentsFuture;
       final List<Map<String, dynamic>> recycleBinAppointments =

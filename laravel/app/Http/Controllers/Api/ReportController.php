@@ -31,8 +31,14 @@ class ReportController extends Controller
      */
     public function index()
     {
+        $filters = request()->query();
+        unset($filters['force_refresh']);
+
         return response()->json([
-            'data' => $this->reportService->getDetailedRecords(),
+            'data' => $this->reportService->getDetailedRecords(
+                $filters,
+                request()->boolean('force_refresh'),
+            ),
         ]);
     }
 
@@ -40,7 +46,10 @@ class ReportController extends Controller
     {
         $filters = $this->validateReportFilters($request);
         $format = $this->normalizeExportFormat($request->query('format'));
-        $records = $this->reportService->getDetailedRecordsForExport($filters);
+        $records = $this->reportService->getDetailedRecordsForExport(
+            $filters,
+            $request->boolean('force_refresh'),
+        );
         $headers = $this->exportHeaders();
 
         return match ($format) {

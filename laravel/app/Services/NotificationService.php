@@ -17,7 +17,7 @@ class NotificationService
     ) {
     }
 
-    public function listForUser(User $user): Collection
+    public function listForUser(User $user, bool $forceRefresh = false): Collection
     {
         return collect($this->cacheService->rememberNotificationsListForUser($user, function () use ($user): array {
             $roleName = $this->resolveRoleName($user);
@@ -43,10 +43,10 @@ class NotificationService
             }
 
             return [];
-        }));
+        }, $forceRefresh));
     }
 
-    public function unreadCountForUser(User $user): int
+    public function unreadCountForUser(User $user, bool $forceRefresh = false): int
     {
         return $this->cacheService->rememberNotificationsUnreadCountForUser($user, function () use ($user): int {
             $roleName = $this->resolveRoleName($user);
@@ -56,7 +56,7 @@ class NotificationService
                 'staff', 'admin' => $this->staffNotificationsQuery($user)->whereNull('read_at')->count(),
                 default => 0,
             };
-        });
+        }, $forceRefresh);
     }
 
     public function resolveNotificationForUser(User $user, int $notificationId): PatientNotification|StaffNotification|null
