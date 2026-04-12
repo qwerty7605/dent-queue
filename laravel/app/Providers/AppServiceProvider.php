@@ -27,24 +27,24 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Appointment::saved($this->flushDashboardAndReports(...));
-        Appointment::deleted($this->flushDashboardAndReports(...));
-        Appointment::restored($this->flushDashboardAndReports(...));
-        Appointment::forceDeleted($this->flushDashboardAndReports(...));
+        Appointment::saved($this->flushDashboardReportsAndQueue(...));
+        Appointment::deleted($this->flushDashboardReportsAndQueue(...));
+        Appointment::restored($this->flushDashboardReportsAndQueue(...));
+        Appointment::forceDeleted($this->flushDashboardReportsAndQueue(...));
 
-        PatientRecord::saved($this->flushDashboardAndReports(...));
-        PatientRecord::deleted($this->flushDashboardAndReports(...));
-        PatientRecord::restored($this->flushDashboardAndReports(...));
-        PatientRecord::forceDeleted($this->flushDashboardAndReports(...));
+        PatientRecord::saved($this->flushDashboardReportsAndQueue(...));
+        PatientRecord::deleted($this->flushDashboardReportsAndQueue(...));
+        PatientRecord::restored($this->flushDashboardReportsAndQueue(...));
+        PatientRecord::forceDeleted($this->flushDashboardReportsAndQueue(...));
 
         User::saved($this->flushDashboardAndUserNotifications(...));
         User::deleted($this->flushDashboardAndUserNotifications(...));
 
-        Service::saved($this->flushReports(...));
-        Service::deleted($this->flushReports(...));
+        Service::saved($this->flushReportsAndQueue(...));
+        Service::deleted($this->flushReportsAndQueue(...));
 
-        Queue::saved($this->flushReports(...));
-        Queue::deleted($this->flushReports(...));
+        Queue::saved($this->flushReportsAndQueue(...));
+        Queue::deleted($this->flushReportsAndQueue(...));
 
         PatientNotification::saved($this->flushPatientNotifications(...));
         PatientNotification::deleted($this->flushPatientNotifications(...));
@@ -53,11 +53,12 @@ class AppServiceProvider extends ServiceProvider
         StaffNotification::deleted($this->flushStaffNotifications(...));
     }
 
-    private function flushDashboardAndReports(object $model): void
+    private function flushDashboardReportsAndQueue(object $model): void
     {
         $cacheService = app(CentralizedCacheService::class);
         $cacheService->flushDashboard();
         $cacheService->flushReports();
+        $cacheService->flushQueue();
     }
 
     private function flushDashboardAndUserNotifications(User $user): void
@@ -67,9 +68,11 @@ class AppServiceProvider extends ServiceProvider
         $cacheService->flushNotificationsForUser($user);
     }
 
-    private function flushReports(object $model): void
+    private function flushReportsAndQueue(object $model): void
     {
-        app(CentralizedCacheService::class)->flushReports();
+        $cacheService = app(CentralizedCacheService::class);
+        $cacheService->flushReports();
+        $cacheService->flushQueue();
     }
 
     private function flushPatientNotifications(PatientNotification $notification): void

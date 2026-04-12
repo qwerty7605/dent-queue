@@ -116,10 +116,15 @@ class User extends Authenticatable
     private function syncPatientRecord(): ?PatientRecord
     {
         if (!$this->shouldMaintainPatientRecord()) {
+            $this->unsetRelation('patientRecord');
+
             return null;
         }
 
-        return PatientRecord::syncFromUser($this);
+        $patientRecord = PatientRecord::syncFromUser($this);
+        $this->setRelation('patientRecord', $patientRecord);
+
+        return $patientRecord;
     }
 
     private function shouldMaintainPatientRecord(): bool
@@ -136,10 +141,15 @@ class User extends Authenticatable
     private function syncStaffRecord(): ?StaffRecord
     {
         if (!$this->shouldMaintainStaffRecord()) {
+            $this->unsetRelation('staffRecord');
+
             return null;
         }
 
-        return StaffRecord::syncFromUser($this);
+        $staffRecord = StaffRecord::syncFromUser($this);
+        $this->setRelation('staffRecord', $staffRecord);
+
+        return $staffRecord;
     }
 
     private function shouldMaintainStaffRecord(): bool
