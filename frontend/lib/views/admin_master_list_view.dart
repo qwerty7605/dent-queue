@@ -150,10 +150,6 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                   'Refresh',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF679B6A),
-                  side: const BorderSide(color: Color(0xFF679B6A)),
-                ),
               ),
             ],
           ),

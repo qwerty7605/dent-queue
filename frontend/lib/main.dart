@@ -37,15 +37,33 @@ class MyApp extends StatelessWidget {
   final HttpAuthService authService;
   final TokenStorage tokenStorage;
 
+  static const Color _buttonPrimary = Color(0xFF356042);
+  static const Color _buttonPrimaryHover = Color(0xFF2C5238);
+  static const Color _buttonPrimaryPressed = Color(0xFF24442E);
+  static const Color _buttonSecondary = Color(0xFFE5EFE1);
+  static const Color _buttonOutline = Color(0xFF4E7A57);
+  static const Color _buttonDisabled = Color(0xFFD5DED1);
+  static const double _buttonHeight = 48;
+  static const double _buttonRadius = 12;
+
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     final baseTextTheme = GoogleFonts.nunitoTextTheme();
+    final baseScheme = ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB));
+    final colorScheme = baseScheme.copyWith(
+      primary: _buttonPrimary,
+      onPrimary: Colors.white,
+      secondary: _buttonSecondary,
+      onSecondary: const Color(0xFF163321),
+      outline: _buttonOutline,
+      surfaceContainerHighest: const Color(0xFFF1F5F2),
+    );
 
     return MaterialApp(
       title: 'Frontend',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
+        colorScheme: colorScheme,
         useMaterial3: true,
         textTheme: baseTextTheme.copyWith(
           headlineMedium: baseTextTheme.headlineMedium?.copyWith(
@@ -86,11 +104,174 @@ class MyApp extends StatelessWidget {
           ),
         ),
         fontFamily: GoogleFonts.nunito().fontFamily,
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: _primaryButtonStyle(colorScheme),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: _primaryButtonStyle(colorScheme),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: _outlinedButtonStyle(colorScheme),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: _textButtonStyle(colorScheme),
+        ),
       ),
       home: AuthSwitcherView(
         authService: authService,
         tokenStorage: tokenStorage,
       ),
+    );
+  }
+
+  static ButtonStyle _primaryButtonStyle(ColorScheme colorScheme) {
+    return ButtonStyle(
+      minimumSize: const WidgetStatePropertyAll<Size>(
+        Size.fromHeight(_buttonHeight),
+      ),
+      padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+        EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      ),
+      textStyle: WidgetStatePropertyAll<TextStyle>(
+        GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w800),
+      ),
+      shape: WidgetStatePropertyAll<RoundedRectangleBorder>(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_buttonRadius),
+        ),
+      ),
+      elevation: WidgetStateProperty.resolveWith<double>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return 0;
+        }
+        if (states.contains(WidgetState.pressed)) {
+          return 0;
+        }
+        return 1;
+      }),
+      shadowColor: const WidgetStatePropertyAll<Color>(Color(0x1A163321)),
+      backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return _buttonDisabled;
+        }
+        if (states.contains(WidgetState.pressed)) {
+          return _buttonPrimaryPressed;
+        }
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused)) {
+          return _buttonPrimaryHover;
+        }
+        return colorScheme.primary;
+      }),
+      foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return Colors.white70;
+        }
+        return colorScheme.onPrimary;
+      }),
+      overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(WidgetState.pressed)) {
+          return Colors.black.withValues(alpha: 0.08);
+        }
+        if (states.contains(WidgetState.hovered)) {
+          return Colors.white.withValues(alpha: 0.04);
+        }
+        return null;
+      }),
+    );
+  }
+
+  static ButtonStyle _outlinedButtonStyle(ColorScheme colorScheme) {
+    return ButtonStyle(
+      minimumSize: const WidgetStatePropertyAll<Size>(
+        Size.fromHeight(_buttonHeight),
+      ),
+      padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+        EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      ),
+      textStyle: WidgetStatePropertyAll<TextStyle>(
+        GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w800),
+      ),
+      shape: WidgetStatePropertyAll<RoundedRectangleBorder>(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_buttonRadius),
+        ),
+      ),
+      side: WidgetStateProperty.resolveWith<BorderSide>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return BorderSide(color: _buttonDisabled, width: 1.25);
+        }
+        if (states.contains(WidgetState.pressed)) {
+          return BorderSide(color: _buttonPrimaryPressed, width: 1.5);
+        }
+        return BorderSide(color: colorScheme.outline, width: 1.25);
+      }),
+      backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return Colors.transparent;
+        }
+        if (states.contains(WidgetState.pressed)) {
+          return const Color(0xFFE2EBDF);
+        }
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused)) {
+          return const Color(0xFFF1F5F2);
+        }
+        return Colors.transparent;
+      }),
+      foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return const Color(0xFF8BA08D);
+        }
+        if (states.contains(WidgetState.pressed)) {
+          return _buttonPrimaryPressed;
+        }
+        return colorScheme.primary;
+      }),
+      overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(WidgetState.pressed)) {
+          return colorScheme.primary.withValues(alpha: 0.08);
+        }
+        return null;
+      }),
+    );
+  }
+
+  static ButtonStyle _textButtonStyle(ColorScheme colorScheme) {
+    return ButtonStyle(
+      minimumSize: const WidgetStatePropertyAll<Size>(
+        Size(0, _buttonHeight),
+      ),
+      padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
+        EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      ),
+      textStyle: WidgetStatePropertyAll<TextStyle>(
+        GoogleFonts.nunito(fontSize: 15, fontWeight: FontWeight.w800),
+      ),
+      shape: WidgetStatePropertyAll<RoundedRectangleBorder>(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_buttonRadius),
+        ),
+      ),
+      foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return const Color(0xFF8BA08D);
+        }
+        if (states.contains(WidgetState.pressed)) {
+          return _buttonPrimaryPressed;
+        }
+        return colorScheme.primary;
+      }),
+      overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused)) {
+          return colorScheme.primary.withValues(alpha: 0.06);
+        }
+        if (states.contains(WidgetState.pressed)) {
+          return colorScheme.primary.withValues(alpha: 0.1);
+        }
+        return null;
+      }),
     );
   }
 }

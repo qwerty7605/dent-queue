@@ -376,21 +376,13 @@ class _LoginViewState extends State<LoginView> {
                                 height: 52,
                                 child: ElevatedButton(
                                   onPressed: _submitting ? null : _login,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFE5EFE1),
-                                    foregroundColor: Colors.black,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    elevation: 0,
-                                  ),
                                   child: _submitting
                                       ? const SizedBox(
                                           width: 20,
                                           height: 20,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            color: Colors.black,
+                                            color: Colors.white,
                                           ),
                                         )
                                       : Text(
