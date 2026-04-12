@@ -7,6 +7,7 @@ use App\Models\PatientNotification;
 use App\Models\PatientRecord;
 use App\Models\Role;
 use App\Models\Service;
+use App\Models\StaffNotification;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -170,16 +171,36 @@ class NotificationReadUnreadApiTest extends TestCase
         $this->assertNull($notification->read_at);
     }
 
-    public function test_staff_mark_all_as_read_returns_safe_empty_result(): void
+    public function test_staff_can_mark_all_notifications_as_read(): void
     {
         $staff = $this->createUserWithRole('Staff');
+        $otherStaff = $this->createUserWithRole('Staff');
+        $service = $this->createService();
+        $patient = $this->createUserWithRole('Patient');
+        $patientRecord = PatientRecord::resolveForUser($patient);
+        $appointment = $this->createAppointment($patientRecord->id, $service->id, '2026-04-13', '09:00');
+
+        StaffNotification::create([
+            'user_id' => (int) $staff->id,
+            'appointment_id' => $appointment->id,
+            'type' => 'staff_appointment_created',
+            'title' => 'Unread staff notification',
+            'message' => 'Please review the new booking.',
+        ]);
+        StaffNotification::create([
+            'user_id' => (int) $otherStaff->id,
+            'appointment_id' => $appointment->id,
+            'type' => 'staff_appointment_created',
+            'title' => 'Other staff notification',
+            'message' => 'This should remain unread.',
+        ]);
 
         Sanctum::actingAs($staff);
 
         $this->patchJson('/api/v1/staff/notifications/read-all')
             ->assertOk()
             ->assertJsonPath('message', 'Notifications marked as read.')
-            ->assertJsonPath('updated_count', 0)
+            ->assertJsonPath('updated_count', 1)
             ->assertJsonPath('unread_count', 0);
     }
 

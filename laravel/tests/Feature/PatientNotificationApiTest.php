@@ -90,6 +90,35 @@ class PatientNotificationApiTest extends TestCase
             ->assertJsonPath('notifications.0.appointment_id', $appointmentId);
     }
 
+    public function test_staff_receives_notification_when_patient_books_an_appointment(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService();
+        Sanctum::actingAs($patient);
+
+        $appointmentDate = now(config('app.timezone'))->addDays(3)->format('Y-m-d');
+
+        $response = $this->postJson('/api/v1/patient/appointments', [
+            'service_id' => $service->id,
+            'appointment_date' => $appointmentDate,
+            'time_slot' => '09:00',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('message', 'Online booking created successfully.');
+
+        $appointmentId = (int) data_get($response->json(), 'appointment.id');
+
+        $this->assertDatabaseHas('staff_notifications', [
+            'user_id' => (int) $staff->id,
+            'appointment_id' => $appointmentId,
+            'type' => 'staff_appointment_created',
+            'title' => 'New appointment booked',
+            'message' => sprintf('Patient User booked Dental Check-up for %s at 09:00.', $appointmentDate),
+        ]);
+    }
+
     public function test_only_the_correct_patient_can_access_notification(): void
     {
         $patient = $this->createUserWithRole('Patient');
