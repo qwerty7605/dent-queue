@@ -129,6 +129,7 @@ return [
         'dashboard' => (int) env('CACHE_TTL_DASHBOARD_SECONDS', 300),
         'reports' => (int) env('CACHE_TTL_REPORTS_SECONDS', 900),
         'notifications' => (int) env('CACHE_TTL_NOTIFICATIONS_SECONDS', 180),
+        'queue' => (int) env('CACHE_TTL_QUEUE_SECONDS', 60),
     ],
 
 ];

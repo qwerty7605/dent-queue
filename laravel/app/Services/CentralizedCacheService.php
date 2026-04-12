@@ -11,6 +11,7 @@ class CentralizedCacheService
 {
     private const DASHBOARD_NAMESPACE = 'dashboard';
     private const REPORTS_NAMESPACE = 'reports';
+    private const QUEUE_NAMESPACE = 'queue';
     private const VERSION_SUFFIX = 'version';
 
     public function rememberDashboardStats(callable $resolver): array
@@ -93,6 +94,16 @@ class CentralizedCacheService
         );
     }
 
+    public function rememberQueueSummary(string $date, callable $resolver): array
+    {
+        return $this->remember(
+            self::QUEUE_NAMESPACE,
+            'summary:' . $date,
+            $this->ttlFor('queue'),
+            $resolver,
+        );
+    }
+
     public function flushDashboard(): void
     {
         $this->bumpVersion(self::DASHBOARD_NAMESPACE);
@@ -101,6 +112,11 @@ class CentralizedCacheService
     public function flushReports(): void
     {
         $this->bumpVersion(self::REPORTS_NAMESPACE);
+    }
+
+    public function flushQueue(): void
+    {
+        $this->bumpVersion(self::QUEUE_NAMESPACE);
     }
 
     public function flushNotificationsForPatientRecord(int $patientRecordId): void
