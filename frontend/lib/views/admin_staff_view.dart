@@ -188,10 +188,6 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                   'Refresh',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF679B6A),
-                  side: const BorderSide(color: Color(0xFF679B6A)),
-                ),
               ),
               const SizedBox(width: 16),
               FilledButton.icon(
@@ -200,9 +196,6 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                 label: const Text(
                   'Add Staff / Intern',
                   style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF679B6A),
                 ),
               ),
             ],

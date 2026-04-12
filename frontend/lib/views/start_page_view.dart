@@ -101,15 +101,6 @@ class StartPageView extends StatelessWidget {
                       height: 56,
                       child: ElevatedButton(
                         onPressed: onGetStarted,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 4,
-                          shadowColor: Colors.black38,
-                        ),
                         child: const Text(
                           'Get Started',
                           style: TextStyle(

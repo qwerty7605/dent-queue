@@ -153,6 +153,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
   Future<void> _fetchReportSummary([
     Map<String, String> filters = const <String, String>{},
+    bool forceRefresh = false,
   ]) async {
     try {
       final stats = await widget.adminDashboardService.getReportSummary(
@@ -586,10 +587,6 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                       'Refresh',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF679B6A),
-                      side: const BorderSide(color: Color(0xFF679B6A)),
-                    ),
                   ),
                   _buildExportButton(),
                 ],
@@ -621,10 +618,6 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                     label: const Text(
                       'Refresh',
                       style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF679B6A),
-                      side: const BorderSide(color: Color(0xFF679B6A)),
                     ),
                   ),
                   _buildExportButton(),
