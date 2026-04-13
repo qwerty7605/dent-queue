@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../core/appointment_status.dart';
+import 'app_alert_dialog.dart';
+import 'app_dialog_scaffold.dart';
 import 'appointment_status_badge.dart';
 
 typedef StaffAppointmentStatusUpdater =
@@ -46,109 +48,91 @@ class _StaffAppointmentDetailsDialogState
         ? _allowedActionsForStatus(status)
         : const <_AppointmentAction>[];
 
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 16, 12, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return AppDialogScaffold(
+      title: 'Appointment Details',
+      titleTextStyle: const TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.w900,
+        color: Color(0xFF1E293B),
+      ),
+      onClose: _isSubmitting ? null : () => Navigator.of(context).pop(),
+      headerTrailing: AppointmentStatusBadge(status: status, compact: true),
+      footer: _buildFooter(actions),
+      showFooterDivider: actions.isNotEmpty || _isSubmitting,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DetailBlock(label: 'PATIENT NAME', value: patientName),
+          const SizedBox(height: 16),
+          _DetailBlock(label: 'SERVICE TYPE', value: serviceType),
+          const SizedBox(height: 16),
+          Row(
             children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Appointment Details',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _isSubmitting
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 20),
-                    color: const Color(0xFF64748B),
-                    tooltip: 'Close',
-                  ),
-                ],
+              Expanded(
+                child: _DetailBlock(label: 'DATE', value: formattedDate),
               ),
-              const SizedBox(height: 4),
-              AppointmentStatusBadge(status: status, compact: true),
-              const SizedBox(height: 18),
-              _DetailBlock(label: 'PATIENT NAME', value: patientName),
-              const SizedBox(height: 14),
-              _DetailBlock(label: 'SERVICE TYPE', value: serviceType),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _DetailBlock(label: 'DATE', value: formattedDate),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _DetailBlock(label: 'TIME', value: formattedTime),
-                  ),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: _DetailBlock(label: 'TIME', value: formattedTime),
               ),
-              const SizedBox(height: 14),
-              _DetailBlock(
-                label: 'NOTES',
-                value: notes.isEmpty ? 'No notes provided' : notes,
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _DetailBlock(
-                      label: 'STATUS',
-                      value: appointmentStatusLabel(status),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _DetailBlock(
-                      label: 'QUEUE NUMBER',
-                      value: '#$queueNumber',
-                    ),
-                  ),
-                ],
-              ),
-              if (_isSubmitting) ...[
-                const SizedBox(height: 18),
-                const Center(
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2.4),
-                  ),
-                ),
-              ] else if (actions.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    for (var i = 0; i < actions.length; i++) ...[
-                      Expanded(
-                        child: _ActionButton(
-                          config: actions[i],
-                          onTap: () => _handleAction(actions[i]),
-                        ),
-                      ),
-                      if (i < actions.length - 1) const SizedBox(width: 12),
-                    ],
-                  ],
-                ),
-              ],
             ],
           ),
-        ),
+          const SizedBox(height: 16),
+          _DetailBlock(
+            label: 'NOTES',
+            value: notes.isEmpty ? 'No notes provided' : notes,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _DetailBlock(
+                  label: 'STATUS',
+                  value: appointmentStatusLabel(status),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _DetailBlock(
+                  label: 'QUEUE NUMBER',
+                  value: '#$queueNumber',
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget? _buildFooter(List<_AppointmentAction> actions) {
+    if (_isSubmitting) {
+      return const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2.4),
+        ),
+      );
+    }
+
+    if (actions.isEmpty) {
+      return null;
+    }
+
+    return Row(
+      children: [
+        for (var i = 0; i < actions.length; i++) ...[
+          Expanded(
+            child: _ActionButton(
+              config: actions[i],
+              onTap: () => _handleAction(actions[i]),
+            ),
+          ),
+          if (i < actions.length - 1) const SizedBox(width: 12),
+        ],
+      ],
     );
   }
 
@@ -193,7 +177,7 @@ class _StaffAppointmentDetailsDialogState
     final decision = await showDialog<bool>(
       context: context,
       builder: (context) {
-        return AlertDialog(
+        return AppAlertDialog(
           title: Text(_confirmationTitle(normalizedStatus)),
           content: Text(_confirmationMessage(normalizedStatus)),
           actions: [
@@ -360,15 +344,17 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 36,
+      height: 44,
       child: ElevatedButton(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           backgroundColor: config.backgroundColor,
           foregroundColor: config.foregroundColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
         ),
         child: Text(config.label.toUpperCase()),

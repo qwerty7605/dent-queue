@@ -6,6 +6,7 @@ import '../core/file_download.dart';
 import '../core/mobile_typography.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
+import '../widgets/app_alert_dialog.dart';
 import '../widgets/admin_data_table.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
@@ -404,7 +405,8 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
-            return AlertDialog(
+            return AppAlertDialog(
+              scrollable: true,
               title: const Text('Export Report'),
               content: SingleChildScrollView(
                 child: SizedBox(

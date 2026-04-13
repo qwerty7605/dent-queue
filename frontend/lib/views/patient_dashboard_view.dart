@@ -13,6 +13,7 @@ import '../core/config.dart';
 import '../widgets/book_appointment_dialog.dart';
 import '../widgets/appointment_details_dialog.dart';
 import '../widgets/appointment_status_badge.dart';
+import '../widgets/app_dialog_scaffold.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/dashboard_stat_card.dart';
 import '../widgets/edit_profile_dialog.dart';
@@ -1894,94 +1895,71 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   void _showCancelConfirmationDialog(int id) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF1F1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close,
-                  color: Color(0xFFD32F2F),
-                  size: 40,
-                ),
+      builder: (dialogContext) => AppDialogScaffold(
+        maxWidth: 420,
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+        bodyPadding: EdgeInsets.zero,
+        onClose: () => Navigator.of(dialogContext).pop(),
+        footer: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Keep Appointment'),
               ),
-              const SizedBox(height: 24),
-              const Text(
-                'Cancel Appointment?',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFD32F2F),
                 ),
+                onPressed: () async {
+                  Navigator.of(dialogContext).pop();
+                  await _cancelAppointment(id);
+                },
+                child: const Text('Cancel Appointment'),
               ),
-              const SizedBox(height: 12),
-              const Text(
-                'Are you sure you want to cancel this\nappointment? This action cannot be\nundone.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF64748B),
-                  height: 1.5,
-                ),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFF1F1),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 32),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color(0xFFF1F5F9),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Keep Appointment',
-                        style: TextStyle(
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () async {
-                        Navigator.pop(context); // Close dialog
-                        await _cancelAppointment(id);
-                      },
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: const Color(0xFFFF4949),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Cancel Appointment',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              child: const Icon(
+                Icons.close,
+                color: Color(0xFFD32F2F),
+                size: 40,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Cancel Appointment?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Are you sure you want to cancel this appointment? This action cannot be undone.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Color(0xFF64748B),
+                height: 1.5,
+              ),
+            ),
+          ],
         ),
       ),
     );

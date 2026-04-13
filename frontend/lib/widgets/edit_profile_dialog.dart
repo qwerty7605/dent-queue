@@ -11,6 +11,7 @@ import '../core/form_error_helpers.dart';
 import '../core/token_storage.dart';
 import '../services/base_service.dart';
 import '../services/profile_service.dart';
+import 'app_dialog_scaffold.dart';
 
 class EditProfileDialog extends StatefulWidget {
   final Map<String, dynamic> userInfo;
@@ -358,389 +359,288 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   Widget build(BuildContext context) {
     final role = _resolveRole(widget.userInfo['role']);
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: Stack(
-        children: [
-          SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header with Title
-                    const Center(
-                      child: Text(
-                        'Edit Profile',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF2C3E50),
+    return Form(
+      key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      child: AppDialogScaffold(
+        title: 'Edit Profile',
+        titleTextStyle: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+          color: Color(0xFF2C3E50),
+        ),
+        maxWidth: 540,
+        onClose: _isLoading ? null : () => Navigator.of(context).pop(),
+        footer: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _isLoading
+                    ? null
+                    : () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _saveChanges,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF679B6A),
+                  elevation: 0,
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (_formErrorText != null) ...[
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF1F1),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.redAccent.withValues(alpha: 0.25),
-                          ),
-                        ),
-                        child: Text(
-                          _formErrorText!,
-                          style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    // Avatar placeholder (Clickable to upload)
-                    Center(
-                      child: Column(
-                        children: [
-                          InkWell(
-                            onTap: _pickImage,
-                            child: Stack(
-                              children: [
-                                Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFFE2E8F0),
-                                      width: 2,
-                                    ),
-                                    color: const Color(0xFFF8FAFC),
-                                  ),
-                                  child: _selectedImage != null
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          child: Image.file(
-                                            _selectedImage!,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        )
-                                      : (widget.userInfo['profile_picture'] !=
-                                                null &&
-                                            widget.userInfo['profile_picture']
-                                                .toString()
-                                                .trim()
-                                                .isNotEmpty &&
-                                            widget.userInfo['profile_picture']
-                                                    .toString() !=
-                                                'null' &&
-                                            widget.userInfo['profile_picture']
-                                                    .toString() !=
-                                                '/storage/')
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          child: Image.network(
-                                            '${AppConfig.baseUrl}${widget.userInfo['profile_picture']}',
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (context, error, stackTrace) =>
-                                                    const Icon(
-                                                      Icons.person,
-                                                      size: 50,
-                                                      color: Colors.grey,
-                                                    ),
-                                          ),
-                                        )
-                                      : const Icon(
-                                          Icons.person,
-                                          size: 50,
-                                          color: Colors.grey,
-                                        ),
-                                ),
-                                Positioned(
-                                  bottom: -5,
-                                  right: -5,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF679B6A),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.camera_alt,
-                                        size: 16,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _roleLabel(role),
-                            style: const TextStyle(
-                              color: Color(0xFF7E8CA0),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              letterSpacing: 1.0,
-                            ),
-                          ),
-                          if (_fieldErrors['profile_picture'] != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              _fieldErrors['profile_picture']!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // First Name
-                    _buildLabel('FIRST NAME'),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _firstNameController,
-                      onChanged: (_) => _clearFieldError('first_name'),
-                      inputFormatters: AppFormValidators.nameInputFormatters(),
-                      decoration: _inputDecoration(),
-                      style: const TextStyle(
-                        color: Color(0xFF2C3E50),
-                        fontSize: 16,
-                      ),
-                      validator: (value) => _mergeFieldError(
-                        'first_name',
-                        AppFormValidators.requiredName(
-                          value,
-                          fieldLabel: 'First name',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Middle Name
-                    _buildLabel('MIDDLE NAME'),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _middleNameController,
-                      onChanged: (_) => _clearFieldError('middle_name'),
-                      inputFormatters: AppFormValidators.nameInputFormatters(),
-                      decoration: _inputDecoration(),
-                      style: const TextStyle(
-                        color: Color(0xFF2C3E50),
-                        fontSize: 16,
-                      ),
-                      validator: (value) => _mergeFieldError(
-                        'middle_name',
-                        AppFormValidators.optionalName(
-                          value,
-                          fieldLabel: 'Middle name',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Last Name
-                    _buildLabel('SURNAME'),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _lastNameController,
-                      onChanged: (_) => _clearFieldError('last_name'),
-                      inputFormatters: AppFormValidators.nameInputFormatters(),
-                      decoration: _inputDecoration(),
-                      style: const TextStyle(
-                        color: Color(0xFF2C3E50),
-                        fontSize: 16,
-                      ),
-                      validator: (value) => _mergeFieldError(
-                        'last_name',
-                        AppFormValidators.requiredName(
-                          value,
-                          fieldLabel: 'Last name',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Address
-                    _buildLabel('ADDRESS'),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _addressController,
-                      onChanged: (_) => _clearFieldError('address'),
-                      inputFormatters:
-                          AppFormValidators.maxLengthInputFormatters(
-                            AppFormValidators.addressMaxLength,
-                          ),
-                      decoration: _inputDecoration(
-                        helperText:
-                            'Up to ${AppFormValidators.addressMaxLength} characters',
-                      ),
-                      style: const TextStyle(
-                        color: Color(0xFF2C3E50),
-                        fontSize: 16,
-                      ),
-                      validator: (value) => _mergeFieldError(
-                        'address',
-                        AppFormValidators.address(
-                          value,
-                          fieldLabel: 'Address',
-                          required: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Gender
-                    _buildLabel('GENDER'),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _genderController,
-                      onChanged: (_) => _clearFieldError('gender'),
-                      inputFormatters:
-                          AppFormValidators.maxLengthInputFormatters(10),
-                      decoration: _inputDecoration(
-                        helperText: 'Male, female, or other',
-                      ),
-                      style: const TextStyle(
-                        color: Color(0xFF2C3E50),
-                        fontSize: 16,
-                      ),
-                      validator: (value) => _mergeFieldError(
-                        'gender',
-                        AppFormValidators.gender(value, required: false),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Contact Number
-                    _buildLabel('CONTACT NUMBER'),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _contactNumberController,
-                      onChanged: (_) => _clearFieldError('contact_number'),
-                      inputFormatters:
-                          AppFormValidators.contactNumberInputFormatters(),
-                      keyboardType: TextInputType.phone,
-                      decoration: _inputDecoration(
-                        helperText: 'Use an 11-digit PH mobile number',
-                      ),
-                      style: const TextStyle(
-                        color: Color(0xFF2C3E50),
-                        fontSize: 16,
-                      ),
-                      validator: (value) => _mergeFieldError(
-                        'contact_number',
-                        AppFormValidators.contactNumber(value),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Action Buttons
-                    Row(
+                      )
+                    : const Text('Save Changes'),
+              ),
+            ),
+          ],
+        ),
+        showFooterDivider: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_formErrorText != null) ...[
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF1F1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Text(
+                  _formErrorText!,
+                  style: const TextStyle(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+            Center(
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: _pickImage,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Stack(
                       children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _saveChanges,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF679B6A),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                        Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color(0xFFE2E8F0),
+                              width: 2,
                             ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Save\nChanges',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                            color: const Color(0xFFF8FAFC),
                           ),
+                          child: _selectedImage != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.file(
+                                    _selectedImage!,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : (widget.userInfo['profile_picture'] != null &&
+                                    widget.userInfo['profile_picture']
+                                        .toString()
+                                        .trim()
+                                        .isNotEmpty &&
+                                    widget.userInfo['profile_picture']
+                                            .toString() !=
+                                        'null' &&
+                                    widget.userInfo['profile_picture']
+                                            .toString() !=
+                                        '/storage/')
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    '${AppConfig.baseUrl}${widget.userInfo['profile_picture']}',
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            const Icon(
+                                              Icons.person,
+                                              size: 50,
+                                              color: Colors.grey,
+                                            ),
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.person,
+                                  size: 50,
+                                  color: Colors.grey,
+                                ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: TextButton.styleFrom(
-                              backgroundColor: const Color(
-                                0xFFF1F5F9,
-                              ), // light gray
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 24,
-                              ), // matching height
+                        Positioned(
+                          bottom: -4,
+                          right: -4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
                             ),
-                            child: const Text(
-                              'Cancel',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF475569),
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF679B6A),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                size: 16,
+                                color: Colors.white,
                               ),
                             ),
                           ),
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _roleLabel(role),
+                    style: const TextStyle(
+                      color: Color(0xFF7E8CA0),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  if (_fieldErrors['profile_picture'] != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _fieldErrors['profile_picture']!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            _buildLabel('FIRST NAME'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _firstNameController,
+              onChanged: (_) => _clearFieldError('first_name'),
+              inputFormatters: AppFormValidators.nameInputFormatters(),
+              decoration: _inputDecoration(),
+              style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+              validator: (value) => _mergeFieldError(
+                'first_name',
+                AppFormValidators.requiredName(value, fieldLabel: 'First name'),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildLabel('MIDDLE NAME'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _middleNameController,
+              onChanged: (_) => _clearFieldError('middle_name'),
+              inputFormatters: AppFormValidators.nameInputFormatters(),
+              decoration: _inputDecoration(),
+              style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+              validator: (value) => _mergeFieldError(
+                'middle_name',
+                AppFormValidators.optionalName(
+                  value,
+                  fieldLabel: 'Middle name',
                 ),
               ),
             ),
-          ),
-          // Close button positioned top right
-          Positioned(
-            right: 16,
-            top: 16,
-            child: InkWell(
-              onTap: _isLoading ? null : () => Navigator.of(context).pop(),
-              child: const Icon(Icons.close, color: Color(0xFF7E8CA0)),
+            const SizedBox(height: 16),
+            _buildLabel('SURNAME'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _lastNameController,
+              onChanged: (_) => _clearFieldError('last_name'),
+              inputFormatters: AppFormValidators.nameInputFormatters(),
+              decoration: _inputDecoration(),
+              style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+              validator: (value) => _mergeFieldError(
+                'last_name',
+                AppFormValidators.requiredName(value, fieldLabel: 'Last name'),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            _buildLabel('ADDRESS'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _addressController,
+              onChanged: (_) => _clearFieldError('address'),
+              inputFormatters: AppFormValidators.maxLengthInputFormatters(
+                AppFormValidators.addressMaxLength,
+              ),
+              decoration: _inputDecoration(
+                helperText:
+                    'Up to ${AppFormValidators.addressMaxLength} characters',
+              ),
+              style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+              validator: (value) => _mergeFieldError(
+                'address',
+                AppFormValidators.address(
+                  value,
+                  fieldLabel: 'Address',
+                  required: true,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildLabel('GENDER'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _genderController,
+              onChanged: (_) => _clearFieldError('gender'),
+              inputFormatters: AppFormValidators.maxLengthInputFormatters(10),
+              decoration: _inputDecoration(
+                helperText: 'Male, female, or other',
+              ),
+              style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+              validator: (value) => _mergeFieldError(
+                'gender',
+                AppFormValidators.gender(value, required: false),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildLabel('CONTACT NUMBER'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _contactNumberController,
+              onChanged: (_) => _clearFieldError('contact_number'),
+              inputFormatters: AppFormValidators.contactNumberInputFormatters(),
+              keyboardType: TextInputType.phone,
+              decoration: _inputDecoration(
+                helperText: 'Use an 11-digit PH mobile number',
+              ),
+              style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+              validator: (value) => _mergeFieldError(
+                'contact_number',
+                AppFormValidators.contactNumber(value),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
