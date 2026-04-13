@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/short_term_cache.dart';
 import 'package:frontend/services/appointment_service.dart';
 import 'package:frontend/services/base_service.dart';
 
@@ -49,13 +50,24 @@ class FakeBaseService extends Fake implements BaseService {
 }
 
 void main() {
+  const Duration cacheTtl = Duration(minutes: 1);
+  const String servicesCache = 'appointment-services';
+  const String adminMasterListCache = 'appointment-admin-master-list';
+  const String patientAppointmentsCache = 'appointment-patient-list';
+  const String medicalHistoryCache = 'appointment-medical-history';
+  const String recycleBinCache = 'appointment-recycle-bin';
+  const String adminCalendarAppointmentsCache = 'appointment-admin-calendar';
+  const String adminTodayQueueCache = 'appointment-admin-today-queue';
+  const String dashboardStatsCache = 'dashboard-stats';
+  const String reportSummaryCache = 'report-summary';
+
   late AppointmentService appointmentService;
   late FakeBaseService fakeBaseService;
 
   setUp(() {
     fakeBaseService = FakeBaseService();
     appointmentService = AppointmentService(fakeBaseService);
-    appointmentService.invalidateAppointmentCaches();
+    ShortTermCache.clear();
   });
 
   test(
@@ -152,6 +164,164 @@ void main() {
 
     expect(fakeBaseService.getJsonCallCount, 2);
   });
+
+  test(
+    'createAppointment clears appointment, queue, dashboard, and report caches without clearing services',
+    () async {
+      ShortTermCache.write(
+        adminMasterListCache,
+        'all',
+        const <Map<String, dynamic>>[
+          <String, dynamic>{'id': 1},
+        ],
+        ttl: cacheTtl,
+      );
+      ShortTermCache.write(
+        adminTodayQueueCache,
+        'today',
+        const <String, dynamic>{
+          'queue_summary': <String, dynamic>{'total': 1},
+        },
+        ttl: cacheTtl,
+      );
+      ShortTermCache.write(dashboardStatsCache, 'all', const <String, int>{
+        'appointments_count': 3,
+      }, ttl: cacheTtl);
+      ShortTermCache.write(reportSummaryCache, 'all', const <String, int>{
+        'total': 3,
+      }, ttl: cacheTtl);
+      ShortTermCache.write(servicesCache, 'all', const <Map<String, dynamic>>[
+        <String, dynamic>{'id': 6, 'name': 'Cleaning'},
+      ], ttl: cacheTtl);
+
+      fakeBaseService.nextResponse = <String, dynamic>{'message': 'Created'};
+
+      await appointmentService.createAppointment(<String, dynamic>{
+        'service_id': 6,
+        'appointment_date': '2026-04-13',
+        'time_slot': '09:00',
+      });
+
+      expect(ShortTermCache.read<dynamic>(adminMasterListCache, 'all'), isNull);
+      expect(
+        ShortTermCache.read<dynamic>(adminTodayQueueCache, 'today'),
+        isNull,
+      );
+      expect(ShortTermCache.read<dynamic>(dashboardStatsCache, 'all'), isNull);
+      expect(ShortTermCache.read<dynamic>(reportSummaryCache, 'all'), isNull);
+      expect(ShortTermCache.read<dynamic>(servicesCache, 'all'), isNotNull);
+    },
+  );
+
+  test(
+    'updateAdminAppointmentStatus invalidates completed appointment reads and leaves services cached',
+    () async {
+      ShortTermCache.write(
+        patientAppointmentsCache,
+        'current-user',
+        const <Map<String, dynamic>>[
+          <String, dynamic>{'id': 7, 'status': 'Pending'},
+        ],
+        ttl: cacheTtl,
+      );
+      ShortTermCache.write(
+        medicalHistoryCache,
+        'current-user',
+        const <Map<String, dynamic>>[
+          <String, dynamic>{'id': 2, 'status': 'Completed'},
+        ],
+        ttl: cacheTtl,
+      );
+      ShortTermCache.write(
+        adminCalendarAppointmentsCache,
+        '2026-04-13',
+        const <Map<String, dynamic>>[
+          <String, dynamic>{'id': 7},
+        ],
+        ttl: cacheTtl,
+      );
+      ShortTermCache.write(reportSummaryCache, 'all', const <String, int>{
+        'completed': 1,
+      }, ttl: cacheTtl);
+      ShortTermCache.write(servicesCache, 'all', const <Map<String, dynamic>>[
+        <String, dynamic>{'id': 4, 'name': 'Whitening'},
+      ], ttl: cacheTtl);
+
+      fakeBaseService.nextResponse = <String, dynamic>{'message': 'Updated'};
+
+      await appointmentService.updateAdminAppointmentStatus(7, 'completed');
+
+      expect(
+        ShortTermCache.read<dynamic>(patientAppointmentsCache, 'current-user'),
+        isNull,
+      );
+      expect(
+        ShortTermCache.read<dynamic>(medicalHistoryCache, 'current-user'),
+        isNull,
+      );
+      expect(
+        ShortTermCache.read<dynamic>(
+          adminCalendarAppointmentsCache,
+          '2026-04-13',
+        ),
+        isNull,
+      );
+      expect(ShortTermCache.read<dynamic>(reportSummaryCache, 'all'), isNull);
+      expect(ShortTermCache.read<dynamic>(servicesCache, 'all'), isNotNull);
+    },
+  );
+
+  test(
+    'cancelAppointment clears recycle-bin-related caches without clearing services',
+    () async {
+      ShortTermCache.write(
+        patientAppointmentsCache,
+        'current-user',
+        const <Map<String, dynamic>>[
+          <String, dynamic>{'id': 12, 'status': 'Approved'},
+        ],
+        ttl: cacheTtl,
+      );
+      ShortTermCache.write(
+        recycleBinCache,
+        'patient',
+        const <Map<String, dynamic>>[
+          <String, dynamic>{'id': 13, 'status': 'Cancelled'},
+        ],
+        ttl: cacheTtl,
+      );
+      ShortTermCache.write(
+        adminTodayQueueCache,
+        'today',
+        const <String, dynamic>{
+          'queue_summary': <String, dynamic>{'total': 1},
+        },
+        ttl: cacheTtl,
+      );
+      ShortTermCache.write(reportSummaryCache, 'all', const <String, int>{
+        'cancelled': 0,
+      }, ttl: cacheTtl);
+      ShortTermCache.write(servicesCache, 'all', const <Map<String, dynamic>>[
+        <String, dynamic>{'id': 2, 'name': 'Root Canal'},
+      ], ttl: cacheTtl);
+
+      fakeBaseService.nextResponse = <String, dynamic>{'message': 'Cancelled'};
+
+      await appointmentService.cancelAppointment(12);
+
+      expect(
+        ShortTermCache.read<dynamic>(patientAppointmentsCache, 'current-user'),
+        isNull,
+      );
+      expect(ShortTermCache.read<dynamic>(recycleBinCache, 'patient'), isNull);
+      expect(
+        ShortTermCache.read<dynamic>(adminTodayQueueCache, 'today'),
+        isNull,
+      );
+      expect(ShortTermCache.read<dynamic>(reportSummaryCache, 'all'), isNull);
+      expect(ShortTermCache.read<dynamic>(servicesCache, 'all'), isNotNull);
+    },
+  );
 
   test('callNextQueue should send selected date when provided', () async {
     fakeBaseService.nextResponse = {

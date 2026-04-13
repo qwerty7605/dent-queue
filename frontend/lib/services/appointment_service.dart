@@ -61,7 +61,7 @@ class AppointmentService {
       payload,
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentCreated();
     return response as Map<String, dynamic>;
   }
 
@@ -73,7 +73,7 @@ class AppointmentService {
       payload,
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentCreated();
     return response as Map<String, dynamic>;
   }
 
@@ -228,7 +228,7 @@ class AppointmentService {
       {},
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentCancelled();
     return response as Map<String, dynamic>;
   }
 
@@ -238,7 +238,7 @@ class AppointmentService {
       {},
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentRestored();
     return response as Map<String, dynamic>;
   }
 
@@ -442,7 +442,7 @@ class AppointmentService {
       (data) => data,
     );
 
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentUpdated(status);
     return response as Map<String, dynamic>;
   }
 
@@ -454,7 +454,7 @@ class AppointmentService {
       payload,
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentCreated();
     return response as Map<String, dynamic>;
   }
 
@@ -499,7 +499,7 @@ class AppointmentService {
       {},
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterQueueUpdated();
     return response as Map<String, dynamic>;
   }
 
@@ -547,7 +547,7 @@ class AppointmentService {
       date == null || date.isEmpty ? {} : {'date': date},
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterQueueUpdated();
     return response as Map<String, dynamic>;
   }
 
@@ -564,6 +564,64 @@ class AppointmentService {
     ShortTermCache.invalidateNamespace(_adminTodayQueueCache);
     AdminDashboardService.invalidateSharedDashboardStatsCache();
     AdminDashboardService.invalidateSharedReportCaches();
+  }
+
+  void _invalidateAfterAppointmentCreated() {
+    _invalidateCommonAppointmentMutationCaches();
+  }
+
+  void _invalidateAfterAppointmentUpdated(String status) {
+    _invalidateCommonAppointmentMutationCaches();
+
+    if (_isCompletedStatus(status)) {
+      ShortTermCache.invalidateNamespace(_medicalHistoryCache);
+    }
+
+    if (_isCancelledStatus(status)) {
+      ShortTermCache.invalidateNamespace(_recycleBinCache);
+    }
+  }
+
+  void _invalidateAfterAppointmentCancelled() {
+    _invalidateCommonAppointmentMutationCaches();
+    ShortTermCache.invalidateNamespace(_recycleBinCache);
+  }
+
+  void _invalidateAfterAppointmentRestored() {
+    _invalidateCommonAppointmentMutationCaches();
+    ShortTermCache.invalidateNamespace(_recycleBinCache);
+  }
+
+  void _invalidateAfterQueueUpdated() {
+    ShortTermCache.invalidateNamespace(_adminMasterListCache);
+    ShortTermCache.invalidateNamespace(_patientAppointmentsCache);
+    ShortTermCache.invalidateNamespace(_adminAppointmentsByDateCache);
+    ShortTermCache.invalidateNamespace(_adminCalendarAppointmentsCache);
+    ShortTermCache.invalidateNamespace(_calendarAppointmentDetailsCache);
+    ShortTermCache.invalidateNamespace(_patientTodayQueueCache);
+    ShortTermCache.invalidateNamespace(_adminTodayQueueCache);
+  }
+
+  void _invalidateCommonAppointmentMutationCaches() {
+    ShortTermCache.invalidateNamespace(_adminMasterListCache);
+    ShortTermCache.invalidateNamespace(_patientAppointmentsCache);
+    ShortTermCache.invalidateNamespace(_adminAppointmentsByDateCache);
+    ShortTermCache.invalidateNamespace(_adminCalendarAppointmentsCache);
+    ShortTermCache.invalidateNamespace(_calendarAppointmentDetailsCache);
+    ShortTermCache.invalidateNamespace(_patientTodayQueueCache);
+    ShortTermCache.invalidateNamespace(_adminTodayQueueCache);
+    AdminDashboardService.invalidateSharedDashboardStatsCache();
+    AdminDashboardService.invalidateSharedReportCaches();
+  }
+
+  bool _isCompletedStatus(String status) {
+    final String normalizedStatus = status.trim().toLowerCase();
+    return normalizedStatus == 'completed';
+  }
+
+  bool _isCancelledStatus(String status) {
+    final String normalizedStatus = status.trim().toLowerCase();
+    return normalizedStatus == 'cancelled' || normalizedStatus == 'canceled';
   }
 
   void invalidatePatientTodayQueueCache() {
