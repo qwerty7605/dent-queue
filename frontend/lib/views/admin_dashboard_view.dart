@@ -310,7 +310,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                   : contentWidth >= 720
                   ? 2
                   : 1;
-
               return Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1120),

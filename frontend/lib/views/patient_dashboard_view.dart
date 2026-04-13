@@ -17,6 +17,7 @@ import '../widgets/app_dialog_scaffold.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/dashboard_stat_card.dart';
 import '../widgets/edit_profile_dialog.dart';
+import '../widgets/navigation_chrome.dart';
 import 'notifications_view.dart';
 import 'recycle_bin_view.dart';
 
@@ -260,196 +261,14 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
             profilePicture == '/storage/')) {
       profilePicture = null;
     }
+    final ImageProvider<Object>? profileImage = profilePicture != null
+        ? NetworkImage('${AppConfig.baseUrl}$profilePicture')
+        : null;
+
     return Scaffold(
-      backgroundColor: const Color(
-        0xFFF4F5ED,
-      ), // Faint greyish green for the background
-      appBar: _buildAppBar(chipName, profilePicture),
-      drawer: Drawer(
-        backgroundColor: Colors.white,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Container(
-                color: const Color(0xFF356042),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 32,
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: Colors.white.withValues(alpha: 0.2),
-                      backgroundImage: profilePicture != null
-                          ? NetworkImage('${AppConfig.baseUrl}$profilePicture')
-                          : null,
-                      child: profilePicture == null
-                          ? Text(
-                              name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'PATIENT ACCOUNT',
-                            style: TextStyle(
-                              color: Color(0xFFE8C355),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              const SizedBox(height: 16),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 32),
-                leading: const Icon(
-                  Icons.person_outline,
-                  color: Color(0xFF356042),
-                ),
-                title: const Text(
-                  'Profile',
-                  style: TextStyle(
-                    color: Color(0xFF356042),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onTap: () {
-                  setState(() => _selectedIndex = 1);
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 32),
-                leading: const Icon(
-                  Icons.calendar_today_outlined,
-                  color: Color(0xFF356042),
-                ),
-                title: const Text(
-                  'My Appointments',
-                  style: TextStyle(
-                    color: Color(0xFF356042),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onTap: () {
-                  setState(() => _selectedIndex = 0);
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 32),
-                leading: const Icon(
-                  Icons.access_time_outlined,
-                  color: Color(0xFF356042),
-                ),
-                title: const Text(
-                  'Medical History',
-                  style: TextStyle(
-                    color: Color(0xFF356042),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onTap: () {
-                  setState(() => _selectedIndex = 2);
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 32),
-                leading: const Icon(
-                  Icons.notifications_none,
-                  color: Color(0xFF356042),
-                ),
-                title: const Text(
-                  'Notifications',
-                  style: TextStyle(
-                    color: Color(0xFF356042),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _openNotifications();
-                },
-              ),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 32),
-                leading: const Icon(
-                  Icons.restore_from_trash_outlined,
-                  color: Color(0xFF356042),
-                ),
-                title: const Text(
-                  'Recycle Bin',
-                  style: TextStyle(
-                    color: Color(0xFF356042),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RecycleBinView(
-                        role: RecycleBinRole.patient,
-                        appointmentService: _appointmentService,
-                      ),
-                    ),
-                  ).then((_) => _loadAppointments(showLoader: false));
-                },
-              ),
-              const Spacer(),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                leading: widget.loggingOut
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.logout, color: Colors.red),
-                title: const Text(
-                  'Logout',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                onTap: widget.loggingOut ? null : widget.onLogout,
-              ),
-            ],
-          ),
-        ),
-      ),
+      backgroundColor: AppNavigationTheme.background,
+      appBar: _buildAppBar(chipName, profileImage),
+      drawer: _buildDrawer(name, profileImage),
       body: _selectedIndex == 0
           ? _buildBody()
           : _selectedIndex == 1
@@ -458,17 +277,30 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
       floatingActionButton: _selectedIndex != 1
           ? FloatingActionButton(
               onPressed: _openBookAppointmentDialog,
-              backgroundColor: const Color(0xFF356042),
+              backgroundColor: AppNavigationTheme.primary,
               shape: const CircleBorder(),
               child: const Icon(Icons.add, color: Colors.white, size: 36),
             )
-          : null, // Hide FAB on profile page
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(String name, String? profilePicture) {
+  void _selectSection(int index, {bool closeDrawer = false}) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    if (closeDrawer) {
+      Navigator.pop(context);
+    }
+  }
+
+  PreferredSizeWidget _buildAppBar(
+    String name,
+    ImageProvider<Object>? profileImage,
+  ) {
     final double screenWidth = MediaQuery.sizeOf(context).width;
     final double profileChipWidth = screenWidth < 380
         ? 108
@@ -476,129 +308,127 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
         ? 132
         : 164;
 
-    return AppBar(
-      backgroundColor: const Color(0xFF356042), // Green header
-      elevation: 0,
-      iconTheme: const IconThemeData(
-        color: Colors.white,
-        size: 24,
-      ), // Hamburger menu
-      titleSpacing: -15, // Reduces space between hamburger and title
-      title: Row(
-        children: [
-          // Placeholder for Logo
-          Container(
-            padding: const EdgeInsets.all(2),
-            child: Image.asset(
-              'assets/images/logo.png',
-              width: 40, // slightly larger, logo looks a bit small
-              height: 40,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text(
-                  'SMART',
-                  style: TextStyle(
-                    color: Color(0xFFE8C355), // Yellow from logo
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                    letterSpacing: -0.5,
-                    height: 1.1,
-                  ),
-                ),
-                Text(
-                  'DentQueue',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                    letterSpacing: -0.5,
-                    height: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      actions: [
+    return AppHeaderBar(
+      titleSpacing: -8,
+      titleWidget: const AppBrandLockup(logoSize: 40, spacing: 4),
+      actions: <Widget>[
         IconButton(
           icon: _buildNotificationIcon(_unreadNotificationCount),
           onPressed: _openNotifications,
         ),
-        // Profile chip placeholder
         Padding(
-          padding: const EdgeInsets.only(right: 16.0),
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedIndex = 1;
-              });
-            },
-            child: SizedBox(
-              width: profileChipWidth,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const Text(
-                            'PATIENT',
-                            style: TextStyle(
-                              color: Colors.orange,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Colors.white,
-                      backgroundImage: profilePicture != null
-                          ? NetworkImage('${AppConfig.baseUrl}$profilePicture')
-                          : null,
-                      child: profilePicture == null
-                          ? const Icon(
-                              Icons.person,
-                              color: Colors.grey,
-                              size: 20,
-                            )
-                          : null,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          padding: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
+          child: AppUserChip(
+            width: profileChipWidth,
+            name: name,
+            roleLabel: 'PATIENT',
+            profileImage: profileImage,
+            onTap: () => _selectSection(1),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDrawer(String name, ImageProvider<Object>? profileImage) {
+    return Drawer(
+      backgroundColor: AppNavigationTheme.surface,
+      child: SafeArea(
+        child: Column(
+          children: [
+            AppNavigationDrawerHeader(
+              name: name,
+              roleLabel: 'PATIENT ACCOUNT',
+              profileImage: profileImage,
+              fallbackInitial: name.isNotEmpty ? name[0].toUpperCase() : 'U',
+            ),
+            const Divider(height: 1, color: AppNavigationTheme.divider),
+            const SizedBox(height: 10),
+            AppNavigationDrawerItem(
+              icon: Icons.calendar_today_outlined,
+              label: 'My Appointments',
+              selected: _selectedIndex == 0,
+              onTap: () => _selectSection(0, closeDrawer: true),
+            ),
+            AppNavigationDrawerItem(
+              icon: Icons.person_outline,
+              label: 'Profile',
+              selected: _selectedIndex == 1,
+              onTap: () => _selectSection(1, closeDrawer: true),
+            ),
+            AppNavigationDrawerItem(
+              icon: Icons.access_time_outlined,
+              label: 'Medical History',
+              selected: _selectedIndex == 2,
+              onTap: () => _selectSection(2, closeDrawer: true),
+            ),
+            AppNavigationDrawerItem(
+              icon: Icons.notifications_none,
+              label: 'Notifications',
+              selected: false,
+              onTap: () {
+                Navigator.pop(context);
+                _openNotifications();
+              },
+            ),
+            AppNavigationDrawerItem(
+              icon: Icons.restore_from_trash_outlined,
+              label: 'Recycle Bin',
+              selected: false,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RecycleBinView(
+                      role: RecycleBinRole.patient,
+                      appointmentService: _appointmentService,
+                    ),
+                  ),
+                ).then((_) => _loadAppointments(showLoader: false));
+              },
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: widget.loggingOut ? null : widget.onLogout,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      children: [
+                        widget.loggingOut
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.logout, color: Colors.red),
+                        const SizedBox(width: 14),
+                        const Text(
+                          'Logout',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1620,83 +1450,27 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   Widget _buildBottomNavigationBar() {
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
-      notchMargin: 8.0,
-      color: Colors.white,
+      notchMargin: 8,
+      color: AppNavigationTheme.surface,
       child: SizedBox(
-        height: 60,
+        height: 64,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            // Appointments Tab
             Expanded(
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedIndex = 0;
-                    });
-                  },
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.event_available,
-                        color: _selectedIndex == 0
-                            ? const Color(0xFF356042)
-                            : Colors.grey,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Appointments',
-                        style: TextStyle(
-                          color: _selectedIndex == 0
-                              ? const Color(0xFF356042)
-                              : Colors.grey,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              child: AppBottomNavItem(
+                icon: Icons.event_available_outlined,
+                label: 'Appointments',
+                selected: _selectedIndex == 0,
+                onTap: () => _selectSection(0),
               ),
             ),
-
-            const SizedBox(width: 48), // Space for FAB
-            // Profile Tab
+            const SizedBox(width: 48),
             Expanded(
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedIndex = 1;
-                    });
-                  },
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        color: _selectedIndex == 1
-                            ? const Color(0xFF356042)
-                            : Colors.grey,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Profile',
-                        style: TextStyle(
-                          color: _selectedIndex == 1
-                              ? const Color(0xFF356042)
-                              : Colors.grey,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              child: AppBottomNavItem(
+                icon: Icons.person_outline,
+                label: 'Profile',
+                selected: _selectedIndex == 1,
+                onTap: () => _selectSection(1),
               ),
             ),
           ],
