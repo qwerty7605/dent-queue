@@ -15,6 +15,7 @@ import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_success_dialog.dart';
 import '../widgets/appointment_status_badge.dart';
 import '../widgets/edit_profile_dialog.dart';
+import '../widgets/navigation_chrome.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 import 'staff_calendar_view.dart';
 import 'notifications_view.dart';
@@ -436,14 +437,27 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       userInfo['profile_picture'],
     );
     final profileImageUrl = _buildProfileImageUrl(profilePicture);
+    final ImageProvider<Object>? profileImage = profileImageUrl != null
+        ? NetworkImage(profileImageUrl)
+        : null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5ED),
-      appBar: _buildAppBar(chipName, profileImageUrl),
-      drawer: _buildDrawer(name, profileImageUrl),
+      backgroundColor: AppNavigationTheme.background,
+      appBar: _buildAppBar(chipName, profileImage),
+      drawer: _buildDrawer(name, profileImage),
       body: SafeArea(child: _buildSelectedTab(profileImageUrl)),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
+  }
+
+  void _selectTab(_StaffTab tab, {bool closeDrawer = false}) {
+    setState(() {
+      _selectedTab = tab;
+    });
+
+    if (closeDrawer) {
+      Navigator.pop(context);
+    }
   }
 
   Widget _buildSelectedTab(String? profileImageUrl) {
@@ -477,50 +491,17 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     };
   }
 
-  PreferredSizeWidget _buildAppBar(String name, String? profileImageUrl) {
+  PreferredSizeWidget _buildAppBar(
+    String name,
+    ImageProvider<Object>? profileImage,
+  ) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final chipWidth = screenWidth < 390 ? 130.0 : 160.0;
 
-    return AppBar(
-      backgroundColor: const Color(0xFF356042),
-      elevation: 0,
-      iconTheme: const IconThemeData(color: Colors.white, size: 24),
+    return AppHeaderBar(
       titleSpacing: -8,
-      title: Row(
-        children: [
-          Image.asset('assets/images/logo.png', width: 38, height: 38),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text(
-                  'SMART',
-                  style: TextStyle(
-                    color: Color(0xFFE8C355),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                    letterSpacing: -0.5,
-                    height: 1.1,
-                  ),
-                ),
-                Text(
-                  'DentQueue',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                    letterSpacing: -0.5,
-                    height: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      actions: [
+      titleWidget: const AppBrandLockup(logoSize: 38, spacing: 4),
+      actions: <Widget>[
         if (!_isReadOnlyAccount)
           IconButton(
             icon: _buildNotificationIcon(_unreadNotificationCount),
@@ -528,200 +509,69 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           ),
         Padding(
           padding: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(22),
-            onTap: () {
-              setState(() {
-                _selectedTab = _StaffTab.profile;
-              });
-            },
-            child: SizedBox(
-              width: chipWidth,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(10, 4, 4, 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text(
-                            _accountRoleTag,
-                            style: TextStyle(
-                              color: Color(0xFFE8C355),
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Colors.white,
-                      backgroundImage: profileImageUrl != null
-                          ? NetworkImage(profileImageUrl)
-                          : null,
-                      child: profileImageUrl == null
-                          ? const Icon(
-                              Icons.person,
-                              color: Colors.grey,
-                              size: 18,
-                            )
-                          : null,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          child: AppUserChip(
+            width: chipWidth,
+            name: name,
+            roleLabel: _accountRoleTag,
+            profileImage: profileImage,
+            onTap: () => _selectTab(_StaffTab.profile),
           ),
         ),
       ],
-      bottom: const PreferredSize(
-        preferredSize: Size.fromHeight(4),
-        child: ColoredBox(color: Color(0xFFE8C355), child: SizedBox(height: 4)),
-      ),
     );
   }
 
-  Widget _buildDrawer(String name, String? profileImageUrl) {
+  Widget _buildDrawer(String name, ImageProvider<Object>? profileImage) {
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: AppNavigationTheme.surface,
       child: SafeArea(
         child: Column(
           children: [
-            Container(
-              color: const Color(0xFF356042),
-              padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    backgroundImage: profileImageUrl != null
-                        ? NetworkImage(profileImageUrl)
-                        : null,
-                    child: profileImageUrl == null
-                        ? Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : 'S',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$_accountRoleTag ACCOUNT',
-                          style: TextStyle(
-                            color: Color(0xFFE8C355),
-                            fontWeight: FontWeight.w900,
-                            fontSize: 11,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            AppNavigationDrawerHeader(
+              name: name,
+              roleLabel: '$_accountRoleTag ACCOUNT',
+              profileImage: profileImage,
+              fallbackInitial: name.isNotEmpty ? name[0].toUpperCase() : 'S',
             ),
-            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            const Divider(height: 1, color: AppNavigationTheme.divider),
             const SizedBox(height: 10),
-            _buildDrawerItem(
-              icon: Icons.person_outline,
-              title: 'Profile',
-              selected: _selectedTab == _StaffTab.profile,
-              onTap: () {
-                setState(() {
-                  _selectedTab = _StaffTab.profile;
-                });
-                Navigator.pop(context);
-              },
-            ),
-            _buildDrawerItem(
+            AppNavigationDrawerItem(
               icon: Icons.event_available_outlined,
-              title: 'Appointments',
+              label: 'Appointments',
               selected: _selectedTab == _StaffTab.appointments,
-              onTap: () {
-                setState(() {
-                  _selectedTab = _StaffTab.appointments;
-                });
-                Navigator.pop(context);
-              },
+              onTap: () =>
+                  _selectTab(_StaffTab.appointments, closeDrawer: true),
             ),
-            if (!_isReadOnlyAccount)
-              _buildDrawerItem(
-                icon: Icons.directions_walk,
-                title: 'Walk-in',
-                selected: _selectedTab == _StaffTab.walkIn,
-                onTap: () {
-                  setState(() {
-                    _selectedTab = _StaffTab.walkIn;
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-            if (!_isReadOnlyAccount)
-              _buildDrawerItem(
-                icon: Icons.search,
-                title: 'Records',
-                selected: _selectedTab == _StaffTab.records,
-                onTap: () {
-                  setState(() {
-                    _selectedTab = _StaffTab.records;
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-            _buildDrawerItem(
+            AppNavigationDrawerItem(
               icon: Icons.calendar_month_outlined,
-              title: 'Calendar',
+              label: 'Calendar',
               selected: _selectedTab == _StaffTab.calendar,
-              onTap: () {
-                setState(() {
-                  _selectedTab = _StaffTab.calendar;
-                });
-                Navigator.pop(context);
-              },
+              onTap: () => _selectTab(_StaffTab.calendar, closeDrawer: true),
             ),
             if (!_isReadOnlyAccount)
-              _buildDrawerItem(
+              AppNavigationDrawerItem(
+                icon: Icons.directions_walk,
+                label: 'Walk-in',
+                selected: _selectedTab == _StaffTab.walkIn,
+                onTap: () => _selectTab(_StaffTab.walkIn, closeDrawer: true),
+              ),
+            if (!_isReadOnlyAccount)
+              AppNavigationDrawerItem(
+                icon: Icons.search,
+                label: 'Records',
+                selected: _selectedTab == _StaffTab.records,
+                onTap: () => _selectTab(_StaffTab.records, closeDrawer: true),
+              ),
+            AppNavigationDrawerItem(
+              icon: Icons.person_outline,
+              label: 'Profile',
+              selected: _selectedTab == _StaffTab.profile,
+              onTap: () => _selectTab(_StaffTab.profile, closeDrawer: true),
+            ),
+            if (!_isReadOnlyAccount)
+              AppNavigationDrawerItem(
                 icon: Icons.notifications_none,
-                title: 'Notifications',
+                label: 'Notifications',
                 selected: false,
                 onTap: () {
                   Navigator.pop(context);
@@ -734,9 +584,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 },
               ),
             if (!_isReadOnlyAccount)
-              _buildDrawerItem(
+              AppNavigationDrawerItem(
                 icon: Icons.restore_from_trash_outlined,
-                title: 'Recycle Bin',
+                label: 'Recycle Bin',
                 selected: false,
                 onTap: () {
                   Navigator.pop(context);
@@ -754,53 +604,46 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 },
               ),
             const Spacer(),
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 28,
-                vertical: 8,
-              ),
-              leading: widget.loggingOut
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text(
-                'Logout',
-                style: TextStyle(
-                  color: Colors.redAccent,
-                  fontWeight: FontWeight.w800,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: widget.loggingOut ? null : widget.onLogout,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      children: [
+                        widget.loggingOut
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.logout, color: Colors.redAccent),
+                        const SizedBox(width: 14),
+                        const Text(
+                          'Logout',
+                          style: TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              onTap: widget.loggingOut ? null : widget.onLogout,
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildDrawerItem({
-    required IconData icon,
-    required String title,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 26),
-      leading: Icon(
-        icon,
-        color: selected ? const Color(0xFF356042) : const Color(0xFF64748B),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: selected ? const Color(0xFF356042) : const Color(0xFF64748B),
-          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-        ),
-      ),
-      onTap: onTap,
     );
   }
 
@@ -1822,8 +1665,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       top: false,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+          color: AppNavigationTheme.surface,
+          border: const Border(
+            top: BorderSide(color: AppNavigationTheme.divider),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.03),
@@ -1835,73 +1680,49 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
-            _buildNavItem(
-              icon: Icons.event_available_outlined,
-              label: 'Appointments',
-              tab: _StaffTab.appointments,
+            Expanded(
+              child: AppBottomNavItem(
+                icon: Icons.event_available_outlined,
+                label: 'Appointments',
+                selected: _selectedTab == _StaffTab.appointments,
+                onTap: () => _selectTab(_StaffTab.appointments),
+              ),
             ),
-            _buildNavItem(
-              icon: Icons.calendar_month_outlined,
-              label: 'Calendar',
-              tab: _StaffTab.calendar,
+            Expanded(
+              child: AppBottomNavItem(
+                icon: Icons.calendar_month_outlined,
+                label: 'Calendar',
+                selected: _selectedTab == _StaffTab.calendar,
+                onTap: () => _selectTab(_StaffTab.calendar),
+              ),
             ),
             if (!_isReadOnlyAccount)
-              _buildNavItem(
-                icon: Icons.directions_walk,
-                label: 'Walk In',
-                tab: _StaffTab.walkIn,
-              ),
-            if (!_isReadOnlyAccount)
-              _buildNavItem(
-                icon: Icons.search,
-                label: 'Records',
-                tab: _StaffTab.records,
-              ),
-            _buildNavItem(
-              icon: Icons.person_outline,
-              label: 'Profile',
-              tab: _StaffTab.profile,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required String label,
-    required _StaffTab tab,
-  }) {
-    final selected = _selectedTab == tab;
-    final color = selected ? const Color(0xFF356042) : const Color(0xFF94A3B8);
-
-    return Expanded(
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _selectedTab = tab;
-          });
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 24, color: color),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: color,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+              Expanded(
+                child: AppBottomNavItem(
+                  icon: Icons.directions_walk,
+                  label: 'Walk In',
+                  selected: _selectedTab == _StaffTab.walkIn,
+                  onTap: () => _selectTab(_StaffTab.walkIn),
                 ),
               ),
-            ],
-          ),
+            if (!_isReadOnlyAccount)
+              Expanded(
+                child: AppBottomNavItem(
+                  icon: Icons.search,
+                  label: 'Records',
+                  selected: _selectedTab == _StaffTab.records,
+                  onTap: () => _selectTab(_StaffTab.records),
+                ),
+              ),
+            Expanded(
+              child: AppBottomNavItem(
+                icon: Icons.person_outline,
+                label: 'Profile',
+                selected: _selectedTab == _StaffTab.profile,
+                onTap: () => _selectTab(_StaffTab.profile),
+              ),
+            ),
+          ],
         ),
       ),
     );

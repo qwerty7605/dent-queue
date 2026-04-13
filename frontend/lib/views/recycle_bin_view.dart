@@ -7,6 +7,7 @@ import '../models/recycle_bin_entry.dart';
 import '../services/appointment_service.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
+import '../widgets/navigation_chrome.dart';
 
 enum RecycleBinRole { patient, staff }
 
@@ -189,10 +190,10 @@ class _RecycleBinViewState extends State<RecycleBinView> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF4F5ED),
+        backgroundColor: AppNavigationTheme.background,
         appBar: _buildAppBar(),
         body: const Center(
-          child: CircularProgressIndicator(color: Color(0xFF679B6A)),
+          child: CircularProgressIndicator(color: AppNavigationTheme.primary),
         ),
       );
     }
@@ -206,7 +207,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
         widget.appointmentService == null && widget.entries == null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5ED),
+      backgroundColor: AppNavigationTheme.background,
       appBar: _buildAppBar(),
       body: _errorMessage != null
           ? Center(
@@ -249,20 +250,8 @@ class _RecycleBinViewState extends State<RecycleBinView> {
     );
   }
 
-  AppBar _buildAppBar() {
-    return AppBar(
-      title: const Text(
-        'Recycle Bin',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.2,
-        ),
-      ),
-      backgroundColor: const Color(0xFF679B6A),
-      elevation: 0,
-      iconTheme: const IconThemeData(color: Colors.white),
-    );
+  PreferredSizeWidget _buildAppBar() {
+    return const AppHeaderBar(title: 'Recycle Bin');
   }
 
   Widget _buildHeroCard({

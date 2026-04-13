@@ -8,6 +8,7 @@ import '../models/app_notification.dart';
 import '../services/base_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/navigation_chrome.dart';
 
 class NotificationsView extends StatefulWidget {
   const NotificationsView({
@@ -289,22 +290,10 @@ class _NotificationsViewState extends State<NotificationsView> {
     final bool hasUnread = _unreadCount > 0;
 
     return Scaffold(
-      backgroundColor: const Color(
-        0xFFF4F5ED,
-      ), // Faint greyish green for the background
-      appBar: AppBar(
-        title: const Text(
-          'Notifications',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-            letterSpacing: 0.5,
-          ),
-        ),
-        backgroundColor: const Color(0xFF679B6A),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [
+      backgroundColor: AppNavigationTheme.background,
+      appBar: AppHeaderBar(
+        title: 'Notifications',
+        actions: <Widget>[
           if (hasUnread)
             TextButton(
               key: const Key('notification-mark-all-button'),
@@ -328,11 +317,13 @@ class _NotificationsViewState extends State<NotificationsView> {
       body: RefreshIndicator(
         key: const Key('notifications-refresh'),
         onRefresh: _refreshNotifications,
-        color: const Color(0xFF679B6A),
+        color: AppNavigationTheme.primary,
         child: _isLoading
             ? const Center(
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF679B6A)),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppNavigationTheme.primary,
+                  ),
                 ),
               )
             : _loadError != null

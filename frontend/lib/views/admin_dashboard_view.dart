@@ -265,6 +265,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             alignment: WrapAlignment.center,
             children: [
               _buildDashboardCard(
+                route: 'Patients',
                 title: 'Patients',
                 value: _isLoadingStats
                     ? '...'
@@ -276,6 +277,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 darkColor: const Color(0xFF50786A),
               ),
               _buildDashboardCard(
+                route: 'Staff',
                 title: 'Staff & Interns',
                 value: _isLoadingStats
                     ? '...'
@@ -285,6 +287,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 darkColor: const Color(0xFF6E9A92),
               ),
               _buildDashboardCard(
+                route: 'Master List',
                 title: 'Master List',
                 value: _isLoadingStats
                     ? '...'
@@ -294,6 +297,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 darkColor: const Color(0xFFBCA663),
               ),
               _buildDashboardCard(
+                route: 'Settings',
                 title: 'Settings',
                 value: '', // No number from design
                 icon: Icons.settings,
@@ -308,6 +312,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   }
 
   Widget _buildDashboardCard({
+    required String route,
     required String title,
     required String value,
     required IconData icon,
@@ -376,9 +381,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             color: Colors.transparent,
             child: InkWell(
               onTap: () {
-                // Navigate to the respective page when clicking More Info
                 setState(() {
-                  _activeRoute = title;
+                  _activeRoute = route;
                 });
               },
               borderRadius: const BorderRadius.only(
