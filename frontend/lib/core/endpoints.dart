@@ -83,7 +83,13 @@ class Endpoints {
       '$_base/admin/appointments/$id/status';
   static const adminWalkInAppointment = '$_base/admin/appointments/walk-in';
   static const adminPatients = '$_base/admin/patients';
+  static String adminPatientsList([
+    Map<String, String> queryParameters = const <String, String>{},
+  ]) => _withQueryParameters('$_base/admin/patients', queryParameters);
   static const adminStaff = '$_base/admin/staff';
+  static String adminStaffList([
+    Map<String, String> queryParameters = const <String, String>{},
+  ]) => _withQueryParameters('$_base/admin/staff', queryParameters);
   static String adminDeleteStaff(int id) => '$_base/admin/staff/$id';
   static String adminPatientSearch(String query) =>
       '$_base/admin/patients/search?query=${Uri.encodeQueryComponent(query)}';

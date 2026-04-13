@@ -53,6 +53,7 @@ void main() {
   const Duration cacheTtl = Duration(minutes: 1);
   const String servicesCache = 'appointment-services';
   const String adminMasterListCache = 'appointment-admin-master-list';
+  const String adminMasterListPageCache = 'appointment-admin-master-list-page';
   const String patientAppointmentsCache = 'appointment-patient-list';
   const String medicalHistoryCache = 'appointment-medical-history';
   const String recycleBinCache = 'appointment-recycle-bin';
@@ -131,6 +132,45 @@ void main() {
     expect(fakeBaseService.getJsonCallCount, 2);
   });
 
+  test(
+    'getAdminMasterListPage should request page params and map metadata',
+    () async {
+      fakeBaseService.nextResponse = {
+        'data': [
+          {
+            'patient_name': 'John Doe',
+            'service': 'Dental Checkup',
+            'status': 'Approved',
+            'date': '2026-04-01',
+          },
+        ],
+        'meta': {
+          'current_page': 2,
+          'per_page': 10,
+          'total': 26,
+          'has_more_pages': true,
+        },
+      };
+
+      final page = await appointmentService.getAdminMasterListPage(
+        filters: <String, String>{'status': 'Approved'},
+        page: 2,
+        perPage: 10,
+      );
+
+      expect(page.items, hasLength(1));
+      expect(page.items.first['patient_name'], 'John Doe');
+      expect(page.currentPage, 2);
+      expect(page.perPage, 10);
+      expect(page.totalItems, 26);
+      expect(page.hasMorePages, isTrue);
+      expect(
+        fakeBaseService.lastPath,
+        '/api/v1/admin/appointments/master-list?status=Approved&page=2&per_page=10',
+      );
+    },
+  );
+
   test('cancelAppointment invalidates cached appointment lists', () async {
     fakeBaseService.nextResponse = {
       'data': [
@@ -177,6 +217,22 @@ void main() {
         ttl: cacheTtl,
       );
       ShortTermCache.write(
+        adminMasterListPageCache,
+        'page=1&per_page=25',
+        const <String, dynamic>{
+          'data': <Map<String, dynamic>>[
+            <String, dynamic>{'id': 1},
+          ],
+          'meta': <String, dynamic>{
+            'current_page': 1,
+            'per_page': 25,
+            'total': 30,
+            'has_more_pages': true,
+          },
+        },
+        ttl: cacheTtl,
+      );
+      ShortTermCache.write(
         adminTodayQueueCache,
         'today',
         const <String, dynamic>{
@@ -203,6 +259,13 @@ void main() {
       });
 
       expect(ShortTermCache.read<dynamic>(adminMasterListCache, 'all'), isNull);
+      expect(
+        ShortTermCache.read<dynamic>(
+          adminMasterListPageCache,
+          'page=1&per_page=25',
+        ),
+        isNull,
+      );
       expect(
         ShortTermCache.read<dynamic>(adminTodayQueueCache, 'today'),
         isNull,

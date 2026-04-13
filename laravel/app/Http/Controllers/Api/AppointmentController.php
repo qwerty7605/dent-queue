@@ -76,6 +76,18 @@ class AppointmentController extends Controller
     public function masterList(Request $request, ReportService $reportService): JsonResponse
     {
         $filters = $this->validateReportFilters($request);
+        $pagination = $this->resolvePagination($request);
+
+        if ($pagination !== null) {
+            return response()->json(
+                $reportService->getDetailedRecordsPage(
+                    $filters,
+                    $pagination['page'],
+                    $pagination['per_page'],
+                ),
+            );
+        }
+
         $appointments = $reportService->getDetailedRecords($filters);
 
         return response()->json([
@@ -482,5 +494,22 @@ class AppointmentController extends Controller
                 'message' => 'Intern accounts have read-only access.',
             ], 403));
         }
+    }
+
+    private function resolvePagination(Request $request): ?array
+    {
+        if (!$request->hasAny(['page', 'per_page'])) {
+            return null;
+        }
+
+        $payload = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return [
+            'page' => (int) ($payload['page'] ?? 1),
+            'per_page' => (int) ($payload['per_page'] ?? 25),
+        ];
     }
 }

@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
 use App\Services\AppointmentService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class PatientRecordController extends Controller
 {
@@ -21,47 +23,34 @@ class PatientRecordController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $patients = PatientRecord::query()
-            ->with('user')
-            ->where(function ($query) {
-                $query->whereNull('user_id')
-                      ->orWhereHas('user', function ($userQuery) {
-                          $userQuery->where('is_active', true);
-                      });
-            })
-            ->orderByDesc('created_at')
-            ->get();
+        $query = $this->patientRecordsQuery();
+        $pagination = $this->resolvePagination($request);
 
-        $mappedPatients = $patients->map(function (PatientRecord $patient) {
-            $middleInitial = $patient->middle_name !== null && $patient->middle_name !== ''
-                ? ' ' . mb_substr((string) $patient->middle_name, 0, 1) . '.'
-                : '';
+        if ($pagination !== null) {
+            $patients = $query->paginate(
+                $pagination['per_page'],
+                ['*'],
+                'page',
+                $pagination['page'],
+            );
 
-            $fullName = trim(sprintf(
-                '%s%s %s',
-                (string) $patient->first_name,
-                $middleInitial,
-                (string) $patient->last_name,
-            ));
-
-            return [
-                'patient_id' => $patient->patient_id,
-                'full_name' => $fullName,
-                'birthdate' => optional($patient->birthdate)->format('Y-m-d'),
-                'gender' => $patient->gender ? ucfirst((string) $patient->gender) : null,
-                'contact_number' => $patient->contact_number,
-                'user_id' => $patient->user_id,
-                'patient_type' => $patient->user_id !== null ? 'Registered' : 'Walk-in',
-                'account_status' => $patient->user_id !== null && $patient->user
-                    ? ($patient->user->is_active ? 'Active' : 'Inactive')
-                    : null,
-            ];
-        });
+            return response()->json([
+                'data' => $patients->getCollection()
+                    ->map(fn (PatientRecord $patient): array => $this->mapPatient($patient))
+                    ->values()
+                    ->all(),
+                'meta' => $this->paginationMeta($patients),
+            ]);
+        }
 
         return response()->json([
-            'data' => $mappedPatients,
+            'data' => $query
+                ->get()
+                ->map(fn (PatientRecord $patient): array => $this->mapPatient($patient))
+                ->values()
+                ->all(),
         ]);
     }
 
@@ -237,5 +226,76 @@ class PatientRecordController extends Controller
             6 => 'Tooth Extraction',
             default => 'Unknown Service',
         };
+    }
+
+    private function patientRecordsQuery(): Builder
+    {
+        return PatientRecord::query()
+            ->with('user')
+            ->where(function ($query) {
+                $query->whereNull('user_id')
+                    ->orWhereHas('user', function ($userQuery) {
+                        $userQuery->where('is_active', true);
+                    });
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+    }
+
+    private function mapPatient(PatientRecord $patient): array
+    {
+        $middleInitial = $patient->middle_name !== null && $patient->middle_name !== ''
+            ? ' ' . mb_substr((string) $patient->middle_name, 0, 1) . '.'
+            : '';
+
+        $fullName = trim(sprintf(
+            '%s%s %s',
+            (string) $patient->first_name,
+            $middleInitial,
+            (string) $patient->last_name,
+        ));
+
+        return [
+            'patient_id' => $patient->patient_id,
+            'full_name' => $fullName,
+            'birthdate' => optional($patient->birthdate)->format('Y-m-d'),
+            'gender' => $patient->gender ? ucfirst((string) $patient->gender) : null,
+            'contact_number' => $patient->contact_number,
+            'user_id' => $patient->user_id,
+            'patient_type' => $patient->user_id !== null ? 'Registered' : 'Walk-in',
+            'account_status' => $patient->user_id !== null && $patient->user
+                ? ($patient->user->is_active ? 'Active' : 'Inactive')
+                : null,
+        ];
+    }
+
+    private function resolvePagination(Request $request): ?array
+    {
+        if (!$request->hasAny(['page', 'per_page'])) {
+            return null;
+        }
+
+        $payload = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return [
+            'page' => (int) ($payload['page'] ?? 1),
+            'per_page' => (int) ($payload['per_page'] ?? 25),
+        ];
+    }
+
+    private function paginationMeta(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'from' => $paginator->firstItem(),
+            'to' => $paginator->lastItem(),
+            'has_more_pages' => $paginator->hasMorePages(),
+        ];
     }
 }

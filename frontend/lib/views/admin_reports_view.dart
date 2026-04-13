@@ -10,6 +10,7 @@ import '../widgets/app_alert_dialog.dart';
 import '../widgets/admin_data_table.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
+import '../widgets/paginated_table_footer.dart';
 
 enum _TrendView { daily, weekly, monthly }
 
@@ -51,6 +52,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   static const Color _reportHighlight = Color(0xFFE8C355);
   static const Color _exportButtonColor = Color(0xFF2E7D32);
   static const double _reportSectionRadius = 3;
+  static const int _detailedRecordsPageSize = 25;
   static const List<String> _reportStatuses = <String>[
     'Pending',
     'Approved',
@@ -65,8 +67,12 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   bool _isLoading = true;
   bool _isTrendLoading = true;
   bool _isExporting = false;
+  bool _isLoadingMoreDetailedRecords = false;
   String? _trendLoadError;
   List<Map<String, dynamic>> _detailedRecords = [];
+  int _currentDetailedRecordsPage = 0;
+  int _totalDetailedRecords = 0;
+  bool _hasMoreDetailedRecords = false;
   DateTime? _draftStartDate;
   DateTime? _draftEndDate;
   String? _draftStatus;
@@ -116,9 +122,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     }
 
     try {
-      await Future.wait([
-        _fetchReportSummary(filters),
-        _fetchDetailedRecords(filters),
+      await Future.wait(<Future<void>>[
+        _fetchReportSummary(filters, forceRefresh),
+        if (widget.showDetailedRecords) _fetchDetailedRecords(filters),
         _loadTrendData(
           _selectedTrendView,
           filters: filters,
@@ -138,18 +144,71 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     Map<String, String> filters = const <String, String>{},
   ]) async {
     try {
-      final records = await widget.appointmentService.getAdminMasterList(
-        filters,
-      );
+      final recordsPage = await widget.appointmentService
+          .getAdminMasterListPage(
+            filters: filters,
+            page: 1,
+            perPage: _detailedRecordsPageSize,
+          );
       if (!mounted) return;
       setState(() {
-        _detailedRecords = records;
+        _detailedRecords = recordsPage.items;
+        _currentDetailedRecordsPage = recordsPage.currentPage;
+        _totalDetailedRecords = recordsPage.totalItems;
+        _hasMoreDetailedRecords = recordsPage.hasMorePages;
+        _isLoadingMoreDetailedRecords = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _detailedRecords = <Map<String, dynamic>>[];
+        _currentDetailedRecordsPage = 0;
+        _totalDetailedRecords = 0;
+        _hasMoreDetailedRecords = false;
+        _isLoadingMoreDetailedRecords = false;
       });
+    }
+  }
+
+  Future<void> _loadMoreDetailedRecords() async {
+    if (_isLoading ||
+        _isLoadingMoreDetailedRecords ||
+        !_hasMoreDetailedRecords) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingMoreDetailedRecords = true;
+    });
+
+    try {
+      final recordsPage = await widget.appointmentService
+          .getAdminMasterListPage(
+            filters: _activeReportFilters,
+            page: _currentDetailedRecordsPage + 1,
+            perPage: _detailedRecordsPageSize,
+          );
+      if (!mounted) return;
+
+      setState(() {
+        _detailedRecords = <Map<String, dynamic>>[
+          ..._detailedRecords,
+          ...recordsPage.items,
+        ];
+        _currentDetailedRecordsPage = recordsPage.currentPage;
+        _totalDetailedRecords = recordsPage.totalItems;
+        _hasMoreDetailedRecords = recordsPage.hasMorePages;
+        _isLoadingMoreDetailedRecords = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingMoreDetailedRecords = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load more report records')),
+      );
     }
   }
 
@@ -1897,106 +1956,125 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               ),
             )
           else
-            AdminDataTable(
-              minWidth: isPhone ? 860 : MediaQuery.of(context).size.width - 400,
-              columnSpacing: isPhone ? 22 : 32,
-              horizontalMargin: 18,
-              contentPadding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-              headingRowHeight: 58,
-              dataRowMinHeight: 68,
-              dataRowMaxHeight: 76,
-              columns: <DataColumn>[
-                DataColumn(
-                  label: AdminDataTable.headerLabel('Date', width: 100),
-                ),
-                DataColumn(
-                  label: AdminDataTable.headerLabel(
-                    'Patient',
-                    width: isPhone ? 160 : 220,
-                  ),
-                ),
-                DataColumn(
-                  label: AdminDataTable.headerLabel('Booking Type', width: 130),
-                ),
-                DataColumn(
-                  label: AdminDataTable.headerLabel(
-                    'Service',
-                    width: isPhone ? 150 : 190,
-                  ),
-                ),
-                DataColumn(
-                  label: AdminDataTable.headerLabel(
-                    'Queue No.',
-                    width: 90,
-                    alignment: Alignment.center,
-                  ),
-                ),
-                DataColumn(
-                  label: AdminDataTable.headerLabel(
-                    'Status',
-                    width: 180,
-                    alignment: Alignment.center,
-                  ),
-                ),
-              ],
-              rows: _detailedRecords.asMap().entries.map((entry) {
-                final int index = entry.key;
-                final Map<String, dynamic> record = entry.value;
-
-                return DataRow.byIndex(
-                  index: index,
-                  color: AdminDataTable.rowColor(index),
-                  cells: <DataCell>[
-                    DataCell(
-                      AdminDataTable.cellText(
-                        record['date']?.toString() ?? '-',
-                        width: 100,
-                      ),
+            Column(
+              children: [
+                AdminDataTable(
+                  minWidth: isPhone
+                      ? 860
+                      : MediaQuery.of(context).size.width - 400,
+                  columnSpacing: isPhone ? 22 : 32,
+                  horizontalMargin: 18,
+                  contentPadding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+                  headingRowHeight: 58,
+                  dataRowMinHeight: 68,
+                  dataRowMaxHeight: 76,
+                  columns: <DataColumn>[
+                    DataColumn(
+                      label: AdminDataTable.headerLabel('Date', width: 100),
                     ),
-                    DataCell(
-                      AdminDataTable.cellText(
-                        record['patient_name']?.toString() ?? '-',
+                    DataColumn(
+                      label: AdminDataTable.headerLabel(
+                        'Patient',
                         width: isPhone ? 160 : 220,
-                        maxLines: 2,
-                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    DataCell(
-                      AdminDataTable.cellText(
-                        record['booking_type']?.toString() ?? '-',
+                    DataColumn(
+                      label: AdminDataTable.headerLabel(
+                        'Booking Type',
                         width: 130,
-                        maxLines: 2,
                       ),
                     ),
-                    DataCell(
-                      AdminDataTable.cellText(
-                        record['service']?.toString() ?? '-',
+                    DataColumn(
+                      label: AdminDataTable.headerLabel(
+                        'Service',
                         width: isPhone ? 150 : 190,
-                        maxLines: 2,
                       ),
                     ),
-                    DataCell(
-                      AdminDataTable.cellText(
-                        record['queue_number']?.toString() ?? '-',
+                    DataColumn(
+                      label: AdminDataTable.headerLabel(
+                        'Queue No.',
                         width: 90,
                         alignment: Alignment.center,
                       ),
                     ),
-                    DataCell(
-                      SizedBox(
+                    DataColumn(
+                      label: AdminDataTable.headerLabel(
+                        'Status',
                         width: 180,
-                        child: Align(
-                          alignment: Alignment.center,
-                          child: AppointmentStatusBadge(
-                            status: record['status']?.toString() ?? 'Pending',
-                            compact: true,
-                          ),
-                        ),
+                        alignment: Alignment.center,
                       ),
                     ),
                   ],
-                );
-              }).toList(),
+                  rows: _detailedRecords.asMap().entries.map((entry) {
+                    final int index = entry.key;
+                    final Map<String, dynamic> record = entry.value;
+
+                    return DataRow.byIndex(
+                      index: index,
+                      color: AdminDataTable.rowColor(index),
+                      cells: <DataCell>[
+                        DataCell(
+                          AdminDataTable.cellText(
+                            record['date']?.toString() ?? '-',
+                            width: 100,
+                          ),
+                        ),
+                        DataCell(
+                          AdminDataTable.cellText(
+                            record['patient_name']?.toString() ?? '-',
+                            width: isPhone ? 160 : 220,
+                            maxLines: 2,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        DataCell(
+                          AdminDataTable.cellText(
+                            record['booking_type']?.toString() ?? '-',
+                            width: 130,
+                            maxLines: 2,
+                          ),
+                        ),
+                        DataCell(
+                          AdminDataTable.cellText(
+                            record['service']?.toString() ?? '-',
+                            width: isPhone ? 150 : 190,
+                            maxLines: 2,
+                          ),
+                        ),
+                        DataCell(
+                          AdminDataTable.cellText(
+                            record['queue_number']?.toString() ?? '-',
+                            width: 90,
+                            alignment: Alignment.center,
+                          ),
+                        ),
+                        DataCell(
+                          SizedBox(
+                            width: 180,
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: AppointmentStatusBadge(
+                                status:
+                                    record['status']?.toString() ?? 'Pending',
+                                compact: true,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+                PaginatedTableFooter(
+                  loadedItemCount: _detailedRecords.length,
+                  totalItemCount: _totalDetailedRecords,
+                  itemLabel: 'records',
+                  hasMorePages: _hasMoreDetailedRecords,
+                  isLoadingMore: _isLoadingMoreDetailedRecords,
+                  onLoadMore: _loadMoreDetailedRecords,
+                  loadMoreButtonKey: const Key('admin-reports-load-more'),
+                ),
+              ],
             ),
           const SizedBox(height: 16),
         ],

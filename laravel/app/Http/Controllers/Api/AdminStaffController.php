@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -16,7 +18,7 @@ class AdminStaffController extends Controller
     /**
      * Display a listing of the staff members.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         $roleIds = Role::query()
             ->where(function ($query) {
@@ -29,12 +31,24 @@ class AdminStaffController extends Controller
             return response()->json(['data' => []]);
         }
 
-        $staff = User::with(['role', 'staffRecord'])
-            ->whereIn('role_id', $roleIds)
-            ->where('is_active', true)
-            ->get();
+        $query = $this->staffListingQuery($roleIds->all());
+        $pagination = $this->resolvePagination($request);
 
-        return response()->json(['data' => $staff]);
+        if ($pagination !== null) {
+            $staff = $query->paginate(
+                $pagination['per_page'],
+                ['*'],
+                'page',
+                $pagination['page'],
+            );
+
+            return response()->json([
+                'data' => $staff->getCollection()->values()->all(),
+                'meta' => $this->paginationMeta($staff),
+            ]);
+        }
+
+        return response()->json(['data' => $query->get()]);
     }
 
     /**
@@ -125,5 +139,44 @@ class AdminStaffController extends Controller
                 'message' => 'Intern accounts have read-only access.',
             ], 403));
         }
+    }
+
+    private function staffListingQuery(array $roleIds): Builder
+    {
+        return User::with(['role', 'staffRecord'])
+            ->whereIn('role_id', $roleIds)
+            ->where('is_active', true)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+    }
+
+    private function resolvePagination(Request $request): ?array
+    {
+        if (!$request->hasAny(['page', 'per_page'])) {
+            return null;
+        }
+
+        $payload = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return [
+            'page' => (int) ($payload['page'] ?? 1),
+            'per_page' => (int) ($payload['per_page'] ?? 25),
+        ];
+    }
+
+    private function paginationMeta(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'from' => $paginator->firstItem(),
+            'to' => $paginator->lastItem(),
+            'has_more_pages' => $paginator->hasMorePages(),
+        ];
     }
 }

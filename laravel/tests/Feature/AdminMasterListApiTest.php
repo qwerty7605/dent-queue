@@ -63,6 +63,50 @@ class AdminMasterListApiTest extends TestCase
         $this->assertEquals('Pending', $pendingToPending['status']);
     }
 
+    public function test_admin_master_list_supports_paginated_filtered_results(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        $service = Service::create(['name' => 'Dental Cleaning', 'is_active' => true]);
+        $patient = $this->createUserWithRole('Patient');
+
+        Appointment::create([
+            'patient_id' => $patient->id,
+            'service_id' => $service->id,
+            'appointment_date' => '2026-04-01',
+            'time_slot' => '08:00',
+            'status' => 'confirmed',
+            'contact' => '09123456789',
+        ]);
+        Appointment::create([
+            'patient_id' => $patient->id,
+            'service_id' => $service->id,
+            'appointment_date' => '2026-04-02',
+            'time_slot' => '09:00',
+            'status' => 'confirmed',
+            'contact' => '09123456789',
+        ]);
+        Appointment::create([
+            'patient_id' => $patient->id,
+            'service_id' => $service->id,
+            'appointment_date' => '2026-04-03',
+            'time_slot' => '10:00',
+            'status' => 'pending',
+            'contact' => '09123456789',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $response = $this->getJson('/api/v1/admin/appointments/master-list?status=approved&page=1&per_page=1');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.per_page', 1)
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.has_more_pages', true)
+            ->assertJsonPath('data.0.status', 'Approved');
+    }
+
     private function createUserWithRole(string $roleName): User
     {
         $role = Role::firstOrCreate(['name' => $roleName]);
