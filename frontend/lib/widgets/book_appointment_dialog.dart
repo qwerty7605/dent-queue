@@ -7,6 +7,7 @@ import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../services/base_service.dart';
 import '../services/appointment_service.dart';
+import 'app_dialog_scaffold.dart';
 import 'appointment_success_dialog.dart';
 
 class BookAppointmentDialog extends StatefulWidget {
@@ -192,236 +193,188 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            autovalidateMode: _autoValidateMode,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with Title and Close Button
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const SizedBox(width: 24), // Balance the close button
-                    Expanded(
-                      child: Text(
-                        'Book Appointment',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: MobileTypography.sectionTitle(context),
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF2C3E50),
-                        ),
-                      ),
+    return Form(
+      key: _formKey,
+      autovalidateMode: _autoValidateMode,
+      child: AppDialogScaffold(
+        title: 'Book Appointment',
+        titleTextStyle: TextStyle(
+          fontSize: MobileTypography.sectionTitle(context),
+          fontWeight: FontWeight.w900,
+          color: const Color(0xFF2C3E50),
+        ),
+        onClose: _isLoading ? null : () => Navigator.of(context).pop(),
+        footer: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _submit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF679B6A),
+              elevation: 0,
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
                     ),
-                    InkWell(
-                      onTap: () => Navigator.of(context).pop(),
-                      child: const Icon(Icons.close, color: Color(0xFF7E8CA0)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                if (_formErrorText != null)
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF1F1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.redAccent.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.redAccent,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _formErrorText!,
-                            style: const TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // Service Type Dropdown
-                _buildLabel('SERVICE TYPE'),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF679B6A),
-                        width: 2,
-                      ),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.redAccent),
-                    ),
-                  ),
-                  hint: const Text(
-                    'Select Service',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16),
-                  ),
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: Color(0xFF1E293B),
-                    size: 28,
-                  ),
-                  isExpanded: true,
-                  initialValue: _selectedService,
-                  items: _services.map((service) {
-                    return DropdownMenuItem<String>(
-                      value: service['id'].toString(),
-                      child: Text(
-                        service['name'].toString(),
-                        style: const TextStyle(
-                          color: Color(0xFF2C3E50),
-                          fontSize: 16,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedService = val;
-                      _autoValidateMode = AutovalidateMode.always;
-                    });
-                    _clearFieldError('service');
-                    _formKey.currentState?.validate();
-                  },
-                  validator: (value) => _mergeFieldError(
-                    'service',
-                    value == null ? 'Required' : null,
+                  )
+                : const Text('Confirm Booking'),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_formErrorText != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF1F1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.3),
                   ),
                 ),
-                const SizedBox(height: 16),
-
-                // Date and Time Row
-                Row(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(flex: 12, child: _buildDateField()),
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.redAccent,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
-                    Expanded(flex: 11, child: _buildTimeField()),
+                    Expanded(
+                      child: Text(
+                        _formErrorText!,
+                        style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 16),
+              ),
 
-                // Additional Notes
-                _buildLabel('ADDITIONAL NOTES'),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _notesController,
-                  onChanged: (_) => _clearFieldError('notes'),
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    hintText: 'Any concerns?',
-                    hintStyle: const TextStyle(
-                      color: Color(0xFF94A3B8),
+            _buildLabel('SERVICE TYPE'),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF679B6A),
+                    width: 2,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.redAccent),
+                ),
+              ),
+              hint: const Text(
+                'Select Service',
+                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 16),
+              ),
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Color(0xFF1E293B),
+                size: 28,
+              ),
+              isExpanded: true,
+              initialValue: _selectedService,
+              items: _services.map((service) {
+                return DropdownMenuItem<String>(
+                  value: service['id'].toString(),
+                  child: Text(
+                    service['name'].toString(),
+                    style: const TextStyle(
+                      color: Color(0xFF2C3E50),
                       fontSize: 16,
                     ),
-                    contentPadding: const EdgeInsets.all(16),
-                    alignLabelWithHint: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF679B6A),
-                        width: 2,
-                      ),
-                    ),
-                    errorBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Colors.redAccent),
-                    ),
                   ),
-                  style: const TextStyle(
-                    color: Color(0xFF2C3E50),
-                    fontSize: 16,
-                  ),
-                  validator: (value) =>
-                      _mergeFieldError('notes', null), // Optional field
-                ),
-                const SizedBox(height: 32),
-
-                // Confirm Booking Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF679B6A),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text(
-                            'Confirm Booking',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                  ),
-                ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                setState(() {
+                  _selectedService = val;
+                  _autoValidateMode = AutovalidateMode.always;
+                });
+                _clearFieldError('service');
+                _formKey.currentState?.validate();
+              },
+              validator: (value) => _mergeFieldError(
+                'service',
+                value == null ? 'Required' : null,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 12, child: _buildDateField()),
+                const SizedBox(width: 8),
+                Expanded(flex: 11, child: _buildTimeField()),
               ],
             ),
-          ),
+            const SizedBox(height: 16),
+            _buildLabel('ADDITIONAL NOTES'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _notesController,
+              onChanged: (_) => _clearFieldError('notes'),
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'Any concerns?',
+                hintStyle: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 16,
+                ),
+                contentPadding: const EdgeInsets.all(16),
+                alignLabelWithHint: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF679B6A),
+                    width: 2,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.redAccent),
+                ),
+              ),
+              style: const TextStyle(color: Color(0xFF2C3E50), fontSize: 16),
+              validator: (value) => _mergeFieldError('notes', null),
+            ),
+          ],
         ),
       ),
     );

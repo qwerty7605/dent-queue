@@ -5,6 +5,7 @@ import '../core/config.dart';
 import '../models/admin_ui_notification.dart';
 import 'app_empty_state.dart';
 import 'navigation_chrome.dart';
+import 'app_dialog_scaffold.dart';
 
 class AdminLayout extends StatelessWidget {
   const AdminLayout({
@@ -355,121 +356,94 @@ class AdminLayout extends StatelessWidget {
       builder: (context) {
         final formatter = DateFormat('MMM d, h:mm a');
 
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Container(
-            width: 420,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.notifications_active_outlined,
-                      color: Color(0xFF497A52),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Notifications',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF1F2A22),
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (notifications.isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 24,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF4F7F4),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const AppEmptyState(
-                      icon: Icons.notifications_off_outlined,
-                      title: 'No notifications right now',
-                      message:
-                          'New admin updates and reminders will appear here.',
-                      framed: false,
-                      compact: true,
-                    ),
-                  )
-                else
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 360),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: notifications.map((notification) {
-                          return Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF4F7F4),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: const Color(0xFFD9E4DA),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  notification.title,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFF1F2A22),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  notification.message,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF4E5A50),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  formatter.format(notification.createdAt),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF768279),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
+        return AppDialogScaffold(
+          maxWidth: 440,
+          bodyPadding: const EdgeInsets.only(top: 16),
+          headerContent: const Row(
+            children: [
+              Icon(
+                Icons.notifications_active_outlined,
+                color: Color(0xFF497A52),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Notifications',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1F2A22),
                   ),
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
+          onClose: () => Navigator.of(context).pop(),
+          child: notifications.isEmpty
+              ? Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 24,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F7F4),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const AppEmptyState(
+                    icon: Icons.notifications_off_outlined,
+                    title: 'No notifications right now',
+                    message:
+                        'New admin updates and reminders will appear here.',
+                    framed: false,
+                    compact: true,
+                  ),
+                )
+              : Column(
+                  children: notifications.map((notification) {
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF4F7F4),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFD9E4DA)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            notification.title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1F2A22),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            notification.message,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF4E5A50),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            formatter.format(notification.createdAt),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF768279),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
         );
       },
     );

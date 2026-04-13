@@ -5,6 +5,7 @@ import '../core/api_exception.dart';
 import '../core/form_error_helpers.dart';
 import '../core/mobile_typography.dart';
 import '../services/appointment_service.dart';
+import 'app_dialog_scaffold.dart';
 import 'appointment_success_dialog.dart';
 
 class StaffBookAppointmentDialog extends StatefulWidget {
@@ -216,70 +217,67 @@ class _StaffBookAppointmentDialogState
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 0,
-      backgroundColor: Colors.white,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            autovalidateMode: _autoValidateMode,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Form(
+      key: _formKey,
+      autovalidateMode: _autoValidateMode,
+      child: AppDialogScaffold(
+        title: 'Book Appointment',
+        titleTextStyle: TextStyle(
+          fontSize: MobileTypography.sectionTitle(context),
+          fontWeight: FontWeight.w900,
+          color: const Color(0xFF1E293B),
+        ),
+        maxWidth: 420,
+        onClose: _isSubmitting ? null : () => Navigator.of(context).pop(),
+        footer: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF679B6A),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            onPressed: _isSubmitting ? null : _submit,
+            child: _isSubmitting
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    'Confirm Booking',
+                    style: TextStyle(
+                      fontSize: MobileTypography.button(context),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_formErrorText != null) ...[
+              _buildErrorBanner(),
+              const SizedBox(height: 16),
+            ],
+            _buildServiceTypeDropdown(),
+            const SizedBox(height: 16),
+            Row(
               children: [
-                _buildHeader(),
-                const SizedBox(height: 24),
-                if (_formErrorText != null) ...[
-                  _buildErrorBanner(),
-                  const SizedBox(height: 16),
-                ],
-                _buildServiceTypeDropdown(),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(child: _buildDateInput()),
-                    const SizedBox(width: 16),
-                    Expanded(child: _buildTimeInput()),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildNotesInput(),
-                const SizedBox(height: 24),
-                _buildConfirmButton(),
+                Expanded(child: _buildDateInput()),
+                const SizedBox(width: 16),
+                Expanded(child: _buildTimeInput()),
               ],
             ),
-          ),
+            const SizedBox(height: 16),
+            _buildNotesInput(),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Stack(
-      children: [
-        Align(
-          alignment: Alignment.center,
-          child: Text(
-            'Book Appointment',
-            style: TextStyle(
-              fontSize: MobileTypography.sectionTitle(context),
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF1E293B),
-            ),
-          ),
-        ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 24),
-          ),
-        ),
-      ],
     );
   }
 
@@ -433,40 +431,6 @@ class _StaffBookAppointmentDialogState
           validator: (value) => _mergeFieldError('notes', null),
         ),
       ],
-    );
-  }
-
-  Widget _buildConfirmButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF679B6A),
-          foregroundColor: Colors.white,
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        onPressed: _isSubmitting ? null : _submit,
-        child: _isSubmitting
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.4,
-                  color: Colors.white,
-                ),
-              )
-            : Text(
-                'Confirm Booking',
-                style: TextStyle(
-                  fontSize: MobileTypography.button(context),
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-      ),
     );
   }
 

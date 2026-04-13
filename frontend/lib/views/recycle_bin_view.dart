@@ -5,6 +5,7 @@ import '../core/api_exception.dart';
 import '../core/mobile_typography.dart';
 import '../models/recycle_bin_entry.dart';
 import '../services/appointment_service.dart';
+import '../widgets/app_alert_dialog.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
 import '../widgets/navigation_chrome.dart';
@@ -158,7 +159,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
+        return AppAlertDialog(
           title: const Text('Restore Appointment?'),
           content: Text(
             'Restore ${entry.service} back to the active appointment list?',

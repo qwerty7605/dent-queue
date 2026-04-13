@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/patient_record_service.dart';
+import '../widgets/app_alert_dialog.dart';
 import '../widgets/admin_data_table.dart';
 
 class AdminPatientsView extends StatefulWidget {
@@ -55,7 +56,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
-        return AlertDialog(
+        return AppAlertDialog(
           title: const Text('Deactivate Patient Account'),
           content: Text(
             'Are you sure you want to deactivate the account for $fullName?',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/admin_staff_service.dart';
 import '../widgets/add_staff_dialog.dart';
+import '../widgets/app_alert_dialog.dart';
 import '../widgets/admin_data_table.dart';
 import '../widgets/app_empty_state.dart';
 
@@ -73,7 +74,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
-        return AlertDialog(
+        return AppAlertDialog(
           title: const Text('Deactivate Staff Account'),
           content: Text(
             'Are you sure you want to deactivate the account for ${_resolveStaffName(staffMember)}?',
