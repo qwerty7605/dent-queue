@@ -63,13 +63,13 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _localUserInfo = widget.userInfo ?? {};
+    final TokenStorage tokenStorage = SecureTokenStorage();
     _appointmentService =
         widget.appointmentService ??
-        AppointmentService(
-          BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
-        );
+        AppointmentService(BaseService(ApiClient(tokenStorage: tokenStorage)));
     _notificationService = NotificationService(
-      BaseService(ApiClient(tokenStorage: SecureTokenStorage())),
+      BaseService(ApiClient(tokenStorage: tokenStorage)),
+      tokenStorage: tokenStorage,
     );
     _loadAppointments();
     _loadUnreadNotificationCount();

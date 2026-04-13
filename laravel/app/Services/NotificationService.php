@@ -14,8 +14,7 @@ class NotificationService
 {
     public function __construct(
         private readonly CentralizedCacheService $cacheService,
-    ) {
-    }
+    ) {}
 
     public function listForUser(User $user, bool $forceRefresh = false): Collection
     {
@@ -86,6 +85,8 @@ class NotificationService
             ])->save();
         }
 
+        $this->flushNotificationCacheForModel($notification);
+
         return $notification->fresh() ?? $notification;
     }
 
@@ -94,7 +95,7 @@ class NotificationService
         $timestamp = now();
         $roleName = $this->resolveRoleName($user);
 
-        return match ($roleName) {
+        $updatedCount = match ($roleName) {
             'patient' => $this->patientNotificationsQuery($user)
                 ->whereNull('read_at')
                 ->update([
@@ -109,6 +110,10 @@ class NotificationService
                 ]),
             default => 0,
         };
+
+        $this->cacheService->flushNotificationsForUser($user);
+
+        return $updatedCount;
     }
 
     public function formatNotification(Model $notification): array
@@ -159,5 +164,16 @@ class NotificationService
     {
         return StaffNotification::query()
             ->where('user_id', (int) $user->id);
+    }
+
+    private function flushNotificationCacheForModel(PatientNotification|StaffNotification $notification): void
+    {
+        if ($notification instanceof PatientNotification) {
+            $this->cacheService->flushNotificationsForPatientRecord((int) $notification->patient_id);
+
+            return;
+        }
+
+        $this->cacheService->flushNotificationsForStaffUser((int) $notification->user_id);
     }
 }

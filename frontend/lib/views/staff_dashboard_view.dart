@@ -85,7 +85,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     _appointmentService =
         widget.appointmentService ?? AppointmentService(_baseService);
     _notificationService =
-        widget.notificationService ?? NotificationService(_baseService);
+        widget.notificationService ??
+        NotificationService(_baseService, tokenStorage: widget.tokenStorage);
     _patientRecordService = PatientRecordService(_baseService);
     _localUserInfo = widget.userInfo != null
         ? Map<String, dynamic>.from(widget.userInfo!)
