@@ -15,6 +15,7 @@ import '../widgets/appointment_details_dialog.dart';
 import '../widgets/appointment_status_badge.dart';
 import '../widgets/app_dialog_scaffold.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/dashboard_stat_card.dart';
 import '../widgets/edit_profile_dialog.dart';
 import 'notifications_view.dart';
 import 'recycle_bin_view.dart';
@@ -715,57 +716,125 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                           'cancelled',
                     )
                     .length;
+                final cards = <Map<String, dynamic>>[
+                  <String, dynamic>{
+                    'title': 'PENDING',
+                    'count': pendingCount.toString(),
+                    'icon': Icons.access_time_filled,
+                    'color': Colors.orange,
+                    'backgroundColor': const Color(0xFFFFF7EF),
+                    'filter': _PatientAppointmentFilter.pending,
+                  },
+                  <String, dynamic>{
+                    'title': 'APPROVED',
+                    'count': approvedCount.toString(),
+                    'icon': Icons.check_circle_outline,
+                    'color': Colors.blue,
+                    'backgroundColor': const Color(0xFFF1F7FF),
+                    'filter': _PatientAppointmentFilter.approved,
+                  },
+                  <String, dynamic>{
+                    'title': 'COMPLETED',
+                    'count': completedCount.toString(),
+                    'icon': Icons.medical_services_outlined,
+                    'color': Colors.green,
+                    'backgroundColor': const Color(0xFFF1FFF7),
+                    'filter': _PatientAppointmentFilter.completed,
+                  },
+                  <String, dynamic>{
+                    'title': 'CANCELLED',
+                    'count': cancelledCount.toString(),
+                    'icon': Icons.cancel_outlined,
+                    'color': Colors.redAccent,
+                    'backgroundColor': const Color(0xFFFFF1F1),
+                    'filter': _PatientAppointmentFilter.cancelled,
+                  },
+                ];
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: Column(
-                    children: [
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 1.35,
-                        children: [
-                          _buildStatusCard(
-                            title: 'PENDING',
-                            count: pendingCount.toString(),
-                            icon: Icons.access_time_filled,
-                            color: Colors.orange,
-                            backgroundColor: const Color(0xFFFFF7EF),
-                            filter: _PatientAppointmentFilter.pending,
-                          ),
-                          _buildStatusCard(
-                            title: 'APPROVED',
-                            count: approvedCount.toString(),
-                            icon: Icons.check_circle_outline,
-                            color: Colors.blue,
-                            backgroundColor: const Color(0xFFF1F7FF),
-                            filter: _PatientAppointmentFilter.approved,
-                          ),
-                          _buildStatusCard(
-                            title: 'COMPLETED',
-                            count: completedCount.toString(),
-                            icon: Icons.medical_services_outlined,
-                            color: Colors.green,
-                            backgroundColor: const Color(0xFFF1FFF7),
-                            filter: _PatientAppointmentFilter.completed,
-                          ),
-                          _buildStatusCard(
-                            title: 'CANCELLED',
-                            count: cancelledCount.toString(),
-                            icon: Icons.cancel_outlined,
-                            color: Colors.redAccent,
-                            backgroundColor: const Color(0xFFFFF1F1),
-                            filter: _PatientAppointmentFilter.cancelled,
-                          ),
-                        ],
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final horizontalPadding = constraints.maxWidth < 420
+                        ? 16.0
+                        : 24.0;
+                    final contentWidth = constraints.maxWidth > 920
+                        ? 920.0
+                        : constraints.maxWidth;
+                    final crossAxisCount = contentWidth >= 860
+                        ? 4
+                        : contentWidth >= 420
+                        ? 2
+                        : 1;
+
+                    return Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
                       ),
-                      const SizedBox(height: 14),
-                      _buildTodayQueuePanel(),
-                    ],
-                  ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 920),
+                          child: Column(
+                            children: [
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: cards.length,
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: crossAxisCount,
+                                      mainAxisSpacing: 16,
+                                      crossAxisSpacing: 16,
+                                      mainAxisExtent: 148,
+                                    ),
+                                itemBuilder: (context, index) {
+                                  final card = cards[index];
+                                  final color = card['color']! as Color;
+
+                                  return DashboardStatCard(
+                                    title: card['title']! as String,
+                                    value: card['count']! as String,
+                                    icon: card['icon']! as IconData,
+                                    accentColor: color,
+                                    backgroundColor:
+                                        card['backgroundColor']! as Color,
+                                    isSelected:
+                                        _selectedFilter ==
+                                        card['filter']!
+                                            as _PatientAppointmentFilter,
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedFilter =
+                                            card['filter']!
+                                                as _PatientAppointmentFilter;
+                                      });
+                                    },
+                                    valueStyle: TextStyle(
+                                      fontSize:
+                                          MobileTypography.sectionTitle(
+                                            context,
+                                          ) +
+                                          4,
+                                      fontWeight: FontWeight.w900,
+                                      color: color,
+                                    ),
+                                    titleStyle: TextStyle(
+                                      fontSize: MobileTypography.caption(
+                                        context,
+                                      ),
+                                      fontWeight: FontWeight.w900,
+                                      color: color,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 14),
+                              _buildTodayQueuePanel(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -1299,69 +1368,6 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildStatusCard({
-    required String title,
-    required String count,
-    required IconData icon,
-    required Color color,
-    required Color backgroundColor,
-    required _PatientAppointmentFilter filter,
-  }) {
-    final isSelected = _selectedFilter == filter;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () {
-        setState(() {
-          _selectedFilter = filter;
-        });
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-          border: Border.all(
-            color: isSelected
-                ? color.withValues(alpha: 0.5)
-                : color.withValues(alpha: 0.12),
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              count,
-              style: TextStyle(
-                fontSize: MobileTypography.sectionTitle(context),
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: MobileTypography.label(context),
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/patient_record_service.dart';
 import '../widgets/app_alert_dialog.dart';
+import '../widgets/admin_data_table.dart';
 
 class AdminPatientsView extends StatefulWidget {
   const AdminPatientsView({super.key, required this.patientRecordService});
@@ -163,115 +164,99 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                     )
                   else
                     Expanded(
-                      child: SingleChildScrollView(
-                        child: DataTable(
-                          headingRowColor: WidgetStateProperty.resolveWith(
-                            (states) => Colors.transparent,
+                      child: AdminDataTable(
+                        minWidth: 760,
+                        columnSpacing: 26,
+                        columns: <DataColumn>[
+                          DataColumn(
+                            label: AdminDataTable.headerLabel(
+                              'No.',
+                              width: 52,
+                              alignment: Alignment.center,
+                            ),
                           ),
-                          columns: const [
-                            DataColumn(
-                              label: Text(
-                                'No.',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                          DataColumn(
+                            label: AdminDataTable.headerLabel(
+                              'Patient',
+                              width: 240,
+                            ),
+                          ),
+                          DataColumn(
+                            label: AdminDataTable.headerLabel(
+                              'Gender',
+                              width: 108,
+                            ),
+                          ),
+                          DataColumn(
+                            label: AdminDataTable.headerLabel(
+                              'Contact',
+                              width: 170,
+                            ),
+                          ),
+                          DataColumn(
+                            label: AdminDataTable.headerLabel(
+                              'Action',
+                              width: 72,
+                              alignment: Alignment.center,
+                            ),
+                          ),
+                        ],
+                        rows: _patients.asMap().entries.map((entry) {
+                          final int index = entry.key;
+                          final Map<String, dynamic> patient = entry.value;
+
+                          return DataRow.byIndex(
+                            index: index,
+                            color: AdminDataTable.rowColor(index),
+                            cells: <DataCell>[
+                              DataCell(
+                                AdminDataTable.cellText(
+                                  '${index + 1}',
+                                  width: 52,
+                                  alignment: Alignment.center,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Patient',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                              DataCell(
+                                AdminDataTable.cellText(
+                                  _displayText(patient['full_name']),
+                                  width: 240,
+                                  maxLines: 2,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Gender',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                              DataCell(
+                                AdminDataTable.cellText(
+                                  _displayText(patient['gender']),
+                                  width: 108,
                                 ),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Contact',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                              DataCell(
+                                AdminDataTable.cellText(
+                                  _displayText(patient['contact_number']),
+                                  width: 170,
+                                  maxLines: 2,
                                 ),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Action',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                          ],
-                          rows: _patients.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final patient = entry.value;
-                            return DataRow(
-                              cells: [
-                                DataCell(
-                                  Text(
-                                    '${index + 1}',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.black87,
+                              DataCell(
+                                SizedBox(
+                                  width: 72,
+                                  child: Center(
+                                    child: IconButton(
+                                      icon: const Icon(
+                                        Icons.delete,
+                                        color: Color(0xFFD32F2F),
+                                      ),
+                                      onPressed: () =>
+                                          _confirmDeactivate(patient),
+                                      tooltip: 'Deactivate account',
                                     ),
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    _displayText(patient['full_name']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    _displayText(patient['gender']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    _displayText(patient['contact_number']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      color: Color(0xFFD32F2F),
-                                    ),
-                                    onPressed: () =>
-                                        _confirmDeactivate(patient),
-                                    tooltip: 'Deactivate account',
-                                  ),
-                                ),
-                              ],
-                            );
-                          }).toList(),
-                        ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
                       ),
                     ),
                 ],

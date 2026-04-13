@@ -7,6 +7,7 @@ import '../core/mobile_typography.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
 import '../widgets/app_alert_dialog.dart';
+import '../widgets/admin_data_table.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
 
@@ -1896,104 +1897,106 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               ),
             )
           else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: isPhone
-                      ? 860
-                      : MediaQuery.of(context).size.width - 400,
+            AdminDataTable(
+              minWidth: isPhone ? 860 : MediaQuery.of(context).size.width - 400,
+              columnSpacing: isPhone ? 22 : 32,
+              horizontalMargin: 18,
+              contentPadding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+              headingRowHeight: 58,
+              dataRowMinHeight: 68,
+              dataRowMaxHeight: 76,
+              columns: <DataColumn>[
+                DataColumn(
+                  label: AdminDataTable.headerLabel('Date', width: 100),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: DataTableTheme(
-                      data: DataTableThemeData(
-                        headingRowColor: WidgetStateProperty.all(
-                          const Color(0xFFF4F8F4),
-                        ),
-                        headingTextStyle: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF29412B),
-                          fontSize: 14,
-                        ),
-                        dataTextStyle: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
-                        ),
-                        dividerThickness: 0.6,
-                      ),
-                      child: DataTable(
-                        headingRowHeight: 58,
-                        dataRowMinHeight: 68,
-                        dataRowMaxHeight: 76,
-                        horizontalMargin: 18,
-                        columnSpacing: isPhone ? 22 : 32,
-                        border: TableBorder.all(
-                          color: const Color(0xFFE6ECE6),
-                          width: 0.75,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        columns: const [
-                          DataColumn(label: Text('Date')),
-                          DataColumn(label: Text('Patient')),
-                          DataColumn(label: Text('Booking Type')),
-                          DataColumn(label: Text('Service')),
-                          DataColumn(label: Text('Queue No.')),
-                          DataColumn(label: Text('Status')),
-                        ],
-                        rows: _detailedRecords.map((record) {
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(record['date']?.toString() ?? '-')),
-                              DataCell(
-                                SizedBox(
-                                  width: isPhone ? 160 : 220,
-                                  child: Text(
-                                    record['patient_name']?.toString() ?? '-',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 130,
-                                  child: Text(
-                                    record['booking_type']?.toString() ?? '-',
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: isPhone ? 150 : 190,
-                                  child: Text(
-                                    record['service']?.toString() ?? '-',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                Text(record['queue_number']?.toString() ?? '-'),
-                              ),
-                              DataCell(
-                                AppointmentStatusBadge(
-                                  status:
-                                      record['status']?.toString() ?? 'Pending',
-                                  compact: true,
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ),
+                DataColumn(
+                  label: AdminDataTable.headerLabel(
+                    'Patient',
+                    width: isPhone ? 160 : 220,
                   ),
                 ),
-              ),
+                DataColumn(
+                  label: AdminDataTable.headerLabel('Booking Type', width: 130),
+                ),
+                DataColumn(
+                  label: AdminDataTable.headerLabel(
+                    'Service',
+                    width: isPhone ? 150 : 190,
+                  ),
+                ),
+                DataColumn(
+                  label: AdminDataTable.headerLabel(
+                    'Queue No.',
+                    width: 90,
+                    alignment: Alignment.center,
+                  ),
+                ),
+                DataColumn(
+                  label: AdminDataTable.headerLabel(
+                    'Status',
+                    width: 180,
+                    alignment: Alignment.center,
+                  ),
+                ),
+              ],
+              rows: _detailedRecords.asMap().entries.map((entry) {
+                final int index = entry.key;
+                final Map<String, dynamic> record = entry.value;
+
+                return DataRow.byIndex(
+                  index: index,
+                  color: AdminDataTable.rowColor(index),
+                  cells: <DataCell>[
+                    DataCell(
+                      AdminDataTable.cellText(
+                        record['date']?.toString() ?? '-',
+                        width: 100,
+                      ),
+                    ),
+                    DataCell(
+                      AdminDataTable.cellText(
+                        record['patient_name']?.toString() ?? '-',
+                        width: isPhone ? 160 : 220,
+                        maxLines: 2,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    DataCell(
+                      AdminDataTable.cellText(
+                        record['booking_type']?.toString() ?? '-',
+                        width: 130,
+                        maxLines: 2,
+                      ),
+                    ),
+                    DataCell(
+                      AdminDataTable.cellText(
+                        record['service']?.toString() ?? '-',
+                        width: isPhone ? 150 : 190,
+                        maxLines: 2,
+                      ),
+                    ),
+                    DataCell(
+                      AdminDataTable.cellText(
+                        record['queue_number']?.toString() ?? '-',
+                        width: 90,
+                        alignment: Alignment.center,
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: 180,
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: AppointmentStatusBadge(
+                            status: record['status']?.toString() ?? 'Pending',
+                            compact: true,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
             ),
           const SizedBox(height: 16),
         ],
