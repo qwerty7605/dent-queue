@@ -116,6 +116,17 @@ class MyApp extends StatelessWidget {
         textButtonTheme: TextButtonThemeData(
           style: _textButtonStyle(colorScheme),
         ),
+        dialogTheme: DialogThemeData(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
+        ),
       ),
       home: AuthSwitcherView(
         authService: authService,
@@ -239,9 +250,7 @@ class MyApp extends StatelessWidget {
 
   static ButtonStyle _textButtonStyle(ColorScheme colorScheme) {
     return ButtonStyle(
-      minimumSize: const WidgetStatePropertyAll<Size>(
-        Size(0, _buttonHeight),
-      ),
+      minimumSize: const WidgetStatePropertyAll<Size>(Size(0, _buttonHeight)),
       padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
         EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       ),
