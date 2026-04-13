@@ -89,12 +89,34 @@ class _FakeBaseService extends Fake implements BaseService {
     }
 
     if (path.contains('master-list')) {
-      return mapper(<String, dynamic>{
-        'data': filteredRecords.toList()
-          ..sort((Map<String, dynamic> a, Map<String, dynamic> b) {
-            return (b['date'] as String).compareTo(a['date'] as String);
-          }),
-      });
+      final List<Map<String, dynamic>> sortedRecords = filteredRecords.toList()
+        ..sort((Map<String, dynamic> a, Map<String, dynamic> b) {
+          return (b['date'] as String).compareTo(a['date'] as String);
+        });
+      final int page = int.tryParse(uri.queryParameters['page'] ?? '') ?? 1;
+      final int perPage =
+          int.tryParse(uri.queryParameters['per_page'] ?? '') ??
+          sortedRecords.length;
+      final int startIndex = (page - 1) * perPage;
+      final List<Map<String, dynamic>> pagedRecords =
+          startIndex >= sortedRecords.length
+          ? const <Map<String, dynamic>>[]
+          : sortedRecords.skip(startIndex).take(perPage).toList();
+
+      if (uri.queryParameters.containsKey('page') ||
+          uri.queryParameters.containsKey('per_page')) {
+        return mapper(<String, dynamic>{
+          'data': pagedRecords,
+          'meta': <String, dynamic>{
+            'current_page': page,
+            'per_page': perPage,
+            'total': sortedRecords.length,
+            'has_more_pages': startIndex + perPage < sortedRecords.length,
+          },
+        });
+      }
+
+      return mapper(<String, dynamic>{'data': sortedRecords});
     }
 
     return mapper(<String, dynamic>{});
@@ -386,7 +408,7 @@ void main() {
       expect(
         baseService.requestedPaths,
         contains(
-          '/api/v1/admin/appointments/master-list?status=Approved&booking_type=Online+Booking',
+          '/api/v1/admin/appointments/master-list?status=Approved&booking_type=Online+Booking&page=1&per_page=25',
         ),
       );
       expect(find.text('Ava Stone'), findsOneWidget);
@@ -581,5 +603,92 @@ void main() {
     );
     expect(find.text('No data'), findsOneWidget);
     expect(find.byKey(const Key('appointment-trends-chart')), findsOneWidget);
+  });
+
+  testWidgets(
+    'skips detailed records requests when the detailed table is hidden',
+    (WidgetTester tester) async {
+      final _FakeBaseService baseService = _FakeBaseService();
+      final AdminDashboardService adminDashboardService = AdminDashboardService(
+        baseService,
+      );
+      final AppointmentService appointmentService = AppointmentService(
+        baseService,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AdminReportsView(
+              adminDashboardService: adminDashboardService,
+              appointmentService: appointmentService,
+              showDetailedRecords: false,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(
+        baseService.requestedPaths.where(
+          (String path) => path.contains('master-list'),
+        ),
+        isEmpty,
+      );
+      expect(find.text('Detailed Records'), findsNothing);
+    },
+  );
+
+  testWidgets('loads more detailed records a page at a time', (
+    WidgetTester tester,
+  ) async {
+    final List<Map<String, dynamic>> records =
+        List<Map<String, dynamic>>.generate(
+          30,
+          (int index) => <String, dynamic>{
+            'date': '2026-04-${(index % 28 + 1).toString().padLeft(2, '0')}',
+            'status': 'Approved',
+            'booking_type': 'Online Booking',
+            'patient_name': 'Patient ${index + 1}',
+            'service': 'Dental Checkup',
+            'queue_number': (index + 1).toString().padLeft(2, '0'),
+          },
+        );
+    final _FakeBaseService baseService = _FakeBaseService(records: records);
+    final AdminDashboardService adminDashboardService = AdminDashboardService(
+      baseService,
+    );
+    final AppointmentService appointmentService = AppointmentService(
+      baseService,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminReportsView(
+            adminDashboardService: adminDashboardService,
+            appointmentService: appointmentService,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Showing 25 of 30 records'), findsOneWidget);
+    expect(find.byKey(const Key('admin-reports-load-more')), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('admin-reports-load-more')),
+    );
+    await tester.tap(find.byKey(const Key('admin-reports-load-more')));
+    await tester.pumpAndSettle();
+
+    expect(
+      baseService.requestedPaths,
+      contains('/api/v1/admin/appointments/master-list?page=2&per_page=25'),
+    );
+    expect(find.text('Showing all 30 records'), findsOneWidget);
   });
 }

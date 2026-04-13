@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Appointment;
 use App\Support\AppointmentQueueOrder;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -168,27 +169,28 @@ class ReportService
             $appointments = $this->getDetailedRecordRows($filters);
 
             return $appointments
-                ->map(function ($appointment): array {
-                    $record = $this->mapDetailedRecord($appointment);
-
-                    return [
-                        'appointment_id' => $record['appointment_id'],
-                        'patient_name' => $record['patient_name'],
-                        'service' => $record['service_type'],
-                        'service_type' => $record['service_type'],
-                        'date' => $record['appointment_date'],
-                        'appointment_date' => $record['appointment_date'],
-                        'appointment_time' => $record['appointment_time'],
-                        'contact' => $record['contact'],
-                        'status' => $record['status'],
-                        'booking_type' => $record['booking_type'],
-                        'queue_number' => $record['queue_number'],
-                        'created_at' => $record['created_at'],
-                    ];
-                })
+                ->map(fn ($appointment): array => $this->serializeDetailedRecord($appointment))
                 ->values()
                 ->all();
         }, $forceRefresh);
+    }
+
+    public function getDetailedRecordsPage(array $filters = [], int $page = 1, int $perPage = 25): array
+    {
+        $paginator = $this->detailedRecordsQuery($filters)->paginate(
+            $perPage,
+            ['*'],
+            'page',
+            $page,
+        );
+
+        return [
+            'data' => $paginator->getCollection()
+                ->map(fn ($appointment): array => $this->serializeDetailedRecord($appointment))
+                ->values()
+                ->all(),
+            'meta' => $this->paginationMeta($paginator),
+        ];
     }
 
     public function getDetailedRecordsForExport(array $filters = [], bool $forceRefresh = false): array
@@ -217,6 +219,11 @@ class ReportService
 
     private function getDetailedRecordRows(array $filters)
     {
+        return $this->detailedRecordsQuery($filters)->get();
+    }
+
+    private function detailedRecordsQuery(array $filters): Builder
+    {
         return $this->newFilteredAppointmentsQuery($filters)
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id')
@@ -235,8 +242,7 @@ class ReportService
                 'appointments.notes',
                 'patient_records.user_id',
                 'queues.queue_number',
-            ])
-            ->get();
+            ]);
     }
 
     private function mapDetailedRecord(object $appointment): array
@@ -282,6 +288,26 @@ class ReportService
                 ? str_pad((string) $appointment->queue_number, 2, '0', STR_PAD_LEFT)
                 : '-',
             'created_at' => $createdAt,
+        ];
+    }
+
+    private function serializeDetailedRecord(object $appointment): array
+    {
+        $record = $this->mapDetailedRecord($appointment);
+
+        return [
+            'appointment_id' => $record['appointment_id'],
+            'patient_name' => $record['patient_name'],
+            'service' => $record['service_type'],
+            'service_type' => $record['service_type'],
+            'date' => $record['appointment_date'],
+            'appointment_date' => $record['appointment_date'],
+            'appointment_time' => $record['appointment_time'],
+            'contact' => $record['contact'],
+            'status' => $record['status'],
+            'booking_type' => $record['booking_type'],
+            'queue_number' => $record['queue_number'],
+            'created_at' => $record['created_at'],
         ];
     }
 
@@ -383,5 +409,18 @@ class ReportService
         }
 
         return $normalized;
+    }
+
+    private function paginationMeta(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'from' => $paginator->firstItem(),
+            'to' => $paginator->lastItem(),
+            'has_more_pages' => $paginator->hasMorePages(),
+        ];
     }
 }

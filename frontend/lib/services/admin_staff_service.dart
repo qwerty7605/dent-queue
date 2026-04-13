@@ -1,4 +1,5 @@
 import '../core/endpoints.dart';
+import '../core/paginated_result.dart';
 import '../core/short_term_cache.dart';
 import 'admin_dashboard_service.dart';
 import 'base_service.dart';
@@ -8,6 +9,7 @@ class AdminStaffService {
 
   static const Duration _cacheTtl = Duration(seconds: 30);
   static const String _staffListCache = 'admin-staff-list';
+  static const String _staffPageCache = 'admin-staff-page';
 
   final BaseService _baseService;
 
@@ -37,6 +39,69 @@ class AdminStaffService {
     const result = <Map<String, dynamic>>[];
     ShortTermCache.write(_staffListCache, 'all', result, ttl: _cacheTtl);
     return result;
+  }
+
+  Future<PaginatedResult<Map<String, dynamic>>> getStaffPage({
+    int page = 1,
+    int perPage = 25,
+  }) async {
+    final String cacheKey = _pageCacheKey(page: page, perPage: perPage);
+    final dynamic cached = ShortTermCache.read<dynamic>(
+      _staffPageCache,
+      cacheKey,
+    );
+    if (cached is Map<String, dynamic>) {
+      return PaginatedResult<Map<String, dynamic>>.fromResponse(
+        cached,
+        (dynamic item) => Map<String, dynamic>.from(item as Map),
+        fallbackPage: page,
+        fallbackPerPage: perPage,
+      );
+    }
+
+    return ShortTermCache.runSingleFlight(_staffPageCache, cacheKey, () async {
+      final response = await _baseService.getJson<dynamic>(
+        Endpoints.adminStaffList(<String, String>{
+          'page': page.toString(),
+          'per_page': perPage.toString(),
+        }),
+        (data) => data,
+      );
+
+      if (response is Map<String, dynamic>) {
+        ShortTermCache.write(
+          _staffPageCache,
+          cacheKey,
+          response,
+          ttl: _cacheTtl,
+        );
+
+        return PaginatedResult<Map<String, dynamic>>.fromResponse(
+          response,
+          (dynamic item) => Map<String, dynamic>.from(item as Map),
+          fallbackPage: page,
+          fallbackPerPage: perPage,
+        );
+      }
+
+      const Map<String, dynamic> emptyResponse = <String, dynamic>{
+        'data': <Map<String, dynamic>>[],
+        'meta': <String, dynamic>{},
+      };
+      ShortTermCache.write(
+        _staffPageCache,
+        cacheKey,
+        emptyResponse,
+        ttl: _cacheTtl,
+      );
+      return const PaginatedResult<Map<String, dynamic>>(
+        items: <Map<String, dynamic>>[],
+        currentPage: 1,
+        perPage: 25,
+        totalItems: 0,
+        hasMorePages: false,
+      );
+    });
   }
 
   Future<Map<String, dynamic>> createStaff(Map<String, dynamic> data) async {
@@ -71,6 +136,11 @@ class AdminStaffService {
 
   void invalidateStaffCache() {
     ShortTermCache.invalidateNamespace(_staffListCache);
+    ShortTermCache.invalidateNamespace(_staffPageCache);
     AdminDashboardService.invalidateSharedDashboardStatsCache();
+  }
+
+  String _pageCacheKey({required int page, required int perPage}) {
+    return 'page=$page&per_page=$perPage';
   }
 }

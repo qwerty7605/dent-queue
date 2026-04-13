@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/patient_record_service.dart';
 import '../widgets/app_alert_dialog.dart';
 import '../widgets/admin_data_table.dart';
+import '../widgets/paginated_table_footer.dart';
 
 class AdminPatientsView extends StatefulWidget {
   const AdminPatientsView({super.key, required this.patientRecordService});
@@ -14,8 +15,14 @@ class AdminPatientsView extends StatefulWidget {
 }
 
 class _AdminPatientsViewState extends State<AdminPatientsView> {
+  static const int _pageSize = 25;
+
   List<Map<String, dynamic>> _patients = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMorePages = false;
+  int _currentPage = 0;
+  int _totalPatients = 0;
 
   @override
   void initState() {
@@ -23,26 +30,73 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
     _loadPatients();
   }
 
-  Future<void> _loadPatients() async {
+  Future<void> _loadPatients({bool forceRefresh = false}) async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final patients = await widget.patientRecordService.getAllPatients();
+      if (forceRefresh) {
+        widget.patientRecordService.invalidatePatientCaches();
+      }
+
+      final patientsPage = await widget.patientRecordService.getPatientsPage(
+        page: 1,
+        perPage: _pageSize,
+      );
       if (!mounted) return;
       setState(() {
-        _patients = patients;
+        _patients = patientsPage.items;
+        _currentPage = patientsPage.currentPage;
+        _totalPatients = patientsPage.totalItems;
+        _hasMorePages = patientsPage.hasMorePages;
         _isLoading = false;
+        _isLoadingMore = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
+        _isLoadingMore = false;
       });
       // Handle error visually if necessary
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to load patient records')),
+      );
+    }
+  }
+
+  Future<void> _loadMorePatients() async {
+    if (_isLoading || _isLoadingMore || !_hasMorePages) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final patientsPage = await widget.patientRecordService.getPatientsPage(
+        page: _currentPage + 1,
+        perPage: _pageSize,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _patients = <Map<String, dynamic>>[..._patients, ...patientsPage.items];
+        _currentPage = patientsPage.currentPage;
+        _totalPatients = patientsPage.totalItems;
+        _hasMorePages = patientsPage.hasMorePages;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingMore = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load more patient records')),
       );
     }
   }
@@ -86,7 +140,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
       );
       if (!mounted) return;
 
-      await _loadPatients();
+      await _loadPatients(forceRefresh: true);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -164,99 +218,117 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                     )
                   else
                     Expanded(
-                      child: AdminDataTable(
-                        minWidth: 760,
-                        columnSpacing: 26,
-                        columns: <DataColumn>[
-                          DataColumn(
-                            label: AdminDataTable.headerLabel(
-                              'No.',
-                              width: 52,
-                              alignment: Alignment.center,
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: AdminDataTable(
+                              minWidth: 760,
+                              columnSpacing: 26,
+                              columns: <DataColumn>[
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'No.',
+                                    width: 52,
+                                    alignment: Alignment.center,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Patient',
+                                    width: 240,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Gender',
+                                    width: 108,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Contact',
+                                    width: 170,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Action',
+                                    width: 72,
+                                    alignment: Alignment.center,
+                                  ),
+                                ),
+                              ],
+                              rows: _patients.asMap().entries.map((entry) {
+                                final int index = entry.key;
+                                final Map<String, dynamic> patient =
+                                    entry.value;
+
+                                return DataRow.byIndex(
+                                  index: index,
+                                  color: AdminDataTable.rowColor(index),
+                                  cells: <DataCell>[
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        '${index + 1}',
+                                        width: 52,
+                                        alignment: Alignment.center,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _displayText(patient['full_name']),
+                                        width: 240,
+                                        maxLines: 2,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _displayText(patient['gender']),
+                                        width: 108,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _displayText(patient['contact_number']),
+                                        width: 170,
+                                        maxLines: 2,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      SizedBox(
+                                        width: 72,
+                                        child: Center(
+                                          child: IconButton(
+                                            icon: const Icon(
+                                              Icons.delete,
+                                              color: Color(0xFFD32F2F),
+                                            ),
+                                            onPressed: () =>
+                                                _confirmDeactivate(patient),
+                                            tooltip: 'Deactivate account',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
                             ),
                           ),
-                          DataColumn(
-                            label: AdminDataTable.headerLabel(
-                              'Patient',
-                              width: 240,
-                            ),
-                          ),
-                          DataColumn(
-                            label: AdminDataTable.headerLabel(
-                              'Gender',
-                              width: 108,
-                            ),
-                          ),
-                          DataColumn(
-                            label: AdminDataTable.headerLabel(
-                              'Contact',
-                              width: 170,
-                            ),
-                          ),
-                          DataColumn(
-                            label: AdminDataTable.headerLabel(
-                              'Action',
-                              width: 72,
-                              alignment: Alignment.center,
+                          PaginatedTableFooter(
+                            loadedItemCount: _patients.length,
+                            totalItemCount: _totalPatients,
+                            itemLabel: 'patients',
+                            hasMorePages: _hasMorePages,
+                            isLoadingMore: _isLoadingMore,
+                            onLoadMore: _loadMorePatients,
+                            loadMoreButtonKey: const Key(
+                              'admin-patients-load-more',
                             ),
                           ),
                         ],
-                        rows: _patients.asMap().entries.map((entry) {
-                          final int index = entry.key;
-                          final Map<String, dynamic> patient = entry.value;
-
-                          return DataRow.byIndex(
-                            index: index,
-                            color: AdminDataTable.rowColor(index),
-                            cells: <DataCell>[
-                              DataCell(
-                                AdminDataTable.cellText(
-                                  '${index + 1}',
-                                  width: 52,
-                                  alignment: Alignment.center,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              DataCell(
-                                AdminDataTable.cellText(
-                                  _displayText(patient['full_name']),
-                                  width: 240,
-                                  maxLines: 2,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              DataCell(
-                                AdminDataTable.cellText(
-                                  _displayText(patient['gender']),
-                                  width: 108,
-                                ),
-                              ),
-                              DataCell(
-                                AdminDataTable.cellText(
-                                  _displayText(patient['contact_number']),
-                                  width: 170,
-                                  maxLines: 2,
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 72,
-                                  child: Center(
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.delete,
-                                        color: Color(0xFFD32F2F),
-                                      ),
-                                      onPressed: () =>
-                                          _confirmDeactivate(patient),
-                                      tooltip: 'Deactivate account',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
                       ),
                     ),
                 ],

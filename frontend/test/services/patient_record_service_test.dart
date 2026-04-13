@@ -36,12 +36,8 @@ void main() {
   test('getAllPatients should properly map response list', () async {
     fakeBaseService.nextResponse = {
       'data': [
-        {
-          'id': 1,
-          'full_name': 'Test Patient',
-          'contact_number': '09123456789'
-        }
-      ]
+        {'id': 1, 'full_name': 'Test Patient', 'contact_number': '09123456789'},
+      ],
     };
 
     final patients = await patientRecordService.getAllPatients();
@@ -51,14 +47,48 @@ void main() {
     expect(fakeBaseService.lastPath, contains('patients'));
   });
 
+  test(
+    'getPatientsPage should request a bounded page and map metadata',
+    () async {
+      fakeBaseService.nextResponse = {
+        'data': [
+          {
+            'patient_id': 'PAT-0000000000001',
+            'full_name': 'Paged Patient',
+            'contact_number': '09123456789',
+          },
+        ],
+        'meta': {
+          'current_page': 2,
+          'per_page': 10,
+          'total': 31,
+          'has_more_pages': true,
+        },
+      };
+
+      final page = await patientRecordService.getPatientsPage(
+        page: 2,
+        perPage: 10,
+      );
+
+      expect(page.items, hasLength(1));
+      expect(page.items.first['full_name'], 'Paged Patient');
+      expect(page.currentPage, 2);
+      expect(page.perPage, 10);
+      expect(page.totalItems, 31);
+      expect(page.hasMorePages, isTrue);
+      expect(
+        fakeBaseService.lastPath,
+        '/api/v1/admin/patients?page=2&per_page=10',
+      );
+    },
+  );
+
   test('searchPatients should encode query and return results', () async {
     fakeBaseService.nextResponse = {
       'data': [
-        {
-          'id': 2,
-          'full_name': 'Queried Patient'
-        }
-      ]
+        {'id': 2, 'full_name': 'Queried Patient'},
+      ],
     };
 
     final patients = await patientRecordService.searchPatients('Queried');
@@ -72,8 +102,8 @@ void main() {
   test('getAllPatients uses cache until invalidated', () async {
     fakeBaseService.nextResponse = {
       'data': [
-        {'id': 1, 'full_name': 'Cached Patient'}
-      ]
+        {'id': 1, 'full_name': 'Cached Patient'},
+      ],
     };
 
     final first = await patientRecordService.getAllPatients();
@@ -92,21 +122,17 @@ void main() {
   test('deactivatePatient invalidates cached patient reads', () async {
     fakeBaseService.nextResponse = {
       'data': [
-        {'id': 3, 'full_name': 'Before Remove'}
-      ]
+        {'id': 3, 'full_name': 'Before Remove'},
+      ],
     };
     await patientRecordService.getAllPatients();
     expect(fakeBaseService.getJsonCallCount, 1);
 
-    fakeBaseService.nextResponse = {
-      'message': 'Patient removed.'
-    };
+    fakeBaseService.nextResponse = {'message': 'Patient removed.'};
     await patientRecordService.deactivatePatient('3');
     expect(fakeBaseService.deleteJsonCallCount, 1);
 
-    fakeBaseService.nextResponse = {
-      'data': []
-    };
+    fakeBaseService.nextResponse = {'data': []};
     await patientRecordService.getAllPatients();
 
     expect(fakeBaseService.getJsonCallCount, 2);

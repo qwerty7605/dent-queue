@@ -5,6 +5,7 @@ import '../widgets/add_staff_dialog.dart';
 import '../widgets/app_alert_dialog.dart';
 import '../widgets/admin_data_table.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/paginated_table_footer.dart';
 
 class AdminStaffView extends StatefulWidget {
   const AdminStaffView({
@@ -21,9 +22,15 @@ class AdminStaffView extends StatefulWidget {
 }
 
 class _AdminStaffViewState extends State<AdminStaffView> {
+  static const int _pageSize = 25;
+
   List<Map<String, dynamic>> _staffMembers = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMorePages = false;
   int? _processingStaffId;
+  int _currentPage = 0;
+  int _totalStaffMembers = 0;
 
   @override
   void initState() {
@@ -31,7 +38,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     _loadStaff();
   }
 
-  Future<void> _loadStaff() async {
+  Future<void> _loadStaff({bool forceRefresh = false}) async {
     if (!mounted) {
       return;
     }
@@ -41,14 +48,25 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     });
 
     try {
-      final staffMembers = await widget.adminStaffService.getAllStaff();
+      if (forceRefresh) {
+        widget.adminStaffService.invalidateStaffCache();
+      }
+
+      final staffPage = await widget.adminStaffService.getStaffPage(
+        page: 1,
+        perPage: _pageSize,
+      );
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _staffMembers = staffMembers;
+        _staffMembers = staffPage.items;
+        _currentPage = staffPage.currentPage;
+        _totalStaffMembers = staffPage.totalItems;
+        _hasMorePages = staffPage.hasMorePages;
         _isLoading = false;
+        _isLoadingMore = false;
       });
     } catch (_) {
       if (!mounted) {
@@ -57,10 +75,54 @@ class _AdminStaffViewState extends State<AdminStaffView> {
 
       setState(() {
         _isLoading = false;
+        _isLoadingMore = false;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to load staff records')),
+      );
+    }
+  }
+
+  Future<void> _loadMoreStaff() async {
+    if (_isLoading || _isLoadingMore || !_hasMorePages) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final staffPage = await widget.adminStaffService.getStaffPage(
+        page: _currentPage + 1,
+        perPage: _pageSize,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _staffMembers = <Map<String, dynamic>>[
+          ..._staffMembers,
+          ...staffPage.items,
+        ];
+        _currentPage = staffPage.currentPage;
+        _totalStaffMembers = staffPage.totalItems;
+        _hasMorePages = staffPage.hasMorePages;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isLoadingMore = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load more staff records')),
       );
     }
   }
@@ -110,7 +172,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
         return;
       }
 
-      await _loadStaff();
+      await _loadStaff(forceRefresh: true);
       widget.onStaffChanged?.call();
 
       if (!mounted) {
@@ -262,155 +324,181 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                     )
                   else
                     Expanded(
-                      child: AdminDataTable(
-                        minWidth: 900,
-                        columnSpacing: 32,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                        columns: <DataColumn>[
-                          DataColumn(
-                            label: AdminDataTable.headerLabel(
-                              'No.',
-                              width: 52,
-                              alignment: Alignment.center,
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: AdminDataTable(
+                              minWidth: 900,
+                              columnSpacing: 32,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 16,
+                              ),
+                              columns: <DataColumn>[
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'No.',
+                                    width: 52,
+                                    alignment: Alignment.center,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Account',
+                                    width: 220,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Role',
+                                    width: 100,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Gender',
+                                    width: 90,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Contact',
+                                    width: 160,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Action',
+                                    width: 84,
+                                    alignment: Alignment.center,
+                                  ),
+                                ),
+                              ],
+                              rows: _staffMembers.asMap().entries.map((entry) {
+                                final int index = entry.key;
+                                final Map<String, dynamic> staffMember =
+                                    entry.value;
+                                final int? staffId = _readInt(
+                                  staffMember['id'],
+                                );
+                                final bool isProcessing =
+                                    _processingStaffId != null &&
+                                    _processingStaffId == staffId;
+
+                                return DataRow.byIndex(
+                                  index: index,
+                                  color: AdminDataTable.rowColor(index),
+                                  cells: <DataCell>[
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        '${index + 1}',
+                                        width: 52,
+                                        alignment: Alignment.center,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      SizedBox(
+                                        width: 220,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              _resolveStaffName(staffMember),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                height: 1.35,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF334155),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              _resolveStaffRecordId(
+                                                staffMember,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.black54,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _resolveRoleLabel(staffMember),
+                                        width: 100,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF356042),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _resolveGender(staffMember),
+                                        width: 90,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _resolveContact(staffMember),
+                                        width: 160,
+                                        maxLines: 2,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      SizedBox(
+                                        width: 84,
+                                        child: Center(
+                                          child: isProcessing
+                                              ? const SizedBox(
+                                                  width: 18,
+                                                  height: 18,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                )
+                                              : IconButton(
+                                                  onPressed: () =>
+                                                      _confirmDeactivate(
+                                                        staffMember,
+                                                      ),
+                                                  icon: const Icon(
+                                                    Icons.person_remove_alt_1,
+                                                    color: Color(0xFFD32F2F),
+                                                  ),
+                                                  tooltip: 'Deactivate account',
+                                                ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
                             ),
                           ),
-                          DataColumn(
-                            label: AdminDataTable.headerLabel(
-                              'Account',
-                              width: 220,
-                            ),
-                          ),
-                          DataColumn(
-                            label: AdminDataTable.headerLabel(
-                              'Role',
-                              width: 100,
-                            ),
-                          ),
-                          DataColumn(
-                            label: AdminDataTable.headerLabel(
-                              'Gender',
-                              width: 90,
-                            ),
-                          ),
-                          DataColumn(
-                            label: AdminDataTable.headerLabel(
-                              'Contact',
-                              width: 160,
-                            ),
-                          ),
-                          DataColumn(
-                            label: AdminDataTable.headerLabel(
-                              'Action',
-                              width: 84,
-                              alignment: Alignment.center,
+                          PaginatedTableFooter(
+                            loadedItemCount: _staffMembers.length,
+                            totalItemCount: _totalStaffMembers,
+                            itemLabel: 'staff accounts',
+                            hasMorePages: _hasMorePages,
+                            isLoadingMore: _isLoadingMore,
+                            onLoadMore: _loadMoreStaff,
+                            loadMoreButtonKey: const Key(
+                              'admin-staff-load-more',
                             ),
                           ),
                         ],
-                        rows: _staffMembers.asMap().entries.map((entry) {
-                          final int index = entry.key;
-                          final Map<String, dynamic> staffMember = entry.value;
-                          final int? staffId = _readInt(staffMember['id']);
-                          final bool isProcessing =
-                              _processingStaffId != null &&
-                              _processingStaffId == staffId;
-
-                          return DataRow.byIndex(
-                            index: index,
-                            color: AdminDataTable.rowColor(index),
-                            cells: <DataCell>[
-                              DataCell(
-                                AdminDataTable.cellText(
-                                  '${index + 1}',
-                                  width: 52,
-                                  alignment: Alignment.center,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 220,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        _resolveStaffName(staffMember),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          height: 1.35,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF334155),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _resolveStaffRecordId(staffMember),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.black54,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                AdminDataTable.cellText(
-                                  _resolveRoleLabel(staffMember),
-                                  width: 100,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF356042),
-                                ),
-                              ),
-                              DataCell(
-                                AdminDataTable.cellText(
-                                  _resolveGender(staffMember),
-                                  width: 90,
-                                ),
-                              ),
-                              DataCell(
-                                AdminDataTable.cellText(
-                                  _resolveContact(staffMember),
-                                  width: 160,
-                                  maxLines: 2,
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 84,
-                                  child: Center(
-                                    child: isProcessing
-                                        ? const SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : IconButton(
-                                            onPressed: () =>
-                                                _confirmDeactivate(staffMember),
-                                            icon: const Icon(
-                                              Icons.person_remove_alt_1,
-                                              color: Color(0xFFD32F2F),
-                                            ),
-                                            tooltip: 'Deactivate account',
-                                          ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
                       ),
                     ),
                 ],

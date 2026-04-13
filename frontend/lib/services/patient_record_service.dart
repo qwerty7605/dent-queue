@@ -1,4 +1,5 @@
 import '../core/endpoints.dart';
+import '../core/paginated_result.dart';
 import '../core/short_term_cache.dart';
 import 'admin_dashboard_service.dart';
 import 'base_service.dart';
@@ -8,6 +9,7 @@ class PatientRecordService {
 
   static const Duration _cacheTtl = Duration(seconds: 30);
   static const String _allPatientsCache = 'patient-records-all';
+  static const String _patientsPageCache = 'patient-records-page';
   static const String _searchPatientsCache = 'patient-records-search';
   static const String _patientDetailCache = 'patient-record-detail';
 
@@ -42,6 +44,73 @@ class PatientRecordService {
     const result = <Map<String, dynamic>>[];
     ShortTermCache.write(_allPatientsCache, 'all', result, ttl: _cacheTtl);
     return result;
+  }
+
+  Future<PaginatedResult<Map<String, dynamic>>> getPatientsPage({
+    int page = 1,
+    int perPage = 25,
+  }) async {
+    final String cacheKey = _pageCacheKey(page: page, perPage: perPage);
+    final dynamic cached = ShortTermCache.read<dynamic>(
+      _patientsPageCache,
+      cacheKey,
+    );
+    if (cached is Map<String, dynamic>) {
+      return PaginatedResult<Map<String, dynamic>>.fromResponse(
+        cached,
+        (dynamic item) => Map<String, dynamic>.from(item as Map),
+        fallbackPage: page,
+        fallbackPerPage: perPage,
+      );
+    }
+
+    return ShortTermCache.runSingleFlight(
+      _patientsPageCache,
+      cacheKey,
+      () async {
+        final response = await _baseService.getJson<dynamic>(
+          Endpoints.adminPatientsList(<String, String>{
+            'page': page.toString(),
+            'per_page': perPage.toString(),
+          }),
+          (data) => data,
+        );
+
+        if (response is Map<String, dynamic>) {
+          ShortTermCache.write(
+            _patientsPageCache,
+            cacheKey,
+            response,
+            ttl: _cacheTtl,
+          );
+
+          return PaginatedResult<Map<String, dynamic>>.fromResponse(
+            response,
+            (dynamic item) => Map<String, dynamic>.from(item as Map),
+            fallbackPage: page,
+            fallbackPerPage: perPage,
+          );
+        }
+
+        const Map<String, dynamic> emptyResponse = <String, dynamic>{
+          'data': <Map<String, dynamic>>[],
+          'meta': <String, dynamic>{},
+        };
+        ShortTermCache.write(
+          _patientsPageCache,
+          cacheKey,
+          emptyResponse,
+          ttl: _cacheTtl,
+        );
+        return const PaginatedResult<Map<String, dynamic>>(
+          items: <Map<String, dynamic>>[],
+          currentPage: 1,
+          perPage: 25,
+          totalItems: 0,
+          hasMorePages: false,
+        );
+      },
+    );
   }
 
   Future<List<Map<String, dynamic>>> searchPatients(String query) async {
@@ -138,6 +207,7 @@ class PatientRecordService {
 
   void invalidatePatientCaches({String? patientId}) {
     ShortTermCache.invalidateNamespace(_allPatientsCache);
+    ShortTermCache.invalidateNamespace(_patientsPageCache);
     ShortTermCache.invalidateNamespace(_searchPatientsCache);
     AdminDashboardService.invalidateSharedDashboardStatsCache();
     if (patientId != null) {
@@ -145,5 +215,9 @@ class PatientRecordService {
     } else {
       ShortTermCache.invalidateNamespace(_patientDetailCache);
     }
+  }
+
+  String _pageCacheKey({required int page, required int perPage}) {
+    return 'page=$page&per_page=$perPage';
   }
 }

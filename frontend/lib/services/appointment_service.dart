@@ -1,4 +1,5 @@
 import '../core/endpoints.dart';
+import '../core/paginated_result.dart';
 import '../core/short_term_cache.dart';
 import 'admin_dashboard_service.dart';
 import 'base_service.dart';
@@ -8,6 +9,8 @@ class AppointmentService {
 
   static const Duration _cacheTtl = Duration(seconds: 30);
   static const String _adminMasterListCache = 'appointment-admin-master-list';
+  static const String _adminMasterListPageCache =
+      'appointment-admin-master-list-page';
   static const String _patientAppointmentsCache = 'appointment-patient-list';
   static const String _medicalHistoryCache = 'appointment-medical-history';
   static const String _recycleBinCache = 'appointment-recycle-bin';
@@ -123,6 +126,78 @@ class AppointmentService {
           ttl: _cacheTtl,
         );
         return result;
+      },
+    );
+  }
+
+  Future<PaginatedResult<Map<String, dynamic>>> getAdminMasterListPage({
+    Map<String, String> filters = const <String, String>{},
+    int page = 1,
+    int perPage = 25,
+  }) async {
+    final String cacheKey = _pagedFilterCacheKey(
+      filters,
+      page: page,
+      perPage: perPage,
+    );
+    final dynamic cachedMasterListPage = ShortTermCache.read<dynamic>(
+      _adminMasterListPageCache,
+      cacheKey,
+    );
+    if (cachedMasterListPage is Map<String, dynamic>) {
+      return PaginatedResult<Map<String, dynamic>>.fromResponse(
+        cachedMasterListPage,
+        (dynamic item) => Map<String, dynamic>.from(item as Map),
+        fallbackPage: page,
+        fallbackPerPage: perPage,
+      );
+    }
+
+    return ShortTermCache.runSingleFlight(
+      _adminMasterListPageCache,
+      cacheKey,
+      () async {
+        final response = await _baseService.getJson<dynamic>(
+          Endpoints.adminMasterList(<String, String>{
+            ...filters,
+            'page': page.toString(),
+            'per_page': perPage.toString(),
+          }),
+          (data) => data,
+        );
+
+        if (response is Map<String, dynamic>) {
+          ShortTermCache.write(
+            _adminMasterListPageCache,
+            cacheKey,
+            response,
+            ttl: _cacheTtl,
+          );
+          return PaginatedResult<Map<String, dynamic>>.fromResponse(
+            response,
+            (dynamic item) => Map<String, dynamic>.from(item as Map),
+            fallbackPage: page,
+            fallbackPerPage: perPage,
+          );
+        }
+
+        const Map<String, dynamic> emptyResponse = <String, dynamic>{
+          'data': <Map<String, dynamic>>[],
+          'meta': <String, dynamic>{},
+        };
+        ShortTermCache.write(
+          _adminMasterListPageCache,
+          cacheKey,
+          emptyResponse,
+          ttl: _cacheTtl,
+        );
+        return const PaginatedResult<Map<String, dynamic>>(
+          items: <Map<String, dynamic>>[],
+          currentPage: 1,
+          perPage: 25,
+          totalItems: 0,
+          hasMorePages: false,
+        );
       },
     );
   }
@@ -554,6 +629,7 @@ class AppointmentService {
   void invalidateAppointmentCaches() {
     ShortTermCache.invalidateNamespace(_servicesCache);
     ShortTermCache.invalidateNamespace(_adminMasterListCache);
+    ShortTermCache.invalidateNamespace(_adminMasterListPageCache);
     ShortTermCache.invalidateNamespace(_patientAppointmentsCache);
     ShortTermCache.invalidateNamespace(_medicalHistoryCache);
     ShortTermCache.invalidateNamespace(_recycleBinCache);
@@ -594,6 +670,7 @@ class AppointmentService {
 
   void _invalidateAfterQueueUpdated() {
     ShortTermCache.invalidateNamespace(_adminMasterListCache);
+    ShortTermCache.invalidateNamespace(_adminMasterListPageCache);
     ShortTermCache.invalidateNamespace(_patientAppointmentsCache);
     ShortTermCache.invalidateNamespace(_adminAppointmentsByDateCache);
     ShortTermCache.invalidateNamespace(_adminCalendarAppointmentsCache);
@@ -604,6 +681,7 @@ class AppointmentService {
 
   void _invalidateCommonAppointmentMutationCaches() {
     ShortTermCache.invalidateNamespace(_adminMasterListCache);
+    ShortTermCache.invalidateNamespace(_adminMasterListPageCache);
     ShortTermCache.invalidateNamespace(_patientAppointmentsCache);
     ShortTermCache.invalidateNamespace(_adminAppointmentsByDateCache);
     ShortTermCache.invalidateNamespace(_adminCalendarAppointmentsCache);
@@ -657,5 +735,13 @@ class AppointmentService {
           return '${entry.key}=${entry.value}';
         })
         .join('&');
+  }
+
+  String _pagedFilterCacheKey(
+    Map<String, String> filters, {
+    required int page,
+    required int perPage,
+  }) {
+    return '${_filterCacheKey(filters)}::page=$page::per_page=$perPage';
   }
 }
