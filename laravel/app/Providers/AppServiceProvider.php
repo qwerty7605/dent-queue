@@ -10,6 +10,8 @@ use App\Models\Service;
 use App\Models\StaffNotification;
 use App\Models\User;
 use App\Services\CentralizedCacheService;
+use Closure;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -27,30 +29,50 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Appointment::saved($this->flushDashboardReportsAndQueue(...));
-        Appointment::deleted($this->flushDashboardReportsAndQueue(...));
-        Appointment::restored($this->flushDashboardReportsAndQueue(...));
-        Appointment::forceDeleted($this->flushDashboardReportsAndQueue(...));
+        Appointment::saved($this->afterCommitListener($this->flushDashboardReportsAndQueue(...)));
+        Appointment::deleted($this->afterCommitListener($this->flushDashboardReportsAndQueue(...)));
+        Appointment::restored($this->afterCommitListener($this->flushDashboardReportsAndQueue(...)));
+        Appointment::forceDeleted($this->afterCommitListener($this->flushDashboardReportsAndQueue(...)));
 
-        PatientRecord::saved($this->flushDashboardReportsAndQueue(...));
-        PatientRecord::deleted($this->flushDashboardReportsAndQueue(...));
-        PatientRecord::restored($this->flushDashboardReportsAndQueue(...));
-        PatientRecord::forceDeleted($this->flushDashboardReportsAndQueue(...));
+        PatientRecord::saved($this->afterCommitListener($this->flushDashboardReportsAndQueue(...)));
+        PatientRecord::deleted($this->afterCommitListener($this->flushDashboardReportsAndQueue(...)));
+        PatientRecord::restored($this->afterCommitListener($this->flushDashboardReportsAndQueue(...)));
+        PatientRecord::forceDeleted($this->afterCommitListener($this->flushDashboardReportsAndQueue(...)));
 
-        User::saved($this->flushDashboardAndUserNotifications(...));
-        User::deleted($this->flushDashboardAndUserNotifications(...));
+        User::saved($this->afterCommitListener($this->flushDashboardAndUserNotifications(...)));
+        User::deleted($this->afterCommitListener($this->flushDashboardAndUserNotifications(...)));
 
-        Service::saved($this->flushReportsAndQueue(...));
-        Service::deleted($this->flushReportsAndQueue(...));
+        Service::saved($this->afterCommitListener($this->flushReportsAndQueue(...)));
+        Service::deleted($this->afterCommitListener($this->flushReportsAndQueue(...)));
 
-        Queue::saved($this->flushReportsAndQueue(...));
-        Queue::deleted($this->flushReportsAndQueue(...));
+        Queue::saved($this->afterCommitListener($this->flushReportsAndQueue(...)));
+        Queue::deleted($this->afterCommitListener($this->flushReportsAndQueue(...)));
 
-        PatientNotification::saved($this->flushPatientNotifications(...));
-        PatientNotification::deleted($this->flushPatientNotifications(...));
+        PatientNotification::saved($this->afterCommitListener($this->flushPatientNotifications(...)));
+        PatientNotification::deleted($this->afterCommitListener($this->flushPatientNotifications(...)));
 
-        StaffNotification::saved($this->flushStaffNotifications(...));
-        StaffNotification::deleted($this->flushStaffNotifications(...));
+        StaffNotification::saved($this->afterCommitListener($this->flushStaffNotifications(...)));
+        StaffNotification::deleted($this->afterCommitListener($this->flushStaffNotifications(...)));
+    }
+
+    private function afterCommitListener(callable $listener): Closure
+    {
+        return function (object $model) use ($listener): void {
+            $this->deferUntilAfterCommit(function () use ($listener, $model): void {
+                $listener($model);
+            });
+        };
+    }
+
+    private function deferUntilAfterCommit(callable $callback): void
+    {
+        if (DB::transactionLevel() === 0) {
+            $callback();
+
+            return;
+        }
+
+        DB::afterCommit($callback);
     }
 
     private function flushDashboardReportsAndQueue(object $model): void
