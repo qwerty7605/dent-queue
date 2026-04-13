@@ -43,6 +43,7 @@ class _NotificationsViewState extends State<NotificationsView> {
         widget.notificationService ??
         NotificationService(
           BaseService(ApiClient(tokenStorage: _tokenStorage)),
+          tokenStorage: _tokenStorage,
         );
     _fetchNotifications();
   }

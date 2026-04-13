@@ -10,6 +10,8 @@ use App\Models\Service;
 use App\Models\StaffNotification;
 use App\Models\User;
 use App\Services\CentralizedCacheService;
+use Closure;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -46,11 +48,26 @@ class AppServiceProvider extends ServiceProvider
         Queue::saved($this->flushReportsAndQueue(...));
         Queue::deleted($this->flushReportsAndQueue(...));
 
-        PatientNotification::saved($this->flushPatientNotifications(...));
-        PatientNotification::deleted($this->flushPatientNotifications(...));
+        PatientNotification::saved($this->afterCommitListener($this->flushPatientNotifications(...)));
+        PatientNotification::deleted($this->afterCommitListener($this->flushPatientNotifications(...)));
 
-        StaffNotification::saved($this->flushStaffNotifications(...));
-        StaffNotification::deleted($this->flushStaffNotifications(...));
+        StaffNotification::saved($this->afterCommitListener($this->flushStaffNotifications(...)));
+        StaffNotification::deleted($this->afterCommitListener($this->flushStaffNotifications(...)));
+    }
+
+    private function afterCommitListener(callable $listener): Closure
+    {
+        return function (object $model) use ($listener): void {
+            if (DB::transactionLevel() === 0) {
+                $listener($model);
+
+                return;
+            }
+
+            DB::afterCommit(function () use ($listener, $model): void {
+                $listener($model);
+            });
+        };
     }
 
     private function flushDashboardReportsAndQueue(object $model): void
