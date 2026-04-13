@@ -14,6 +14,7 @@ import '../services/patient_record_service.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_success_dialog.dart';
 import '../widgets/appointment_status_badge.dart';
+import '../widgets/dashboard_stat_card.dart';
 import '../widgets/edit_profile_dialog.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 import 'staff_calendar_view.dart';
@@ -1039,6 +1040,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       builder: (context, constraints) {
         final horizontalPadding = constraints.maxWidth < 440 ? 14.0 : 22.0;
         final maxWidth = constraints.maxWidth > 1024 ? 920.0 : double.infinity;
+        final summaryWidth = maxWidth == double.infinity
+            ? constraints.maxWidth
+            : maxWidth;
 
         return RefreshIndicator(
           key: const Key('staff-dashboard-refresh'),
@@ -1073,7 +1077,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                     const SizedBox(height: 16),
                     _buildDailyQueueHeader(),
                     const SizedBox(height: 10),
-                    _buildSummaryCards(constraints.maxWidth),
+                    _buildSummaryCards(summaryWidth),
                     const SizedBox(height: 10),
                     _buildTodayQueuePanel(),
                     const SizedBox(height: 14),
@@ -1149,8 +1153,11 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       },
     ];
 
-    final crossAxisCount = availableWidth > 760 ? 4 : 2;
-    final childAspectRatio = availableWidth < 360 ? 1.15 : 1.3;
+    final crossAxisCount = availableWidth >= 860
+        ? 4
+        : availableWidth >= 420
+        ? 2
+        : 1;
 
     return GridView.builder(
       itemCount: cards.length,
@@ -1158,9 +1165,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        mainAxisSpacing: 14,
-        crossAxisSpacing: 14,
-        childAspectRatio: childAspectRatio,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        mainAxisExtent: 148,
       ),
       itemBuilder: (context, index) {
         final card = cards[index];
@@ -1171,56 +1178,28 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         final backgroundColor = card['backgroundColor']! as Color;
         final filter = card['filter']! as _StaffFilter;
 
-        return InkWell(
-          borderRadius: BorderRadius.circular(12),
+        return DashboardStatCard(
+          title: label,
+          value: count,
+          icon: icon,
+          accentColor: color,
+          backgroundColor: backgroundColor,
+          isSelected: _selectedFilter == filter,
           onTap: () {
             setState(() {
               _selectedFilter = filter;
             });
           },
-          child: Container(
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 7,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-              border: Border.all(
-                color: _selectedFilter == filter
-                    ? color.withValues(alpha: 0.45)
-                    : color.withValues(alpha: 0.12),
-                width: _selectedFilter == filter ? 1.5 : 1,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: color, size: 28),
-                const SizedBox(height: 8),
-                Text(
-                  count,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: color,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
-            ),
+          valueStyle: TextStyle(
+            fontSize: MobileTypography.sectionTitle(context) + 4,
+            fontWeight: FontWeight.w900,
+            color: color,
+          ),
+          titleStyle: TextStyle(
+            fontSize: MobileTypography.caption(context),
+            fontWeight: FontWeight.w900,
+            color: color,
+            letterSpacing: 0.4,
           ),
         );
       },

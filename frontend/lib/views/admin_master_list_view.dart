@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/appointment_status.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
+import '../widgets/admin_data_table.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
 
@@ -250,116 +251,112 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                     )
                   else
                     Expanded(
-                      child: SingleChildScrollView(
-                        child: DataTable(
-                          headingRowColor: WidgetStateProperty.resolveWith(
-                            (states) => Colors.transparent,
+                      child: AdminDataTable(
+                        minWidth: 980,
+                        columnSpacing: 28,
+                        columns: <DataColumn>[
+                          DataColumn(
+                            label: AdminDataTable.headerLabel(
+                              'Patient',
+                              width: 220,
+                            ),
                           ),
-                          columns: const [
-                            DataColumn(
-                              label: Text(
-                                'Patient',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                          DataColumn(
+                            label: AdminDataTable.headerLabel(
+                              'Service',
+                              width: 220,
+                            ),
+                          ),
+                          DataColumn(
+                            label: AdminDataTable.headerLabel(
+                              'Date',
+                              width: 128,
+                            ),
+                          ),
+                          DataColumn(
+                            label: AdminDataTable.headerLabel(
+                              'Contact',
+                              width: 170,
+                            ),
+                          ),
+                          DataColumn(
+                            label: AdminDataTable.headerLabel(
+                              'Status',
+                              width: 180,
+                              alignment: Alignment.center,
+                            ),
+                          ),
+                        ],
+                        rows: filteredAppointments.asMap().entries.map((entry) {
+                          final int index = entry.key;
+                          final Map<String, dynamic> appointment = entry.value;
+                          final String status =
+                              appointment['status']?.toString() ?? 'Unknown';
+                          final bool isCancelled =
+                              status.toLowerCase() == 'cancelled';
+
+                          return DataRow.byIndex(
+                            index: index,
+                            color: AdminDataTable.rowColor(index),
+                            cells: <DataCell>[
+                              DataCell(
+                                AdminDataTable.cellText(
+                                  _displayText(appointment['patient_name']),
+                                  width: 220,
+                                  maxLines: 2,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Service',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                              DataCell(
+                                AdminDataTable.cellText(
+                                  _displayText(appointment['service']),
+                                  width: 220,
+                                  maxLines: 2,
                                 ),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Date',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                              DataCell(
+                                AdminDataTable.cellText(
+                                  _displayText(appointment['date']),
+                                  width: 128,
                                 ),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Contact',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Status',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                          ],
-                          rows: filteredAppointments.map((appointment) {
-                            final status =
-                                appointment['status']?.toString() ?? 'Unknown';
-                            return DataRow(
-                              cells: [
-                                DataCell(
-                                  Text(
-                                    _displayText(appointment['patient_name']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    _displayText(appointment['service']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    _displayText(appointment['date']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
+                              DataCell(
+                                SizedBox(
+                                  width: 170,
+                                  child: Text(
                                     _displayText(appointment['contact']),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: 15,
-                                      color: status.toLowerCase() == 'cancelled'
+                                      fontSize: 14,
+                                      height: 1.35,
+                                      fontWeight: FontWeight.w600,
+                                      color: isCancelled
                                           ? Colors.blue[700]
-                                          : Colors.black87,
-                                      decoration:
-                                          status.toLowerCase() == 'cancelled'
+                                          : const Color(0xFF334155),
+                                      decoration: isCancelled
                                           ? TextDecoration.underline
                                           : TextDecoration.none,
                                       decorationColor: Colors.blue[700],
                                     ),
                                   ),
                                 ),
-                                DataCell(
-                                  AppointmentStatusBadge(
-                                    status: status,
-                                    compact: true,
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: 180,
+                                  child: Align(
+                                    alignment: Alignment.center,
+                                    child: AppointmentStatusBadge(
+                                      status: status,
+                                      compact: true,
+                                    ),
                                   ),
                                 ),
-                              ],
-                            );
-                          }).toList(),
-                        ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
                       ),
                     ),
                 ],
