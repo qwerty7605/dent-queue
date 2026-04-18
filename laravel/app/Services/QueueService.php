@@ -8,6 +8,7 @@ use App\Models\PatientNotification;
 use App\Support\AppointmentQueueOrder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -75,70 +76,78 @@ class QueueService
 
     public function syncQueueNumbersForDate(string $appointmentDate, bool $suppressQueueEvents = false): void
     {
-        $activeAppointments = Appointment::query()
-            ->whereDate('appointment_date', $appointmentDate)
-            ->whereNull('deleted_at')
-            ->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
-            ->tap(static fn ($query) => AppointmentQueueOrder::apply($query))
-            ->lockForUpdate()
-            ->get(['id', 'appointment_date']);
+        DB::transaction(function () use ($appointmentDate, $suppressQueueEvents): void {
+            $activeAppointments = Appointment::query()
+                ->whereDate('appointment_date', $appointmentDate)
+                ->whereNull('deleted_at')
+                ->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                ->tap(static fn ($query) => AppointmentQueueOrder::apply($query))
+                ->lockForUpdate()
+                ->get(['id', 'appointment_date']);
 
-        if ($activeAppointments->count() > self::DAILY_QUEUE_LIMIT) {
-            throw ValidationException::withMessages([
-                'appointment_date' => ['The daily limit of ' . self::DAILY_QUEUE_LIMIT . ' patients has been reached for this date.'],
-            ]);
-        }
-
-        $activeAppointmentIds = $activeAppointments->pluck('id')->map(
-            static fn (mixed $id): int => (int) $id,
-        )->all();
-
-        $existingQueues = Queue::query()
-            ->where('queue_date', $appointmentDate)
-            ->lockForUpdate()
-            ->get()
-            ->keyBy(static fn (Queue $queue): int => (int) $queue->appointment_id);
-        $calledStateByAppointmentId = $existingQueues->mapWithKeys(
-            static fn (Queue $queue, int $appointmentId): array => [
-                $appointmentId => (bool) $queue->is_called,
-            ],
-        );
-
-        $persist = function () use (
-            $existingQueues,
-            $activeAppointmentIds,
-            $calledStateByAppointmentId,
-            $appointmentDate,
-        ): void {
-            if ($existingQueues->isNotEmpty()) {
-                Queue::query()
-                    ->whereIn(
-                        'id',
-                        $existingQueues
-                            ->pluck('id')
-                            ->map(static fn (mixed $id): int => (int) $id)
-                            ->all(),
-                    )
-                    ->delete();
-            }
-
-            foreach ($activeAppointmentIds as $index => $appointmentId) {
-                Queue::query()->create([
-                    'appointment_id' => $appointmentId,
-                    'queue_date' => $appointmentDate,
-                    'queue_number' => $index + 1,
-                    'is_called' => (bool) ($calledStateByAppointmentId[$appointmentId] ?? false),
+            if ($activeAppointments->count() > self::DAILY_QUEUE_LIMIT) {
+                throw ValidationException::withMessages([
+                    'appointment_date' => ['The daily limit of ' . self::DAILY_QUEUE_LIMIT . ' patients has been reached for this date.'],
                 ]);
             }
-        };
 
-        if ($suppressQueueEvents) {
-            Queue::withoutEvents($persist);
+            $activeAppointmentIds = $activeAppointments->pluck('id')->map(
+                static fn (mixed $id): int => (int) $id,
+            )->all();
+            $desiredQueueNumbers = $this->desiredQueueNumbers($activeAppointmentIds);
 
-            return;
-        }
+            $existingQueues = Queue::query()
+                ->where('queue_date', $appointmentDate)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy(static fn (Queue $queue): int => (int) $queue->appointment_id);
 
-        $persist();
+            if ($this->queueStateMatchesDesiredOrder($existingQueues, $desiredQueueNumbers, $appointmentDate)) {
+                return;
+            }
+
+            $calledStateByAppointmentId = $existingQueues->mapWithKeys(
+                static fn (Queue $queue, int $appointmentId): array => [
+                    $appointmentId => (bool) $queue->is_called,
+                ],
+            );
+
+            $persist = function () use (
+                $existingQueues,
+                $desiredQueueNumbers,
+                $calledStateByAppointmentId,
+                $appointmentDate,
+            ): void {
+                if ($existingQueues->isNotEmpty()) {
+                    Queue::query()
+                        ->whereIn(
+                            'id',
+                            $existingQueues
+                                ->pluck('id')
+                                ->map(static fn (mixed $id): int => (int) $id)
+                                ->all(),
+                        )
+                        ->delete();
+                }
+
+                foreach ($desiredQueueNumbers as $appointmentId => $queueNumber) {
+                    Queue::query()->create([
+                        'appointment_id' => $appointmentId,
+                        'queue_date' => $appointmentDate,
+                        'queue_number' => $queueNumber,
+                        'is_called' => (bool) ($calledStateByAppointmentId[$appointmentId] ?? false),
+                    ]);
+                }
+            };
+
+            if ($suppressQueueEvents) {
+                Queue::withoutEvents($persist);
+
+                return;
+            }
+
+            $persist();
+        }, self::MAX_QUEUE_ASSIGNMENT_RETRIES);
     }
 
     public function removeQueueForAppointment(Appointment $appointment): void
@@ -441,6 +450,53 @@ class QueueService
     private function displayStatus(string $status): string
     {
         return $status === 'confirmed' ? 'Approved' : ucfirst($status);
+    }
+
+    /**
+     * @param  list<int>  $activeAppointmentIds
+     * @return array<int, int>
+     */
+    private function desiredQueueNumbers(array $activeAppointmentIds): array
+    {
+        $desiredQueueNumbers = [];
+
+        foreach ($activeAppointmentIds as $index => $appointmentId) {
+            $desiredQueueNumbers[$appointmentId] = $index + 1;
+        }
+
+        return $desiredQueueNumbers;
+    }
+
+    /**
+     * @param  Collection<int, Queue>  $existingQueues
+     * @param  array<int, int>  $desiredQueueNumbers
+     */
+    private function queueStateMatchesDesiredOrder(
+        Collection $existingQueues,
+        array $desiredQueueNumbers,
+        string $appointmentDate,
+    ): bool {
+        if ($existingQueues->count() !== count($desiredQueueNumbers)) {
+            return false;
+        }
+
+        foreach ($desiredQueueNumbers as $appointmentId => $queueNumber) {
+            $existingQueue = $existingQueues->get($appointmentId);
+
+            if (!$existingQueue instanceof Queue) {
+                return false;
+            }
+
+            if ((string) $existingQueue->queue_date !== $appointmentDate) {
+                return false;
+            }
+
+            if ((int) $existingQueue->queue_number !== $queueNumber) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function createPlaceholderQueueEntry(string $appointmentDate, int $appointmentId): Queue
