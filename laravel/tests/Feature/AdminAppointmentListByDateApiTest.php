@@ -126,6 +126,42 @@ class AdminAppointmentListByDateApiTest extends TestCase
             ->assertJsonValidationErrors(['date']);
     }
 
+    public function test_admin_appointments_endpoint_does_not_rebuild_already_aligned_queue_rows(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService('Aligned Queue Check');
+        $patientA = $this->createUserWithRole('Patient');
+        $patientB = $this->createUserWithRole('Patient');
+        $date = '2026-03-19';
+
+        $earlierAppointment = $this->createAppointment($patientA->id, $service->id, $date, '08:30', 'confirmed');
+        $laterAppointment = $this->createAppointment($patientB->id, $service->id, $date, '09:00', 'pending');
+
+        $earlierQueue = $this->createQueue($earlierAppointment->id, $date, 1);
+        $laterQueue = $this->createQueue($laterAppointment->id, $date, 2);
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/admin/appointments?date=' . $date)
+            ->assertOk()
+            ->assertJsonPath('appointments.0.queue_number', 1)
+            ->assertJsonPath('appointments.1.queue_number', 2);
+
+        $this->assertDatabaseHas('queues', [
+            'id' => $earlierQueue->id,
+            'appointment_id' => $earlierAppointment->id,
+            'queue_date' => $date,
+            'queue_number' => 1,
+        ]);
+        $this->assertDatabaseHas('queues', [
+            'id' => $laterQueue->id,
+            'appointment_id' => $laterAppointment->id,
+            'queue_date' => $date,
+            'queue_number' => 2,
+        ]);
+        $this->assertDatabaseCount('queues', 2);
+    }
+
     private function createQueue(int $appointmentId, string $date, int $queueNumber): Queue
     {
         return Queue::create([
