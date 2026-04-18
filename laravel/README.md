@@ -38,3 +38,9 @@ See **[CREDENTIALS.md](file:///home/aldridge/app-dev/laravel/CREDENTIALS.md)** f
 
 1. **Verify Structure**: Run `ls -R app/Models app/Services app/Http/Controllers/Api` to see the generated files.
 2. **List Routes**: Run `php artisan route:list` to see the available API endpoints.
+
+## Database Host Behavior
+
+- When Laravel runs on the host machine, the default database host is `127.0.0.1`.
+- When Laravel runs inside the Docker `php` container, the default database host is `db`.
+- You can still override either case explicitly with `DB_HOST`.

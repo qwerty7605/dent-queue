@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
 use App\Models\User;
+use App\Services\CentralizedCacheService;
 use App\Services\ReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,39 +22,45 @@ class AdminDashboardController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function stats(): JsonResponse
+    public function stats(CentralizedCacheService $cacheService): JsonResponse
     {
-        $patientsCount = PatientRecord::query()
-            ->where(function ($query) {
-                $query->whereNull('user_id')
-                    ->orWhereHas('user', function ($userQuery) {
-                        $userQuery->where('is_active', true);
-                    });
+        $forceRefresh = request()->boolean('force_refresh');
+
+        $stats = $cacheService->rememberDashboardStats(function (): array {
+            $patientsCount = PatientRecord::query()
+                ->where(function ($query) {
+                    $query->whereNull('user_id')
+                        ->orWhereHas('user', function ($userQuery) {
+                            $userQuery->where('is_active', true);
+                        });
+                })
+                ->count();
+
+            $staffCount = User::whereHas('role', function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['staff']);
             })
-            ->count();
-        
-        $staffCount = User::whereHas('role', function ($query) {
-            $query->whereRaw('LOWER(name) = ?', ['staff']);
-        })
-            ->where('is_active', true)
-            ->count();
+                ->where('is_active', true)
+                ->count();
 
-        $internCount = User::whereHas('role', function ($query) {
-            $query->whereRaw('LOWER(name) = ?', ['intern']);
-        })
-            ->where('is_active', true)
-            ->count();
-        
-        $appointmentsCount = Appointment::count();
+            $internCount = User::whereHas('role', function ($query) {
+                $query->whereRaw('LOWER(name) = ?', ['intern']);
+            })
+                ->where('is_active', true)
+                ->count();
 
-        return response()->json([
-            'data' => [
+            $appointmentsCount = Appointment::count();
+
+            return [
                 'patients_count' => $patientsCount,
                 'staff_count' => $staffCount,
                 'intern_count' => $internCount,
                 'staff_accounts_count' => $staffCount + $internCount,
                 'appointments_count' => $appointmentsCount,
-            ]
+            ];
+        }, $forceRefresh);
+
+        return response()->json([
+            'data' => $stats,
         ]);
     }
 
@@ -65,7 +72,10 @@ class AdminDashboardController extends Controller
     public function reportSummary(Request $request, ReportService $reportService): JsonResponse
     {
         $filters = $this->validateReportFilters($request);
-        $summary = $reportService->getReportSummary($filters);
+        $summary = $reportService->getReportSummary(
+            $filters,
+            $request->boolean('force_refresh'),
+        );
 
         return response()->json([
             'data' => $summary,
@@ -82,7 +92,10 @@ class AdminDashboardController extends Controller
         $filters = $this->validateReportFilters($request);
 
         return response()->json([
-            'data' => $reportService->getStatusDistribution($filters),
+            'data' => $reportService->getStatusDistribution(
+                $filters,
+                $request->boolean('force_refresh'),
+            ),
         ]);
     }
 
@@ -106,7 +119,11 @@ class AdminDashboardController extends Controller
         )->validate();
 
         return response()->json([
-            'data' => $reportService->getAppointmentTrends($trendType, $filters),
+            'data' => $reportService->getAppointmentTrends(
+                $trendType,
+                $filters,
+                $request->boolean('force_refresh'),
+            ),
         ]);
     }
 }

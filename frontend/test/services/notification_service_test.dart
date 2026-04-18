@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/short_term_cache.dart';
+import 'package:frontend/core/token_storage.dart';
 import 'package:frontend/models/app_notification.dart';
 import 'package:frontend/services/base_service.dart';
 import 'package:frontend/services/notification_service.dart';
@@ -36,15 +38,29 @@ class _FakeBaseService extends Fake implements BaseService {
   }
 }
 
+class _FakeTokenStorage extends Fake implements TokenStorage {
+  Map<String, dynamic>? userInfo;
+
+  @override
+  Future<Map<String, dynamic>?> readUserInfo() async {
+    return userInfo;
+  }
+}
+
 void main() {
   late _FakeBaseService fakeBaseService;
+  late _FakeTokenStorage fakeTokenStorage;
   late NotificationService notificationService;
 
   setUp(() {
     fakeBaseService = _FakeBaseService();
-    notificationService = NotificationService(fakeBaseService);
-    notificationService.invalidateNotificationCache('patient');
-    notificationService.invalidateNotificationCache('staff');
+    fakeTokenStorage = _FakeTokenStorage()
+      ..userInfo = <String, dynamic>{'id': 1, 'role': 'patient'};
+    notificationService = NotificationService(
+      fakeBaseService,
+      tokenStorage: fakeTokenStorage,
+    );
+    ShortTermCache.clear();
   });
 
   test(
@@ -75,6 +91,20 @@ void main() {
       expect(result.notifications.single.isRead, isFalse);
     },
   );
+
+  test('getNotifications appends force refresh when requested', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'notifications': <Map<String, dynamic>>[],
+      'unread_count': 0,
+    };
+
+    await notificationService.getNotifications('patient', forceRefresh: true);
+
+    expect(
+      fakeBaseService.lastPath,
+      '/api/v1/patient/notifications?force_refresh=true',
+    );
+  });
 
   test(
     'getNotifications uses cache until a read mutation invalidates it',
@@ -160,6 +190,84 @@ void main() {
     expect(updatedCount, 3);
   });
 
+  test('getNotifications caches results separately per user', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'notifications': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'notification_id': 17,
+          'title': 'Patient one',
+          'message': 'First user notification.',
+          'created_at': '2026-03-30T10:00:00Z',
+          'is_read': false,
+          'type': 'queue',
+        },
+      ],
+      'unread_count': 1,
+    };
+
+    final NotificationListResult first = await notificationService
+        .getNotifications('patient');
+
+    fakeTokenStorage.userInfo = <String, dynamic>{'id': 2, 'role': 'patient'};
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'notifications': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'notification_id': 23,
+          'title': 'Patient two',
+          'message': 'Second user notification.',
+          'created_at': '2026-03-30T11:00:00Z',
+          'is_read': false,
+          'type': 'queue',
+        },
+      ],
+      'unread_count': 1,
+    };
+
+    final NotificationListResult second = await notificationService
+        .getNotifications('patient');
+
+    expect(first.notifications.single.id, 17);
+    expect(second.notifications.single.id, 23);
+    expect(fakeBaseService.getJsonCallCount, 2);
+  });
+
+  test('markAllAsRead invalidates cached notifications', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'notifications': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'notification_id': 9,
+          'title': 'Reminder',
+          'message': 'Unread before mark all.',
+          'created_at': '2026-03-30T10:00:00Z',
+          'is_read': false,
+          'type': 'reminder',
+        },
+      ],
+      'unread_count': 1,
+    };
+
+    await notificationService.getNotifications('patient');
+    expect(fakeBaseService.getJsonCallCount, 1);
+
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'updated_count': 1,
+      'unread_count': 0,
+    };
+    await notificationService.markAllAsRead('patient');
+
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'notifications': <Map<String, dynamic>>[],
+      'unread_count': 0,
+    };
+    final NotificationListResult refreshed = await notificationService
+        .getNotifications('patient');
+
+    expect(fakeBaseService.patchJsonCallCount, 1);
+    expect(fakeBaseService.getJsonCallCount, 2);
+    expect(refreshed.unreadCount, 0);
+    expect(refreshed.notifications, isEmpty);
+  });
+
   test('getNotifications collapses concurrent matching requests', () async {
     fakeBaseService.pendingGetJsonResponse = Completer<dynamic>();
 
@@ -167,6 +275,8 @@ void main() {
         .getNotifications('patient');
     final Future<NotificationListResult> second = notificationService
         .getNotifications('patient');
+
+    await Future<void>.delayed(Duration.zero);
 
     expect(fakeBaseService.getJsonCallCount, 1);
 

@@ -1,5 +1,6 @@
 import '../core/endpoints.dart';
 import '../core/short_term_cache.dart';
+import '../core/token_storage.dart';
 import '../models/app_notification.dart';
 import 'base_service.dart';
 
@@ -14,20 +15,26 @@ class NotificationListResult {
 }
 
 class NotificationService {
-  NotificationService(this._baseService);
+  NotificationService(this._baseService, {TokenStorage? tokenStorage})
+    : _tokenStorage = tokenStorage;
 
   static const Duration _cacheTtl = Duration(seconds: 30);
   static const String _notificationsCache = 'notifications';
 
   final BaseService _baseService;
+  final TokenStorage? _tokenStorage;
 
-  Future<NotificationListResult> getNotifications(String role) async {
+  Future<NotificationListResult> getNotifications(
+    String role, {
+    bool forceRefresh = false,
+  }) async {
     final String normalizedRole = _normalizedRole(role);
+    final String cacheKey = await _cacheKey(normalizedRole);
     final dynamic cached = ShortTermCache.read<dynamic>(
       _notificationsCache,
-      normalizedRole,
+      cacheKey,
     );
-    if (cached is Map<String, dynamic>) {
+    if (!forceRefresh && cached is Map<String, dynamic>) {
       final List<AppNotification> notifications =
           (cached['notifications'] as List<dynamic>? ?? const <dynamic>[])
               .whereType<Map>()
@@ -46,10 +53,10 @@ class NotificationService {
 
     return ShortTermCache.runSingleFlight(
       _notificationsCache,
-      normalizedRole,
+      cacheKey,
       () async {
         final response = await _baseService.getJson<dynamic>(
-          _notificationsPath(normalizedRole),
+          _notificationsPath(normalizedRole, forceRefresh: forceRefresh),
           (data) => data,
         );
 
@@ -76,27 +83,22 @@ class NotificationService {
               return !notification.isRead;
             }).length;
 
-        ShortTermCache.write(
-          _notificationsCache,
-          normalizedRole,
-          <String, dynamic>{
-            'notifications': notifications
-                .map(
-                  (AppNotification notification) => <String, dynamic>{
-                    'notification_id': notification.id,
-                    'title': notification.title,
-                    'message': notification.message,
-                    'created_at': notification.createdAt?.toIso8601String(),
-                    'is_read': notification.isRead,
-                    'type': notification.type,
-                    'related_appointment_id': notification.relatedAppointmentId,
-                  },
-                )
-                .toList(),
-            'unread_count': unreadCount,
-          },
-          ttl: _cacheTtl,
-        );
+        ShortTermCache.write(_notificationsCache, cacheKey, <String, dynamic>{
+          'notifications': notifications
+              .map(
+                (AppNotification notification) => <String, dynamic>{
+                  'notification_id': notification.id,
+                  'title': notification.title,
+                  'message': notification.message,
+                  'created_at': notification.createdAt?.toIso8601String(),
+                  'is_read': notification.isRead,
+                  'type': notification.type,
+                  'related_appointment_id': notification.relatedAppointmentId,
+                },
+              )
+              .toList(),
+          'unread_count': unreadCount,
+        }, ttl: _cacheTtl);
 
         return NotificationListResult(
           notifications: notifications,
@@ -144,10 +146,14 @@ class NotificationService {
     return 0;
   }
 
-  String _notificationsPath(String role) {
+  String _notificationsPath(String role, {bool forceRefresh = false}) {
+    final queryParameters = forceRefresh
+        ? const <String, String>{'force_refresh': 'true'}
+        : const <String, String>{};
+
     return _normalizedRole(role) == 'staff'
-        ? Endpoints.staffNotifications
-        : Endpoints.patientNotifications;
+        ? Endpoints.staffNotifications(queryParameters)
+        : Endpoints.patientNotifications(queryParameters);
   }
 
   String _markAsReadPath(String role, int notificationId) {
@@ -172,7 +178,18 @@ class NotificationService {
     return 'patient';
   }
 
-  void invalidateNotificationCache(String role) {
-    ShortTermCache.invalidate(_notificationsCache, _normalizedRole(role));
+  void invalidateNotificationCache([String? role]) {
+    ShortTermCache.invalidateNamespace(_notificationsCache);
+  }
+
+  Future<String> _cacheKey(String role) async {
+    final Map<String, dynamic>? userInfo = await _tokenStorage?.readUserInfo();
+    final dynamic userId = userInfo?['id'];
+
+    if (userId == null || userId.toString().isEmpty) {
+      return '$role:current-user';
+    }
+
+    return '$role:user:${userId.toString()}';
   }
 }

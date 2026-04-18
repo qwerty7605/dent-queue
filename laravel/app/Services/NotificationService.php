@@ -4,54 +4,80 @@ namespace App\Services;
 
 use App\Models\PatientNotification;
 use App\Models\PatientRecord;
+use App\Models\StaffNotification;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
 class NotificationService
 {
-    public function listForUser(User $user): Collection
+    public function __construct(
+        private readonly CentralizedCacheService $cacheService,
+    ) {}
+
+    public function listForUser(User $user, bool $forceRefresh = false): Collection
+    {
+        return collect($this->cacheService->rememberNotificationsListForUser($user, function () use ($user): array {
+            $roleName = $this->resolveRoleName($user);
+
+            if ($roleName === 'patient') {
+                return $this->patientNotificationsQuery($user)
+                    ->orderByDesc('created_at')
+                    ->orderByDesc('id')
+                    ->get()
+                    ->map(fn (PatientNotification $notification) => $this->formatNotification($notification))
+                    ->values()
+                    ->all();
+            }
+
+            if (in_array($roleName, ['staff', 'admin'], true)) {
+                return $this->staffNotificationsQuery($user)
+                    ->orderByDesc('created_at')
+                    ->orderByDesc('id')
+                    ->get()
+                    ->map(fn (StaffNotification $notification) => $this->formatNotification($notification))
+                    ->values()
+                    ->all();
+            }
+
+            return [];
+        }, $forceRefresh));
+    }
+
+    public function unreadCountForUser(User $user, bool $forceRefresh = false): int
+    {
+        return $this->cacheService->rememberNotificationsUnreadCountForUser($user, function () use ($user): int {
+            $roleName = $this->resolveRoleName($user);
+
+            return match ($roleName) {
+                'patient' => $this->patientNotificationsQuery($user)->whereNull('read_at')->count(),
+                'staff', 'admin' => $this->staffNotificationsQuery($user)->whereNull('read_at')->count(),
+                default => 0,
+            };
+        }, $forceRefresh);
+    }
+
+    public function resolveNotificationForUser(User $user, int $notificationId): PatientNotification|StaffNotification|null
     {
         $roleName = $this->resolveRoleName($user);
 
         if ($roleName === 'patient') {
             return $this->patientNotificationsQuery($user)
-                ->orderByDesc('created_at')
-                ->orderByDesc('id')
-                ->get()
-                ->map(fn (PatientNotification $notification) => $this->formatNotification($notification));
+                ->whereKey($notificationId)
+                ->first();
         }
 
         if (in_array($roleName, ['staff', 'admin'], true)) {
-            return collect();
+            return $this->staffNotificationsQuery($user)
+                ->whereKey($notificationId)
+                ->first();
         }
 
-        return collect();
+        return null;
     }
 
-    public function unreadCountForUser(User $user): int
-    {
-        if ($this->resolveRoleName($user) !== 'patient') {
-            return 0;
-        }
-
-        return $this->patientNotificationsQuery($user)
-            ->whereNull('read_at')
-            ->count();
-    }
-
-    public function canAccessNotification(User $user, PatientNotification $notification): bool
-    {
-        if ($this->resolveRoleName($user) !== 'patient') {
-            return false;
-        }
-
-        $patientRecord = PatientRecord::resolveForUser($user);
-
-        return (int) $notification->patient_id === (int) $patientRecord->id;
-    }
-
-    public function markNotificationAsRead(PatientNotification $notification): PatientNotification
+    public function markNotificationAsRead(PatientNotification|StaffNotification $notification): PatientNotification|StaffNotification
     {
         if ($notification->read_at === null) {
             $notification->forceFill([
@@ -59,29 +85,44 @@ class NotificationService
             ])->save();
         }
 
+        $this->flushNotificationCacheForModel($notification);
+
         return $notification->fresh() ?? $notification;
     }
 
     public function markAllAsReadForUser(User $user): int
     {
-        if ($this->resolveRoleName($user) !== 'patient') {
-            return 0;
-        }
-
         $timestamp = now();
+        $roleName = $this->resolveRoleName($user);
 
-        return $this->patientNotificationsQuery($user)
-            ->whereNull('read_at')
-            ->update([
-                'read_at' => $timestamp,
-                'updated_at' => $timestamp,
-            ]);
+        $updatedCount = match ($roleName) {
+            'patient' => $this->patientNotificationsQuery($user)
+                ->whereNull('read_at')
+                ->update([
+                    'read_at' => $timestamp,
+                    'updated_at' => $timestamp,
+                ]),
+            'staff', 'admin' => $this->staffNotificationsQuery($user)
+                ->whereNull('read_at')
+                ->update([
+                    'read_at' => $timestamp,
+                    'updated_at' => $timestamp,
+                ]),
+            default => 0,
+        };
+
+        $this->cacheService->flushNotificationsForUser($user);
+
+        return $updatedCount;
     }
 
-    public function formatNotification(PatientNotification $notification): array
+    public function formatNotification(Model $notification): array
     {
         $createdAt = optional($notification->created_at)?->toIso8601String();
         $readAt = optional($notification->read_at)?->toIso8601String();
+        $recipientId = $notification instanceof PatientNotification
+            ? (int) ($notification->patient_id ?? 0)
+            : (int) ($notification->user_id ?? 0);
 
         return [
             'notification_id' => (int) $notification->id,
@@ -93,9 +134,8 @@ class NotificationService
                 ? (int) $notification->appointment_id
                 : null,
 
-            // Keep legacy fields for existing consumers until the frontend is migrated.
             'id' => (int) $notification->id,
-            'patient_id' => (int) $notification->patient_id,
+            'patient_id' => $recipientId,
             'appointment_id' => $notification->appointment_id !== null
                 ? (int) $notification->appointment_id
                 : null,
@@ -118,5 +158,22 @@ class NotificationService
 
         return PatientNotification::query()
             ->where('patient_id', (int) $patientRecord->id);
+    }
+
+    private function staffNotificationsQuery(User $user): Builder
+    {
+        return StaffNotification::query()
+            ->where('user_id', (int) $user->id);
+    }
+
+    private function flushNotificationCacheForModel(PatientNotification|StaffNotification $notification): void
+    {
+        if ($notification instanceof PatientNotification) {
+            $this->cacheService->flushNotificationsForPatientRecord((int) $notification->patient_id);
+
+            return;
+        }
+
+        $this->cacheService->flushNotificationsForStaffUser((int) $notification->user_id);
     }
 }

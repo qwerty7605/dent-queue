@@ -1,4 +1,5 @@
 import '../core/endpoints.dart';
+import '../core/paginated_result.dart';
 import '../core/short_term_cache.dart';
 import 'admin_dashboard_service.dart';
 import 'base_service.dart';
@@ -8,6 +9,8 @@ class AppointmentService {
 
   static const Duration _cacheTtl = Duration(seconds: 30);
   static const String _adminMasterListCache = 'appointment-admin-master-list';
+  static const String _adminMasterListPageCache =
+      'appointment-admin-master-list-page';
   static const String _patientAppointmentsCache = 'appointment-patient-list';
   static const String _medicalHistoryCache = 'appointment-medical-history';
   static const String _recycleBinCache = 'appointment-recycle-bin';
@@ -21,6 +24,7 @@ class AppointmentService {
       'appointment-patient-today-queue';
   static const String _adminTodayQueueCache = 'appointment-admin-today-queue';
   static const String _servicesCache = 'appointment-services';
+  static const String _availabilitySlotsCache = 'appointment-availability';
 
   final BaseService _baseService;
 
@@ -61,7 +65,7 @@ class AppointmentService {
       payload,
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentCreated();
     return response as Map<String, dynamic>;
   }
 
@@ -73,8 +77,49 @@ class AppointmentService {
       payload,
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentCreated();
     return response as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getAvailabilitySlots(String date) async {
+    final dynamic cached = ShortTermCache.read<dynamic>(
+      _availabilitySlotsCache,
+      date,
+    );
+    if (cached is Map) {
+      return Map<String, dynamic>.from(cached);
+    }
+
+    return ShortTermCache.runSingleFlight(
+      _availabilitySlotsCache,
+      date,
+      () async {
+        final response = await _baseService.getJson<dynamic>(
+          Endpoints.availabilitySlots(date),
+          (data) => data,
+        );
+
+        if (response is Map<String, dynamic> && response['data'] is Map) {
+          final result = Map<String, dynamic>.from(response['data'] as Map);
+          ShortTermCache.write(
+            _availabilitySlotsCache,
+            date,
+            result,
+            ttl: _cacheTtl,
+          );
+          return result;
+        }
+
+        const result = <String, dynamic>{};
+        ShortTermCache.write(
+          _availabilitySlotsCache,
+          date,
+          result,
+          ttl: _cacheTtl,
+        );
+        return result;
+      },
+    );
   }
 
   Future<List<Map<String, dynamic>>> getAdminMasterList([
@@ -123,6 +168,78 @@ class AppointmentService {
           ttl: _cacheTtl,
         );
         return result;
+      },
+    );
+  }
+
+  Future<PaginatedResult<Map<String, dynamic>>> getAdminMasterListPage({
+    Map<String, String> filters = const <String, String>{},
+    int page = 1,
+    int perPage = 25,
+  }) async {
+    final String cacheKey = _pagedFilterCacheKey(
+      filters,
+      page: page,
+      perPage: perPage,
+    );
+    final dynamic cachedMasterListPage = ShortTermCache.read<dynamic>(
+      _adminMasterListPageCache,
+      cacheKey,
+    );
+    if (cachedMasterListPage is Map<String, dynamic>) {
+      return PaginatedResult<Map<String, dynamic>>.fromResponse(
+        cachedMasterListPage,
+        (dynamic item) => Map<String, dynamic>.from(item as Map),
+        fallbackPage: page,
+        fallbackPerPage: perPage,
+      );
+    }
+
+    return ShortTermCache.runSingleFlight(
+      _adminMasterListPageCache,
+      cacheKey,
+      () async {
+        final response = await _baseService.getJson<dynamic>(
+          Endpoints.adminMasterList(<String, String>{
+            ...filters,
+            'page': page.toString(),
+            'per_page': perPage.toString(),
+          }),
+          (data) => data,
+        );
+
+        if (response is Map<String, dynamic>) {
+          ShortTermCache.write(
+            _adminMasterListPageCache,
+            cacheKey,
+            response,
+            ttl: _cacheTtl,
+          );
+          return PaginatedResult<Map<String, dynamic>>.fromResponse(
+            response,
+            (dynamic item) => Map<String, dynamic>.from(item as Map),
+            fallbackPage: page,
+            fallbackPerPage: perPage,
+          );
+        }
+
+        const Map<String, dynamic> emptyResponse = <String, dynamic>{
+          'data': <Map<String, dynamic>>[],
+          'meta': <String, dynamic>{},
+        };
+        ShortTermCache.write(
+          _adminMasterListPageCache,
+          cacheKey,
+          emptyResponse,
+          ttl: _cacheTtl,
+        );
+        return const PaginatedResult<Map<String, dynamic>>(
+          items: <Map<String, dynamic>>[],
+          currentPage: 1,
+          perPage: 25,
+          totalItems: 0,
+          hasMorePages: false,
+        );
       },
     );
   }
@@ -228,7 +345,7 @@ class AppointmentService {
       {},
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentCancelled();
     return response as Map<String, dynamic>;
   }
 
@@ -238,7 +355,7 @@ class AppointmentService {
       {},
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentRestored();
     return response as Map<String, dynamic>;
   }
 
@@ -442,7 +559,7 @@ class AppointmentService {
       (data) => data,
     );
 
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentUpdated(status);
     return response as Map<String, dynamic>;
   }
 
@@ -454,16 +571,18 @@ class AppointmentService {
       payload,
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterAppointmentCreated();
     return response as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getPatientTodayQueue() async {
+  Future<Map<String, dynamic>> getPatientTodayQueue({
+    bool forceRefresh = false,
+  }) async {
     final dynamic cached = ShortTermCache.read<dynamic>(
       _patientTodayQueueCache,
       'current-user',
     );
-    if (cached is Map) {
+    if (!forceRefresh && cached is Map) {
       return Map<String, dynamic>.from(cached);
     }
 
@@ -472,7 +591,11 @@ class AppointmentService {
       'current-user',
       () async {
         final response = await _baseService.getJson<dynamic>(
-          Endpoints.patientTodayQueue,
+          Endpoints.patientTodayQueue(
+            forceRefresh
+                ? const <String, String>{'force_refresh': 'true'}
+                : const <String, String>{},
+          ),
           (data) => data,
         );
         final result = Map<String, dynamic>.from(response as Map);
@@ -493,17 +616,20 @@ class AppointmentService {
       {},
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterQueueUpdated();
     return response as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getAdminTodayQueue([String? date]) async {
+  Future<Map<String, dynamic>> getAdminTodayQueue([
+    String? date,
+    bool forceRefresh = false,
+  ]) async {
     final String cacheKey = date == null || date.isEmpty ? 'today' : date;
     final dynamic cached = ShortTermCache.read<dynamic>(
       _adminTodayQueueCache,
       cacheKey,
     );
-    if (cached is Map) {
+    if (!forceRefresh && cached is Map) {
       return Map<String, dynamic>.from(cached);
     }
 
@@ -512,7 +638,12 @@ class AppointmentService {
       cacheKey,
       () async {
         final response = await _baseService.getJson<dynamic>(
-          Endpoints.adminTodayQueue(date),
+          Endpoints.adminTodayQueue(
+            date,
+            queryParameters: forceRefresh
+                ? const <String, String>{'force_refresh': 'true'}
+                : const <String, String>{},
+          ),
           (data) => data,
         );
         final result = Map<String, dynamic>.from(response as Map);
@@ -533,13 +664,14 @@ class AppointmentService {
       date == null || date.isEmpty ? {} : {'date': date},
       (data) => data,
     );
-    invalidateAppointmentCaches();
+    _invalidateAfterQueueUpdated();
     return response as Map<String, dynamic>;
   }
 
   void invalidateAppointmentCaches() {
     ShortTermCache.invalidateNamespace(_servicesCache);
     ShortTermCache.invalidateNamespace(_adminMasterListCache);
+    ShortTermCache.invalidateNamespace(_adminMasterListPageCache);
     ShortTermCache.invalidateNamespace(_patientAppointmentsCache);
     ShortTermCache.invalidateNamespace(_medicalHistoryCache);
     ShortTermCache.invalidateNamespace(_recycleBinCache);
@@ -550,6 +682,68 @@ class AppointmentService {
     ShortTermCache.invalidateNamespace(_adminTodayQueueCache);
     AdminDashboardService.invalidateSharedDashboardStatsCache();
     AdminDashboardService.invalidateSharedReportCaches();
+  }
+
+  void _invalidateAfterAppointmentCreated() {
+    _invalidateCommonAppointmentMutationCaches();
+  }
+
+  void _invalidateAfterAppointmentUpdated(String status) {
+    _invalidateCommonAppointmentMutationCaches();
+
+    if (_isCompletedStatus(status)) {
+      ShortTermCache.invalidateNamespace(_medicalHistoryCache);
+    }
+
+    if (_isCancelledStatus(status)) {
+      ShortTermCache.invalidateNamespace(_recycleBinCache);
+    }
+  }
+
+  void _invalidateAfterAppointmentCancelled() {
+    _invalidateCommonAppointmentMutationCaches();
+    ShortTermCache.invalidateNamespace(_recycleBinCache);
+  }
+
+  void _invalidateAfterAppointmentRestored() {
+    _invalidateCommonAppointmentMutationCaches();
+    ShortTermCache.invalidateNamespace(_recycleBinCache);
+  }
+
+  void _invalidateAfterQueueUpdated() {
+    ShortTermCache.invalidateNamespace(_adminMasterListCache);
+    ShortTermCache.invalidateNamespace(_adminMasterListPageCache);
+    ShortTermCache.invalidateNamespace(_patientAppointmentsCache);
+    ShortTermCache.invalidateNamespace(_adminAppointmentsByDateCache);
+    ShortTermCache.invalidateNamespace(_adminCalendarAppointmentsCache);
+    ShortTermCache.invalidateNamespace(_calendarAppointmentDetailsCache);
+    ShortTermCache.invalidateNamespace(_patientTodayQueueCache);
+    ShortTermCache.invalidateNamespace(_adminTodayQueueCache);
+    ShortTermCache.invalidateNamespace(_availabilitySlotsCache);
+  }
+
+  void _invalidateCommonAppointmentMutationCaches() {
+    ShortTermCache.invalidateNamespace(_adminMasterListCache);
+    ShortTermCache.invalidateNamespace(_adminMasterListPageCache);
+    ShortTermCache.invalidateNamespace(_patientAppointmentsCache);
+    ShortTermCache.invalidateNamespace(_adminAppointmentsByDateCache);
+    ShortTermCache.invalidateNamespace(_adminCalendarAppointmentsCache);
+    ShortTermCache.invalidateNamespace(_calendarAppointmentDetailsCache);
+    ShortTermCache.invalidateNamespace(_patientTodayQueueCache);
+    ShortTermCache.invalidateNamespace(_adminTodayQueueCache);
+    ShortTermCache.invalidateNamespace(_availabilitySlotsCache);
+    AdminDashboardService.invalidateSharedDashboardStatsCache();
+    AdminDashboardService.invalidateSharedReportCaches();
+  }
+
+  bool _isCompletedStatus(String status) {
+    final String normalizedStatus = status.trim().toLowerCase();
+    return normalizedStatus == 'completed';
+  }
+
+  bool _isCancelledStatus(String status) {
+    final String normalizedStatus = status.trim().toLowerCase();
+    return normalizedStatus == 'cancelled' || normalizedStatus == 'canceled';
   }
 
   void invalidatePatientTodayQueueCache() {
@@ -585,5 +779,13 @@ class AppointmentService {
           return '${entry.key}=${entry.value}';
         })
         .join('&');
+  }
+
+  String _pagedFilterCacheKey(
+    Map<String, String> filters, {
+    required int page,
+    required int perPage,
+  }) {
+    return '${_filterCacheKey(filters)}::page=$page::per_page=$perPage';
   }
 }

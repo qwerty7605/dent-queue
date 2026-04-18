@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../core/appointment_status.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
+import '../widgets/admin_data_table.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_status_badge.dart';
+import '../widgets/paginated_table_footer.dart';
 
 enum _MasterListFilter { all, approved, cancelled, completed, pending }
 
@@ -33,8 +34,14 @@ class AdminMasterListView extends StatefulWidget {
 }
 
 class _AdminMasterListViewState extends State<AdminMasterListView> {
+  static const int _pageSize = 25;
+
   List<Map<String, dynamic>> _appointments = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMorePages = false;
+  int _currentPage = 0;
+  int _totalAppointments = 0;
   _MasterListFilter _selectedFilter = _MasterListFilter.all;
   _MasterListDateFilter _selectedDateFilter = _MasterListDateFilter.all;
 
@@ -54,16 +61,26 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
         widget.appointmentService.invalidateAppointmentCaches();
       }
 
-      final appointments = await widget.appointmentService.getAdminMasterList();
+      final appointmentsPage = await widget.appointmentService
+          .getAdminMasterListPage(
+            filters: _activeMasterListFilters,
+            page: 1,
+            perPage: _pageSize,
+          );
       if (!mounted) return;
       setState(() {
-        _appointments = appointments;
+        _appointments = appointmentsPage.items;
+        _currentPage = appointmentsPage.currentPage;
+        _totalAppointments = appointmentsPage.totalItems;
+        _hasMorePages = appointmentsPage.hasMorePages;
         _isLoading = false;
+        _isLoadingMore = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
+        _isLoadingMore = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to load master list')),
@@ -71,60 +88,48 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
     }
   }
 
-  List<Map<String, dynamic>> get _filteredAppointments {
-    return _appointments.where((appointment) {
-      final status = normalizeAppointmentStatus(appointment['status']);
-      final matchesStatus = switch (_selectedFilter) {
-        _MasterListFilter.approved => status == 'approved',
-        _MasterListFilter.cancelled => status == 'cancelled',
-        _MasterListFilter.completed => status == 'completed',
-        _MasterListFilter.pending => status == 'pending',
-        _MasterListFilter.all => true,
-      };
+  Future<void> _loadMoreMasterList() async {
+    if (_isLoading || _isLoadingMore || !_hasMorePages) {
+      return;
+    }
 
-      if (!matchesStatus) {
-        return false;
-      }
+    setState(() {
+      _isLoadingMore = true;
+    });
 
-      final appointmentDate = _parseAppointmentDate(
-        appointment['date']?.toString(),
+    try {
+      final appointmentsPage = await widget.appointmentService
+          .getAdminMasterListPage(
+            filters: _activeMasterListFilters,
+            page: _currentPage + 1,
+            perPage: _pageSize,
+          );
+      if (!mounted) return;
+
+      setState(() {
+        _appointments = <Map<String, dynamic>>[
+          ..._appointments,
+          ...appointmentsPage.items,
+        ];
+        _currentPage = appointmentsPage.currentPage;
+        _totalAppointments = appointmentsPage.totalItems;
+        _hasMorePages = appointmentsPage.hasMorePages;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingMore = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load more appointments')),
       );
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-
-      return switch (_selectedDateFilter) {
-        _MasterListDateFilter.all => true,
-        _MasterListDateFilter.today =>
-          appointmentDate != null && _isSameDay(appointmentDate, today),
-        _MasterListDateFilter.yesterday =>
-          appointmentDate != null &&
-              _isSameDay(
-                appointmentDate,
-                today.subtract(const Duration(days: 1)),
-              ),
-        _MasterListDateFilter.thisWeek =>
-          appointmentDate != null &&
-              _isWithinCurrentWeek(appointmentDate, today),
-        _MasterListDateFilter.lastWeek =>
-          appointmentDate != null && _isWithinLastWeek(appointmentDate, today),
-        _MasterListDateFilter.thisMonth =>
-          appointmentDate != null &&
-              appointmentDate.year == today.year &&
-              appointmentDate.month == today.month,
-        _MasterListDateFilter.pastMonth =>
-          appointmentDate != null &&
-              !appointmentDate.isAfter(today) &&
-              !appointmentDate.isBefore(
-                today.subtract(const Duration(days: 30)),
-              ),
-      };
-    }).toList();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredAppointments = _filteredAppointments;
-
     return Padding(
       padding: const EdgeInsets.all(40.0),
       child: Column(
@@ -149,10 +154,6 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                 label: const Text(
                   'Refresh',
                   style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF679B6A),
-                  side: const BorderSide(color: Color(0xFF679B6A)),
                 ),
               ),
             ],
@@ -217,153 +218,160 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                         ),
                       ),
                     )
-                  else if (filteredAppointments.isEmpty)
+                  else if (_appointments.isEmpty)
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: AppEmptyState(
                           key: const Key('admin-master-list-empty-state'),
                           icon: Icons.list_alt_outlined,
-                          title:
-                              _selectedFilter == _MasterListFilter.all &&
-                                  _selectedDateFilter ==
-                                      _MasterListDateFilter.all
+                          title: !_hasActiveFilters
                               ? 'No appointments yet'
                               : 'No appointments found',
-                          message:
-                              _selectedFilter == _MasterListFilter.all &&
-                                  _selectedDateFilter ==
-                                      _MasterListDateFilter.all
+                          message: !_hasActiveFilters
                               ? 'Appointments will appear in the master list once records are available.'
                               : 'Try clearing the selected status or date filter to view more appointment records.',
-                          actionLabel:
-                              _selectedFilter != _MasterListFilter.all ||
-                                  _selectedDateFilter !=
-                                      _MasterListDateFilter.all
+                          actionLabel: _hasActiveFilters
                               ? 'Clear Filters'
                               : null,
                           actionIcon: Icons.restart_alt_rounded,
-                          onAction:
-                              _selectedFilter != _MasterListFilter.all ||
-                                  _selectedDateFilter !=
-                                      _MasterListDateFilter.all
-                              ? _resetFilters
+                          onAction: _hasActiveFilters
+                              ? () {
+                                  _resetFilters();
+                                }
                               : null,
                         ),
                       ),
                     )
                   else
                     Expanded(
-                      child: SingleChildScrollView(
-                        child: DataTable(
-                          headingRowColor: WidgetStateProperty.resolveWith(
-                            (states) => Colors.transparent,
-                          ),
-                          columns: const [
-                            DataColumn(
-                              label: Text(
-                                'Patient',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Service',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Date',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Contact',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Status',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                          ],
-                          rows: filteredAppointments.map((appointment) {
-                            final status =
-                                appointment['status']?.toString() ?? 'Unknown';
-                            return DataRow(
-                              cells: [
-                                DataCell(
-                                  Text(
-                                    _displayText(appointment['patient_name']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: AdminDataTable(
+                              minWidth: 980,
+                              columnSpacing: 28,
+                              columns: <DataColumn>[
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Patient',
+                                    width: 220,
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    _displayText(appointment['service']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Service',
+                                    width: 220,
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    _displayText(appointment['date']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Date',
+                                    width: 128,
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    _displayText(appointment['contact']),
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: status.toLowerCase() == 'cancelled'
-                                          ? Colors.blue[700]
-                                          : Colors.black87,
-                                      decoration:
-                                          status.toLowerCase() == 'cancelled'
-                                          ? TextDecoration.underline
-                                          : TextDecoration.none,
-                                      decorationColor: Colors.blue[700],
-                                    ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Contact',
+                                    width: 170,
                                   ),
                                 ),
-                                DataCell(
-                                  AppointmentStatusBadge(
-                                    status: status,
-                                    compact: true,
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Status',
+                                    width: 180,
+                                    alignment: Alignment.center,
                                   ),
                                 ),
                               ],
-                            );
-                          }).toList(),
-                        ),
+                              rows: _appointments.asMap().entries.map((entry) {
+                                final int index = entry.key;
+                                final Map<String, dynamic> appointment =
+                                    entry.value;
+                                final String status =
+                                    appointment['status']?.toString() ??
+                                    'Unknown';
+                                final bool isCancelled =
+                                    status.toLowerCase() == 'cancelled';
+
+                                return DataRow.byIndex(
+                                  index: index,
+                                  color: AdminDataTable.rowColor(index),
+                                  cells: <DataCell>[
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _displayText(
+                                          appointment['patient_name'],
+                                        ),
+                                        width: 220,
+                                        maxLines: 2,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _displayText(appointment['service']),
+                                        width: 220,
+                                        maxLines: 2,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _displayText(appointment['date']),
+                                        width: 128,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      SizedBox(
+                                        width: 170,
+                                        child: Text(
+                                          _displayText(appointment['contact']),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            height: 1.35,
+                                            fontWeight: FontWeight.w600,
+                                            color: isCancelled
+                                                ? Colors.blue[700]
+                                                : const Color(0xFF334155),
+                                            decoration: isCancelled
+                                                ? TextDecoration.underline
+                                                : TextDecoration.none,
+                                            decorationColor: Colors.blue[700],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      SizedBox(
+                                        width: 180,
+                                        child: Align(
+                                          alignment: Alignment.center,
+                                          child: AppointmentStatusBadge(
+                                            status: status,
+                                            compact: true,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                          PaginatedTableFooter(
+                            loadedItemCount: _appointments.length,
+                            totalItemCount: _totalAppointments,
+                            itemLabel: 'appointments',
+                            hasMorePages: _hasMorePages,
+                            isLoadingMore: _isLoadingMore,
+                            onLoadMore: _loadMoreMasterList,
+                            loadMoreButtonKey: const Key(
+                              'admin-master-list-load-more',
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -392,10 +400,15 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
         ),
       ),
       selected: isSelected,
-      onSelected: (_) {
+      onSelected: (bool selected) {
+        if (!selected || _selectedFilter == filter) {
+          return;
+        }
+
         setState(() {
           _selectedFilter = filter;
         });
+        _loadMasterList();
       },
       selectedColor: const Color(0xFF679B6A),
       backgroundColor: Colors.white,
@@ -410,9 +423,14 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
     return PopupMenuButton<_MasterListDateFilter>(
       tooltip: 'Date filter',
       onSelected: (_MasterListDateFilter filter) {
+        if (_selectedDateFilter == filter) {
+          return;
+        }
+
         setState(() {
           _selectedDateFilter = filter;
         });
+        _loadMasterList();
       },
       itemBuilder: (context) => _MasterListDateFilter.values.map((filter) {
         final selected = filter == _selectedDateFilter;
@@ -461,11 +479,13 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
     );
   }
 
-  void _resetFilters() {
+  Future<void> _resetFilters() async {
     setState(() {
       _selectedFilter = _MasterListFilter.all;
       _selectedDateFilter = _MasterListDateFilter.all;
     });
+
+    await _loadMasterList();
   }
 
   String _dateFilterLabel(_MasterListDateFilter filter) {
@@ -480,41 +500,89 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
     };
   }
 
-  DateTime? _parseAppointmentDate(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return null;
+  bool get _hasActiveFilters {
+    return _selectedFilter != _MasterListFilter.all ||
+        _selectedDateFilter != _MasterListDateFilter.all;
+  }
+
+  Map<String, String> get _activeMasterListFilters {
+    final Map<String, String> filters = <String, String>{};
+    final String? status = _statusQueryValue(_selectedFilter);
+
+    if (status != null) {
+      filters['status'] = status;
     }
 
-    final parsed = DateTime.tryParse(value.trim());
-    if (parsed == null) {
-      return null;
+    filters.addAll(_dateQueryParameters(_selectedDateFilter));
+    return filters;
+  }
+
+  String? _statusQueryValue(_MasterListFilter filter) {
+    return switch (filter) {
+      _MasterListFilter.all => null,
+      _MasterListFilter.pending => 'pending',
+      _MasterListFilter.approved => 'approved',
+      _MasterListFilter.completed => 'completed',
+      _MasterListFilter.cancelled => 'cancelled',
+    };
+  }
+
+  Map<String, String> _dateQueryParameters(_MasterListDateFilter filter) {
+    if (filter == _MasterListDateFilter.all) {
+      return const <String, String>{};
     }
 
-    return DateTime(parsed.year, parsed.month, parsed.day);
+    final DateTime today = _normalizedToday();
+    late final DateTime startDate;
+    late final DateTime endDate;
+
+    switch (filter) {
+      case _MasterListDateFilter.all:
+        return const <String, String>{};
+      case _MasterListDateFilter.today:
+        startDate = today;
+        endDate = today;
+        break;
+      case _MasterListDateFilter.yesterday:
+        startDate = today.subtract(const Duration(days: 1));
+        endDate = startDate;
+        break;
+      case _MasterListDateFilter.thisWeek:
+        startDate = _startOfWeek(today);
+        endDate = startDate.add(const Duration(days: 6));
+        break;
+      case _MasterListDateFilter.lastWeek:
+        endDate = _startOfWeek(today).subtract(const Duration(days: 1));
+        startDate = endDate.subtract(const Duration(days: 6));
+        break;
+      case _MasterListDateFilter.thisMonth:
+        startDate = DateTime(today.year, today.month, 1);
+        endDate = DateTime(today.year, today.month + 1, 0);
+        break;
+      case _MasterListDateFilter.pastMonth:
+        startDate = today.subtract(const Duration(days: 30));
+        endDate = today;
+        break;
+    }
+
+    return <String, String>{
+      'start_date': _formatDateQueryValue(startDate),
+      'end_date': _formatDateQueryValue(endDate),
+    };
   }
 
-  bool _isSameDay(DateTime left, DateTime right) {
-    return left.year == right.year &&
-        left.month == right.month &&
-        left.day == right.day;
+  DateTime _normalizedToday() {
+    final DateTime now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
   }
 
-  bool _isWithinCurrentWeek(DateTime date, DateTime today) {
-    final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
-    final endOfWeek = startOfWeek.add(const Duration(days: 6));
-
-    return !date.isBefore(startOfWeek) && !date.isAfter(endOfWeek);
+  DateTime _startOfWeek(DateTime date) {
+    return date.subtract(Duration(days: date.weekday - 1));
   }
 
-  bool _isWithinLastWeek(DateTime date, DateTime today) {
-    final startOfCurrentWeek = today.subtract(
-      Duration(days: today.weekday - 1),
-    );
-    final startOfLastWeek = startOfCurrentWeek.subtract(
-      const Duration(days: 7),
-    );
-    final endOfLastWeek = startOfCurrentWeek.subtract(const Duration(days: 1));
-
-    return !date.isBefore(startOfLastWeek) && !date.isAfter(endOfLastWeek);
+  String _formatDateQueryValue(DateTime value) {
+    final String month = value.month.toString().padLeft(2, '0');
+    final String day = value.day.toString().padLeft(2, '0');
+    return '${value.year}-$month-$day';
   }
 }

@@ -7,6 +7,7 @@ use App\Models\PatientNotification;
 use App\Models\PatientRecord;
 use App\Models\Role;
 use App\Models\Service;
+use App\Models\StaffNotification;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -93,30 +94,44 @@ class NotificationListRetrievalApiTest extends TestCase
             ]);
     }
 
-    public function test_staff_notification_list_returns_safe_empty_response(): void
+    public function test_staff_notification_list_returns_staff_scoped_notifications(): void
     {
         $patient = $this->createUserWithRole('Patient');
         $staff = $this->createUserWithRole('Staff');
+        $otherStaff = $this->createUserWithRole('Staff');
         $service = $this->createService();
         $patientRecord = PatientRecord::resolveForUser($patient);
         $appointment = $this->createAppointment($patientRecord->id, $service->id, '2026-04-05', '13:00');
 
-        $this->createNotification(
-            $patientRecord->id,
+        $this->createStaffNotification(
+            (int) $staff->id,
             $appointment->id,
-            'Patient notification',
-            'Only the patient should ever receive this.',
+            'New appointment booked',
+            'Staff should receive this booking notification.',
             null,
             '2026-03-29 14:00:00',
+        );
+
+        $this->createStaffNotification(
+            (int) $otherStaff->id,
+            $appointment->id,
+            'Foreign staff notification',
+            'This should never leak.',
+            null,
+            '2026-03-30 08:00:00',
         );
 
         Sanctum::actingAs($staff);
 
         $this->getJson('/api/v1/staff/notifications')
             ->assertOk()
-            ->assertExactJson([
-                'notifications' => [],
-                'unread_count' => 0,
+            ->assertJsonCount(1, 'notifications')
+            ->assertJsonPath('unread_count', 1)
+            ->assertJsonPath('notifications.0.title', 'New appointment booked')
+            ->assertJsonPath('notifications.0.message', 'Staff should receive this booking notification.')
+            ->assertJsonMissing([
+                'title' => 'Foreign staff notification',
+                'message' => 'This should never leak.',
             ]);
     }
 
@@ -157,6 +172,31 @@ class NotificationListRetrievalApiTest extends TestCase
             'patient_id' => $patientRecordId,
             'appointment_id' => $appointmentId,
             'type' => 'appointment_update',
+            'title' => $title,
+            'message' => $message,
+            'read_at' => $readAt !== null ? Carbon::parse($readAt) : null,
+        ]);
+
+        $notification->forceFill([
+            'created_at' => Carbon::parse($createdAt),
+            'updated_at' => Carbon::parse($createdAt),
+        ])->saveQuietly();
+
+        return $notification->fresh();
+    }
+
+    private function createStaffNotification(
+        int $userId,
+        int $appointmentId,
+        string $title,
+        string $message,
+        ?string $readAt,
+        string $createdAt,
+    ): StaffNotification {
+        $notification = StaffNotification::create([
+            'user_id' => $userId,
+            'appointment_id' => $appointmentId,
+            'type' => 'staff_appointment_created',
             'title' => $title,
             'message' => $message,
             'read_at' => $readAt !== null ? Carbon::parse($readAt) : null,

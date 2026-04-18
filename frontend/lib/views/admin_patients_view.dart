@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../services/patient_record_service.dart';
+import '../widgets/app_alert_dialog.dart';
+import '../widgets/admin_data_table.dart';
+import '../widgets/paginated_table_footer.dart';
 
 class AdminPatientsView extends StatefulWidget {
   const AdminPatientsView({super.key, required this.patientRecordService});
@@ -11,8 +15,14 @@ class AdminPatientsView extends StatefulWidget {
 }
 
 class _AdminPatientsViewState extends State<AdminPatientsView> {
+  static const int _pageSize = 25;
+
   List<Map<String, dynamic>> _patients = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMorePages = false;
+  int _currentPage = 0;
+  int _totalPatients = 0;
 
   @override
   void initState() {
@@ -20,26 +30,73 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
     _loadPatients();
   }
 
-  Future<void> _loadPatients() async {
+  Future<void> _loadPatients({bool forceRefresh = false}) async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      final patients = await widget.patientRecordService.getAllPatients();
+      if (forceRefresh) {
+        widget.patientRecordService.invalidatePatientCaches();
+      }
+
+      final patientsPage = await widget.patientRecordService.getPatientsPage(
+        page: 1,
+        perPage: _pageSize,
+      );
       if (!mounted) return;
       setState(() {
-        _patients = patients;
+        _patients = patientsPage.items;
+        _currentPage = patientsPage.currentPage;
+        _totalPatients = patientsPage.totalItems;
+        _hasMorePages = patientsPage.hasMorePages;
         _isLoading = false;
+        _isLoadingMore = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
+        _isLoadingMore = false;
       });
       // Handle error visually if necessary
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to load patient records')),
+      );
+    }
+  }
+
+  Future<void> _loadMorePatients() async {
+    if (_isLoading || _isLoadingMore || !_hasMorePages) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final patientsPage = await widget.patientRecordService.getPatientsPage(
+        page: _currentPage + 1,
+        perPage: _pageSize,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _patients = <Map<String, dynamic>>[..._patients, ...patientsPage.items];
+        _currentPage = patientsPage.currentPage;
+        _totalPatients = patientsPage.totalItems;
+        _hasMorePages = patientsPage.hasMorePages;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingMore = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load more patient records')),
       );
     }
   }
@@ -53,7 +110,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
-        return AlertDialog(
+        return AppAlertDialog(
           title: const Text('Deactivate Patient Account'),
           content: Text(
             'Are you sure you want to deactivate the account for $fullName?',
@@ -83,7 +140,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
       );
       if (!mounted) return;
 
-      await _loadPatients();
+      await _loadPatients(forceRefresh: true);
 
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -161,115 +218,117 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                     )
                   else
                     Expanded(
-                      child: SingleChildScrollView(
-                        child: DataTable(
-                          headingRowColor: WidgetStateProperty.resolveWith(
-                            (states) => Colors.transparent,
-                          ),
-                          columns: const [
-                            DataColumn(
-                              label: Text(
-                                'No.',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Patient',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Gender',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Contact',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Action',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                          ],
-                          rows: _patients.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final patient = entry.value;
-                            return DataRow(
-                              cells: [
-                                DataCell(
-                                  Text(
-                                    '${index + 1}',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.black87,
-                                    ),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: AdminDataTable(
+                              minWidth: 760,
+                              columnSpacing: 26,
+                              columns: <DataColumn>[
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'No.',
+                                    width: 52,
+                                    alignment: Alignment.center,
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    _displayText(patient['full_name']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Patient',
+                                    width: 240,
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    _displayText(patient['gender']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Gender',
+                                    width: 108,
                                   ),
                                 ),
-                                DataCell(
-                                  Text(
-                                    _displayText(patient['contact_number']),
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      color: Colors.black87,
-                                    ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Contact',
+                                    width: 170,
                                   ),
                                 ),
-                                DataCell(
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      color: Color(0xFFD32F2F),
-                                    ),
-                                    onPressed: () =>
-                                        _confirmDeactivate(patient),
-                                    tooltip: 'Deactivate account',
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    'Action',
+                                    width: 72,
+                                    alignment: Alignment.center,
                                   ),
                                 ),
                               ],
-                            );
-                          }).toList(),
-                        ),
+                              rows: _patients.asMap().entries.map((entry) {
+                                final int index = entry.key;
+                                final Map<String, dynamic> patient =
+                                    entry.value;
+
+                                return DataRow.byIndex(
+                                  index: index,
+                                  color: AdminDataTable.rowColor(index),
+                                  cells: <DataCell>[
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        '${index + 1}',
+                                        width: 52,
+                                        alignment: Alignment.center,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _displayText(patient['full_name']),
+                                        width: 240,
+                                        maxLines: 2,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _displayText(patient['gender']),
+                                        width: 108,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        _displayText(patient['contact_number']),
+                                        width: 170,
+                                        maxLines: 2,
+                                      ),
+                                    ),
+                                    DataCell(
+                                      SizedBox(
+                                        width: 72,
+                                        child: Center(
+                                          child: IconButton(
+                                            icon: const Icon(
+                                              Icons.delete,
+                                              color: Color(0xFFD32F2F),
+                                            ),
+                                            onPressed: () =>
+                                                _confirmDeactivate(patient),
+                                            tooltip: 'Deactivate account',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                          PaginatedTableFooter(
+                            loadedItemCount: _patients.length,
+                            totalItemCount: _totalPatients,
+                            itemLabel: 'patients',
+                            hasMorePages: _hasMorePages,
+                            isLoadingMore: _isLoadingMore,
+                            onLoadMore: _loadMorePatients,
+                            loadMoreButtonKey: const Key(
+                              'admin-patients-load-more',
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],

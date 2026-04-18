@@ -16,6 +16,7 @@ import '../services/admin_dashboard_service.dart';
 import '../services/admin_staff_service.dart';
 import '../services/admin_settings_service.dart';
 import '../services/appointment_service.dart';
+import '../widgets/dashboard_stat_card.dart';
 
 class AdminDashboardView extends StatefulWidget {
   const AdminDashboardView({
@@ -70,9 +71,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     _loadDashboardStats();
   }
 
-  Future<void> _loadDashboardStats() async {
+  Future<void> _loadDashboardStats({bool forceRefresh = false}) async {
+    if (mounted) {
+      setState(() {
+        _isLoadingStats = true;
+      });
+    }
+
     try {
-      final stats = await _adminDashboardService.getStats();
+      final stats = await _adminDashboardService.getStats(
+        forceRefresh: forceRefresh,
+      );
       if (!mounted) return;
       setState(() {
         _dashboardStats = stats;
@@ -228,6 +237,47 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   }
 
   Widget _buildDashboardContent() {
+    final List<Map<String, dynamic>> cards = <Map<String, dynamic>>[
+      <String, dynamic>{
+        'route': 'Patients',
+        'title': 'Patients',
+        'value': _isLoadingStats
+            ? '...'
+            : (_dashboardStats['patients_count'] ?? 0).toString(),
+        'icon': Icons.badge_outlined,
+        'accentColor': const Color(0xFF50786A),
+        'backgroundColor': const Color(0xFFEAF3F0),
+      },
+      <String, dynamic>{
+        'route': 'Staff',
+        'title': 'Staff & Interns',
+        'value': _isLoadingStats
+            ? '...'
+            : (_dashboardStats['staff_accounts_count'] ?? 0).toString(),
+        'icon': Icons.medical_services_outlined,
+        'accentColor': const Color(0xFF6E9A92),
+        'backgroundColor': const Color(0xFFE9F5F3),
+      },
+      <String, dynamic>{
+        'route': 'Master List',
+        'title': 'Master List',
+        'value': _isLoadingStats
+            ? '...'
+            : (_dashboardStats['appointments_count'] ?? 0).toString(),
+        'icon': Icons.list_alt,
+        'accentColor': const Color(0xFFBCA663),
+        'backgroundColor': const Color(0xFFFBF6E8),
+      },
+      <String, dynamic>{
+        'route': 'Settings',
+        'title': 'Settings',
+        'value': '',
+        'icon': Icons.settings,
+        'accentColor': const Color(0xFFBA6952),
+        'backgroundColor': const Color(0xFFFCEEE9),
+      },
+    ];
+
     return SingleChildScrollView(
       padding: MobileTypography.screenPadding(context),
       child: Column(
@@ -241,164 +291,65 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               color: Colors.black,
             ),
           ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _isLoadingStats
+                ? null
+                : () => _loadDashboardStats(forceRefresh: true),
+            icon: const Icon(Icons.refresh),
+            label: Text(_isLoadingStats ? 'Refreshing...' : 'Refresh'),
+          ),
           SizedBox(height: MobileTypography.isPhone(context) ? 24 : 48),
+          LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final double contentWidth = constraints.maxWidth > 1120
+                  ? 1120
+                  : constraints.maxWidth;
+              final int crossAxisCount = contentWidth >= 1040
+                  ? 4
+                  : contentWidth >= 720
+                  ? 2
+                  : 1;
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1120),
+                  child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: cards.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      mainAxisExtent: 204,
+                    ),
+                    itemBuilder: (BuildContext context, int index) {
+                      final Map<String, dynamic> card = cards[index];
+                      final Color accentColor = card['accentColor']! as Color;
 
-          Wrap(
-            spacing: 32,
-            runSpacing: 32,
-            alignment: WrapAlignment.center,
-            children: [
-              _buildDashboardCard(
-                title: 'Patients',
-                value: _isLoadingStats
-                    ? '...'
-                    : (_dashboardStats['patients_count'] ?? 0).toString(),
-                icon: Icons.badge_outlined,
-                mainColor: const Color(
-                  0xFF6A9A8B,
-                ), // Slightly grayish green-blue
-                darkColor: const Color(0xFF50786A),
-              ),
-              _buildDashboardCard(
-                title: 'Staff & Interns',
-                value: _isLoadingStats
-                    ? '...'
-                    : (_dashboardStats['staff_accounts_count'] ?? 0).toString(),
-                icon: Icons.medical_services_outlined,
-                mainColor: const Color(0xFF86B9B0), // Teal
-                darkColor: const Color(0xFF6E9A92),
-              ),
-              _buildDashboardCard(
-                title: 'Master List',
-                value: _isLoadingStats
-                    ? '...'
-                    : (_dashboardStats['appointments_count'] ?? 0).toString(),
-                icon: Icons.list_alt,
-                mainColor: const Color(0xFFE5CC82), // Sand Yellow
-                darkColor: const Color(0xFFBCA663),
-              ),
-              _buildDashboardCard(
-                title: 'Settings',
-                value: '', // No number from design
-                icon: Icons.settings,
-                mainColor: const Color(0xFFE28B71), // Orange Red
-                darkColor: const Color(0xFFBA6952),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDashboardCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color mainColor,
-    required Color darkColor,
-  }) {
-    return Container(
-      width: MediaQuery.of(context).size.width < 640 ? double.infinity : 480,
-      height: MediaQuery.of(context).size.width < 640 ? 188 : 198,
-      decoration: BoxDecoration(
-        color: mainColor,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 36.0,
-                vertical: 24.0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (value.isNotEmpty)
-                        Text(
-                          value,
-                          style: TextStyle(
-                            fontSize: MobileTypography.stat(context),
-                            fontWeight: FontWeight.w900,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      if (value.isEmpty) const SizedBox(height: 24),
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: MobileTypography.cardTitle(context),
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Icon(
-                    icon,
-                    size: 80,
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                // Navigate to the respective page when clicking More Info
-                setState(() {
-                  _activeRoute = title;
-                });
-              },
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(8),
-                bottomRight: Radius.circular(8),
-              ),
-              child: Ink(
-                height: 46,
-                decoration: BoxDecoration(
-                  color: darkColor,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(8),
-                    bottomRight: Radius.circular(8),
+                      return DashboardStatCard(
+                        title: card['title']! as String,
+                        value: card['value']! as String,
+                        icon: card['icon']! as IconData,
+                        accentColor: accentColor,
+                        backgroundColor: card['backgroundColor']! as Color,
+                        contentAlignment: DashboardCardContentAlignment.start,
+                        contentColor: const Color(0xFF243746),
+                        iconColor: accentColor,
+                        footerLabel: 'More Info',
+                        footerBackgroundColor: accentColor,
+                        footerTextColor: Colors.white,
+                        onTap: () {
+                          setState(() {
+                            _activeRoute = card['route']! as String;
+                          });
+                        },
+                      );
+                    },
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'More Info',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: MobileTypography.button(context),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_circle_right,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),

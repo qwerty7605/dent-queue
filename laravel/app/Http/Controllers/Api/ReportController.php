@@ -31,8 +31,14 @@ class ReportController extends Controller
      */
     public function index()
     {
+        $filters = request()->query();
+        unset($filters['force_refresh']);
+
         return response()->json([
-            'data' => $this->reportService->getDetailedRecords(),
+            'data' => $this->reportService->getDetailedRecords(
+                $filters,
+                request()->boolean('force_refresh'),
+            ),
         ]);
     }
 
@@ -40,7 +46,10 @@ class ReportController extends Controller
     {
         $filters = $this->validateReportFilters($request);
         $format = $this->normalizeExportFormat($request->query('format'));
-        $records = $this->reportService->getDetailedRecordsForExport($filters);
+        $records = $this->reportService->getDetailedRecordsForExport(
+            $filters,
+            $request->boolean('force_refresh'),
+        );
         $headers = $this->exportHeaders();
 
         return match ($format) {
@@ -152,7 +161,7 @@ class ReportController extends Controller
             $this->sanitizeExportValue($record['patient_name']),
             $this->sanitizeExportValue($record['service_type']),
             $this->sanitizeExportValue($record['appointment_date']),
-            $this->sanitizeExportValue($record['appointment_time']),
+            $this->sanitizeExportValue($this->formatExportAppointmentTime($record['appointment_time'] ?? null)),
             $this->sanitizeExportValue($record['status']),
             $this->sanitizeExportValue($record['booking_type']),
             $this->sanitizeExportValue($record['queue_number']),
@@ -176,6 +185,24 @@ class ReportController extends Controller
         $string = trim((string) ($value ?? ''));
 
         return (string) preg_replace('/[\x00-\x1F\x7F]+/u', ' ', $string);
+    }
+
+    private function formatExportAppointmentTime(mixed $value): string
+    {
+        $time = trim((string) ($value ?? ''));
+        if ($time === '' || $time === '-') {
+            return $time;
+        }
+
+        foreach (['H:i:s', 'H:i', 'g:i A'] as $format) {
+            try {
+                return \Illuminate\Support\Carbon::createFromFormat($format, $time)->format('g:i A');
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return $time;
     }
 
     private function buildExcelDocument(array $headers, array $records): string

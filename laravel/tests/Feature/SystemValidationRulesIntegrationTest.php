@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ClinicSetting;
+use App\Models\DoctorUnavailability;
 use App\Models\PatientRecord;
 use App\Models\Role;
 use App\Models\Service;
@@ -79,6 +80,58 @@ class SystemValidationRulesIntegrationTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['time_slot'])
             ->assertJsonPath('errors.time_slot.0', 'This time slot is already booked. Please choose another time.');
+    }
+
+    public function test_booking_allows_distinct_queue_times_on_the_same_date(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService();
+        $firstPatient = $this->createUserWithRole('Patient');
+        $secondPatient = $this->createUserWithRole('Patient');
+        $appointmentDate = now()->next('Tuesday')->format('Y-m-d');
+        Sanctum::actingAs($staff);
+
+        $this->postJson('/api/v1/admin/appointments', [
+            'patient_id' => $firstPatient->id,
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '10:00',
+        ])->assertCreated();
+
+        $response = $this->postJson('/api/v1/admin/appointments', [
+            'patient_id' => $secondPatient->id,
+            'service_type' => $service->name,
+            'appointment_date' => $appointmentDate,
+            'appointment_time' => '10:15',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('appointment.appointment_time', '10:15');
+    }
+
+    public function test_booking_rejects_doctor_unavailable_time_range(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $service = $this->createService();
+        $blockedDate = now()->next('Thursday')->format('Y-m-d');
+        Sanctum::actingAs($patient);
+
+        DoctorUnavailability::create([
+            'unavailable_date' => $blockedDate,
+            'start_time' => '13:00',
+            'end_time' => '17:00',
+            'reason' => 'Doctor Unavailable - afternoon clinic closed',
+        ]);
+
+        $response = $this->postJson('/api/v1/patient/appointments', [
+            'service_id' => $service->id,
+            'appointment_date' => $blockedDate,
+            'time_slot' => '14:00',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['time_slot'])
+            ->assertJsonPath('errors.time_slot.0', 'Doctor Unavailable: Doctor Unavailable - afternoon clinic closed');
     }
 
     public function test_booking_rejects_missing_patient_record_without_recreating_identity(): void

@@ -29,7 +29,10 @@ class BookingRulesEngine
         'Saturday',
     ];
 
-    public function __construct(protected ClinicSettingService $clinicSettingService)
+    public function __construct(
+        protected ClinicSettingService $clinicSettingService,
+        protected DoctorAvailabilityService $doctorAvailabilityService,
+    )
     {
     }
 
@@ -107,6 +110,19 @@ class BookingRulesEngine
                             $close->format('g:i A'),
                         ),
                 );
+            }
+
+            if (isset($payload['appointment_date']) && ! $validator->errors()->has('time_slot')) {
+                try {
+                    $this->doctorAvailabilityService->assertDateTimeAvailable(
+                        (string) $payload['appointment_date'],
+                        $normalizedTimeSlot,
+                    );
+                } catch (ValidationException $exception) {
+                    foreach (($exception->errors()['time_slot'] ?? []) as $message) {
+                        $validator->errors()->add('time_slot', (string) $message);
+                    }
+                }
             }
         });
 

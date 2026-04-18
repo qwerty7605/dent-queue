@@ -131,4 +131,68 @@ class AdminStaffControllerTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['username']);
     }
+
+    public function test_admin_can_fetch_paginated_staff_listing(): void
+    {
+        $internRole = Role::firstOrCreate(['name' => 'intern']);
+
+        $staffOne = User::create([
+            'first_name' => 'Staff',
+            'last_name' => 'One',
+            'email' => 'staff-one@test.com',
+            'username' => 'staffone',
+            'password' => bcrypt('password'),
+            'role_id' => $this->staffRole->id,
+            'phone_number' => '09123456780',
+            'gender' => 'female',
+            'is_active' => true,
+        ]);
+        $staffTwo = User::create([
+            'first_name' => 'Staff',
+            'last_name' => 'Two',
+            'email' => 'staff-two@test.com',
+            'username' => 'stafftwo',
+            'password' => bcrypt('password'),
+            'role_id' => $this->staffRole->id,
+            'phone_number' => '09123456781',
+            'gender' => 'male',
+            'is_active' => true,
+        ]);
+        $intern = User::create([
+            'first_name' => 'Intern',
+            'last_name' => 'User',
+            'email' => 'intern@test.com',
+            'username' => 'internuser',
+            'password' => bcrypt('password'),
+            'role_id' => $internRole->id,
+            'phone_number' => '09123456782',
+            'gender' => 'other',
+            'is_active' => true,
+        ]);
+        $inactiveStaff = User::create([
+            'first_name' => 'Inactive',
+            'last_name' => 'Staff',
+            'email' => 'inactive-staff@test.com',
+            'username' => 'inactivestaff',
+            'password' => bcrypt('password'),
+            'role_id' => $this->staffRole->id,
+            'phone_number' => '09123456783',
+            'gender' => 'female',
+            'is_active' => false,
+        ]);
+
+        StaffRecord::syncFromUser($staffOne);
+        StaffRecord::syncFromUser($staffTwo);
+        StaffRecord::syncFromUser($intern);
+        StaffRecord::syncFromUser($inactiveStaff);
+
+        $response = $this->actingAs($this->admin)->getJson('/api/v1/admin/staff?page=1&per_page=2');
+
+        $response->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.per_page', 2)
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.has_more_pages', true);
+    }
 }

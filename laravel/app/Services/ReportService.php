@@ -6,6 +6,7 @@ use App\Models\Appointment;
 use App\Models\Report;
 use App\Support\AppointmentQueueOrder;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -25,6 +26,11 @@ class ReportService
         self::TREND_TYPE_WEEKLY,
         self::TREND_TYPE_MONTHLY,
     ];
+
+    public function __construct(
+        private readonly CentralizedCacheService $cacheService,
+    ) {
+    }
 
     public function createReport(array $data)
     {
@@ -73,140 +79,156 @@ class ReportService
         };
     }
 
-    public function getReportSummary(array $filters = []): array
+    public function getReportSummary(array $filters = [], bool $forceRefresh = false): array
     {
-        $summary = $this->newFilteredAppointmentsQuery($filters)
-            ->selectRaw('COUNT(*) as total_appointments')
-            ->selectRaw(sprintf(
-                "SUM(CASE WHEN appointments.status = '%s' THEN 1 ELSE 0 END) as pending_count",
-                self::STATUS_PENDING,
-            ))
-            ->selectRaw(sprintf(
-                "SUM(CASE WHEN appointments.status = '%s' THEN 1 ELSE 0 END) as approved_count",
-                self::STATUS_CONFIRMED,
-            ))
-            ->selectRaw(sprintf(
-                "SUM(CASE WHEN appointments.status = '%s' THEN 1 ELSE 0 END) as completed_count",
-                self::STATUS_COMPLETED,
-            ))
-            ->selectRaw(sprintf(
-                "SUM(CASE WHEN appointments.status = '%s' THEN 1 ELSE 0 END) as cancelled_count",
-                self::STATUS_CANCELLED,
-            ))
-            ->first();
+        return $this->cacheService->rememberReportSummary($filters, function () use ($filters): array {
+            $summary = $this->newFilteredAppointmentsQuery($filters)
+                ->selectRaw('COUNT(*) as total_appointments')
+                ->selectRaw(sprintf(
+                    "SUM(CASE WHEN appointments.status = '%s' THEN 1 ELSE 0 END) as pending_count",
+                    self::STATUS_PENDING,
+                ))
+                ->selectRaw(sprintf(
+                    "SUM(CASE WHEN appointments.status = '%s' THEN 1 ELSE 0 END) as approved_count",
+                    self::STATUS_CONFIRMED,
+                ))
+                ->selectRaw(sprintf(
+                    "SUM(CASE WHEN appointments.status = '%s' THEN 1 ELSE 0 END) as completed_count",
+                    self::STATUS_COMPLETED,
+                ))
+                ->selectRaw(sprintf(
+                    "SUM(CASE WHEN appointments.status = '%s' THEN 1 ELSE 0 END) as cancelled_count",
+                    self::STATUS_CANCELLED,
+                ))
+                ->first();
+
+            return [
+                'total_appointments' => (int) ($summary->total_appointments ?? 0),
+                'pending_count' => (int) ($summary->pending_count ?? 0),
+                'approved_count' => (int) ($summary->approved_count ?? 0),
+                'completed_count' => (int) ($summary->completed_count ?? 0),
+                'cancelled_count' => (int) ($summary->cancelled_count ?? 0),
+                'total_report_records' => $this->getReportRecordCount($filters),
+            ];
+        }, $forceRefresh);
+    }
+
+    public function getStatusDistribution(array $filters = [], bool $forceRefresh = false): array
+    {
+        return $this->cacheService->rememberReportStatusDistribution($filters, function () use ($filters): array {
+            $counts = $this->newFilteredAppointmentsQuery($filters)
+                ->selectRaw('appointments.status, COUNT(*) as count')
+                ->groupBy('appointments.status')
+                ->get()
+                ->pluck('count', 'status')
+                ->all();
+
+            $statuses = [
+                self::STATUS_PENDING => self::STATUS_PENDING,
+                self::STATUS_CONFIRMED => 'approved',
+                self::STATUS_COMPLETED => self::STATUS_COMPLETED,
+                self::STATUS_CANCELLED => self::STATUS_CANCELLED,
+            ];
+
+            $data = [];
+            foreach ($statuses as $dbStatus => $label) {
+                $data[] = [
+                    'status' => $label,
+                    'count' => (int) ($counts[$dbStatus] ?? 0),
+                ];
+            }
+
+            return $data;
+        }, $forceRefresh);
+    }
+
+    public function getAppointmentTrends(string $trendType, array $filters = [], bool $forceRefresh = false): array
+    {
+        return $this->cacheService->rememberReportTrends($trendType, $filters, function () use ($trendType, $filters): array {
+            $appointments = $this->newFilteredAppointmentsQuery($filters)
+                ->orderBy('appointments.appointment_date')
+                ->get(['appointments.appointment_date']);
+
+            return $appointments
+                ->groupBy(function ($appointment) use ($trendType): string {
+                    return $this->formatTrendLabel(
+                        Carbon::parse((string) $appointment->appointment_date),
+                        $trendType,
+                    );
+                })
+                ->sortKeys()
+                ->map(function ($group, string $label) use ($trendType): array {
+                    return [
+                        'trend_type' => $trendType,
+                        'label' => $label,
+                        'count' => $group->count(),
+                    ];
+                })
+                ->values()
+                ->all();
+        }, $forceRefresh);
+    }
+
+    public function getDetailedRecords(array $filters = [], bool $forceRefresh = false): array
+    {
+        return $this->cacheService->rememberReportDetailedRecords($filters, function () use ($filters): array {
+            $appointments = $this->getDetailedRecordRows($filters);
+
+            return $appointments
+                ->map(fn ($appointment): array => $this->serializeDetailedRecord($appointment))
+                ->values()
+                ->all();
+        }, $forceRefresh);
+    }
+
+    public function getDetailedRecordsPage(array $filters = [], int $page = 1, int $perPage = 25): array
+    {
+        $paginator = $this->detailedRecordsQuery($filters)->paginate(
+            $perPage,
+            ['*'],
+            'page',
+            $page,
+        );
 
         return [
-            'total_appointments' => (int) ($summary->total_appointments ?? 0),
-            'pending_count' => (int) ($summary->pending_count ?? 0),
-            'approved_count' => (int) ($summary->approved_count ?? 0),
-            'completed_count' => (int) ($summary->completed_count ?? 0),
-            'cancelled_count' => (int) ($summary->cancelled_count ?? 0),
-            'total_report_records' => $this->getReportRecordCount($filters),
+            'data' => $paginator->getCollection()
+                ->map(fn ($appointment): array => $this->serializeDetailedRecord($appointment))
+                ->values()
+                ->all(),
+            'meta' => $this->paginationMeta($paginator),
         ];
     }
 
-    public function getStatusDistribution(array $filters = []): array
+    public function getDetailedRecordsForExport(array $filters = [], bool $forceRefresh = false): array
     {
-        $counts = $this->newFilteredAppointmentsQuery($filters)
-            ->selectRaw('appointments.status, COUNT(*) as count')
-            ->groupBy('appointments.status')
-            ->get()
-            ->pluck('count', 'status')
-            ->all();
+        return $this->cacheService->rememberReportExportRecords($filters, function () use ($filters): array {
+            return $this->getDetailedRecordRows($filters)
+                ->map(function ($appointment): array {
+                    $record = $this->mapDetailedRecord($appointment);
 
-        $statuses = [
-            self::STATUS_PENDING => self::STATUS_PENDING,
-            self::STATUS_CONFIRMED => 'approved',
-            self::STATUS_COMPLETED => self::STATUS_COMPLETED,
-            self::STATUS_CANCELLED => self::STATUS_CANCELLED,
-        ];
-
-        $data = [];
-        foreach ($statuses as $dbStatus => $label) {
-            $data[] = [
-                'status' => $label,
-                'count' => (int) ($counts[$dbStatus] ?? 0),
-            ];
-        }
-
-        return $data;
-    }
-
-    public function getAppointmentTrends(string $trendType, array $filters = []): array
-    {
-        $appointments = $this->newFilteredAppointmentsQuery($filters)
-            ->orderBy('appointments.appointment_date')
-            ->get(['appointments.appointment_date']);
-
-        return $appointments
-            ->groupBy(function ($appointment) use ($trendType): string {
-                return $this->formatTrendLabel(
-                    Carbon::parse((string) $appointment->appointment_date),
-                    $trendType,
-                );
-            })
-            ->sortKeys()
-            ->map(function ($group, string $label) use ($trendType): array {
-                return [
-                    'trend_type' => $trendType,
-                    'label' => $label,
-                    'count' => $group->count(),
-                ];
-            })
-            ->values()
-            ->all();
-    }
-
-    public function getDetailedRecords(array $filters = []): array
-    {
-        $appointments = $this->getDetailedRecordRows($filters);
-
-        return $appointments
-            ->map(function ($appointment): array {
-                $record = $this->mapDetailedRecord($appointment);
-
-                return [
-                    'appointment_id' => $record['appointment_id'],
-                    'patient_name' => $record['patient_name'],
-                    'service' => $record['service_type'],
-                    'service_type' => $record['service_type'],
-                    'date' => $record['appointment_date'],
-                    'appointment_date' => $record['appointment_date'],
-                    'appointment_time' => $record['appointment_time'],
-                    'contact' => $record['contact'],
-                    'status' => $record['status'],
-                    'booking_type' => $record['booking_type'],
-                    'queue_number' => $record['queue_number'],
-                    'created_at' => $record['created_at'],
-                ];
-            })
-            ->values()
-            ->all();
-    }
-
-    public function getDetailedRecordsForExport(array $filters = []): array
-    {
-        return $this->getDetailedRecordRows($filters)
-            ->map(function ($appointment): array {
-                $record = $this->mapDetailedRecord($appointment);
-
-                return [
-                    'appointment_id' => $record['appointment_id'],
-                    'patient_name' => $record['patient_name'],
-                    'service_type' => $record['service_type'],
-                    'appointment_date' => $record['appointment_date'],
-                    'appointment_time' => $record['appointment_time'],
-                    'status' => $record['status'],
-                    'booking_type' => $record['booking_type'],
-                    'queue_number' => $record['queue_number'],
-                    'created_at' => $record['created_at'],
-                ];
-            })
-            ->values()
-            ->all();
+                    return [
+                        'appointment_id' => $record['appointment_id'],
+                        'patient_name' => $record['patient_name'],
+                        'service_type' => $record['service_type'],
+                        'appointment_date' => $record['appointment_date'],
+                        'appointment_time' => $record['appointment_time'],
+                        'status' => $record['status'],
+                        'booking_type' => $record['booking_type'],
+                        'queue_number' => $record['queue_number'],
+                        'created_at' => $record['created_at'],
+                    ];
+                })
+                ->values()
+                ->all();
+        }, $forceRefresh);
     }
 
     private function getDetailedRecordRows(array $filters)
+    {
+        return $this->detailedRecordsQuery($filters)->get();
+    }
+
+    private function detailedRecordsQuery(array $filters): Builder
     {
         return $this->newFilteredAppointmentsQuery($filters)
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
@@ -226,8 +248,7 @@ class ReportService
                 'appointments.notes',
                 'patient_records.user_id',
                 'queues.queue_number',
-            ])
-            ->get();
+            ]);
     }
 
     private function mapDetailedRecord(object $appointment): array
@@ -284,6 +305,26 @@ class ReportService
                 $this->newFilteredAppointmentsQuery($filters)->select('appointments.id'),
             )
             ->count();
+    }
+
+    private function serializeDetailedRecord(object $appointment): array
+    {
+        $record = $this->mapDetailedRecord($appointment);
+
+        return [
+            'appointment_id' => $record['appointment_id'],
+            'patient_name' => $record['patient_name'],
+            'service' => $record['service_type'],
+            'service_type' => $record['service_type'],
+            'date' => $record['appointment_date'],
+            'appointment_date' => $record['appointment_date'],
+            'appointment_time' => $record['appointment_time'],
+            'contact' => $record['contact'],
+            'status' => $record['status'],
+            'booking_type' => $record['booking_type'],
+            'queue_number' => $record['queue_number'],
+            'created_at' => $record['created_at'],
+        ];
     }
 
     private function newFilteredAppointmentsQuery(array $filters): Builder
@@ -377,12 +418,25 @@ class ReportService
 
         foreach (['H:i:s', 'H:i'] as $format) {
             try {
-                return Carbon::createFromFormat($format, $normalized)->format('g:i A');
+                return Carbon::createFromFormat($format, $normalized)->format('H:i');
             } catch (\Throwable) {
                 continue;
             }
         }
 
         return $normalized;
+    }
+
+    private function paginationMeta(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'from' => $paginator->firstItem(),
+            'to' => $paginator->lastItem(),
+            'has_more_pages' => $paginator->hasMorePages(),
+        ];
     }
 }

@@ -19,6 +19,11 @@ class QueueService
     private const ELIGIBLE_CALL_STATUSES = ['confirmed'];
     private const ACTIVE_DISPLAY_STATUSES = ['pending', 'confirmed', 'completed'];
 
+    public function __construct(
+        private readonly CentralizedCacheService $cacheService,
+    ) {
+    }
+
     public function generateQueueNumber(?int $appointmentId = null)
     {
         if ($appointmentId === null) {
@@ -68,7 +73,7 @@ class QueueService
         });
     }
 
-    public function syncQueueNumbersForDate(string $appointmentDate): void
+    public function syncQueueNumbersForDate(string $appointmentDate, bool $suppressQueueEvents = false): void
     {
         $activeAppointments = Appointment::query()
             ->whereDate('appointment_date', $appointmentDate)
@@ -93,63 +98,47 @@ class QueueService
             ->lockForUpdate()
             ->get()
             ->keyBy(static fn (Queue $queue): int => (int) $queue->appointment_id);
-
-        $staleQueueIds = $existingQueues
-            ->reject(static fn (Queue $queue, int $appointmentId): bool => in_array($appointmentId, $activeAppointmentIds, true))
-            ->pluck('id')
-            ->map(static fn (mixed $id): int => (int) $id)
-            ->values()
-            ->all();
-
-        if ($staleQueueIds !== []) {
-            Queue::query()->whereIn('id', $staleQueueIds)->delete();
-            $existingQueues = $existingQueues->except(
-                $existingQueues
-                    ->filter(static fn (Queue $queue): bool => in_array((int) $queue->id, $staleQueueIds, true))
-                    ->keys()
-                    ->all(),
-            );
-        }
-
-        $temporaryQueueNumber = max(
-            1000,
-            ((int) ($existingQueues->max('queue_number') ?? 0)) + 1000,
+        $calledStateByAppointmentId = $existingQueues->mapWithKeys(
+            static fn (Queue $queue, int $appointmentId): array => [
+                $appointmentId => (bool) $queue->is_called,
+            ],
         );
 
-        foreach ($activeAppointmentIds as $appointmentId) {
-            if ($existingQueues->has($appointmentId)) {
-                continue;
+        $persist = function () use (
+            $existingQueues,
+            $activeAppointmentIds,
+            $calledStateByAppointmentId,
+            $appointmentDate,
+        ): void {
+            if ($existingQueues->isNotEmpty()) {
+                Queue::query()
+                    ->whereIn(
+                        'id',
+                        $existingQueues
+                            ->pluck('id')
+                            ->map(static fn (mixed $id): int => (int) $id)
+                            ->all(),
+                    )
+                    ->delete();
             }
 
-            $queue = Queue::query()->create([
-                'appointment_id' => $appointmentId,
-                'queue_date' => $appointmentDate,
-                'queue_number' => $temporaryQueueNumber++,
-                'is_called' => false,
-            ]);
+            foreach ($activeAppointmentIds as $index => $appointmentId) {
+                Queue::query()->create([
+                    'appointment_id' => $appointmentId,
+                    'queue_date' => $appointmentDate,
+                    'queue_number' => $index + 1,
+                    'is_called' => (bool) ($calledStateByAppointmentId[$appointmentId] ?? false),
+                ]);
+            }
+        };
 
-            $existingQueues->put($appointmentId, $queue);
+        if ($suppressQueueEvents) {
+            Queue::withoutEvents($persist);
+
+            return;
         }
 
-        foreach ($activeAppointmentIds as $appointmentId) {
-            /** @var Queue $queue */
-            $queue = $existingQueues->get($appointmentId);
-            $queue->forceFill([
-                'queue_date' => $appointmentDate,
-                'queue_number' => $temporaryQueueNumber++,
-            ])->save();
-        }
-
-        $finalQueueNumber = 1;
-
-        foreach ($activeAppointmentIds as $appointmentId) {
-            /** @var Queue $queue */
-            $queue = $existingQueues->get($appointmentId);
-            $queue->forceFill([
-                'queue_date' => $appointmentDate,
-                'queue_number' => $finalQueueNumber++,
-            ])->save();
-        }
+        $persist();
     }
 
     public function removeQueueForAppointment(Appointment $appointment): void
@@ -164,70 +153,96 @@ class QueueService
         });
     }
 
-    public function getQueueSnapshot(?int $patientRecordId = null, ?string $date = null): array
+    public function getQueueSnapshot(?int $patientRecordId = null, ?string $date = null, bool $forceRefresh = false): array
     {
         $queueDate = $date !== null
             ? Carbon::createFromFormat('Y-m-d', $date)->toDateString()
             : Carbon::today(config('app.timezone'))->toDateString();
 
-        $hasActiveAppointmentsForDate = Appointment::query()
-            ->whereDate('appointment_date', $queueDate)
-            ->whereNull('deleted_at')
-            ->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
-            ->exists();
+        $summary = $this->cacheService->rememberQueueSummary($queueDate, function () use ($queueDate): array {
+            $hasActiveAppointmentsForDate = Appointment::query()
+                ->whereDate('appointment_date', $queueDate)
+                ->whereNull('deleted_at')
+                ->whereIn('status', self::ACTIVE_QUEUE_STATUSES)
+                ->exists();
 
-        if ($hasActiveAppointmentsForDate) {
-            $this->syncQueueNumbersForDate($queueDate);
-        }
+            if ($hasActiveAppointmentsForDate) {
+                $this->syncQueueNumbersForDate($queueDate, true);
+            }
 
-        $nowServing = Queue::query()
-            ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
-            ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
-            ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
-            ->where('queues.queue_date', $queueDate)
-            ->whereNull('appointments.deleted_at')
-            ->where('queues.is_called', true)
-            ->whereIn('appointments.status', ['confirmed', 'completed'])
-            ->tap(static fn ($query) => AppointmentQueueOrder::applyDescending($query))
-            ->select([
-                'queues.queue_number',
-                'queues.is_called',
-                'appointments.id as appointment_id',
-                'appointments.status',
-                'appointments.time_slot',
-                'services.name as service_name',
-                'patient_records.first_name',
-                'patient_records.last_name',
-            ])
-            ->first();
+            $nowServing = Queue::query()
+                ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
+                ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
+                ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+                ->where('queues.queue_date', $queueDate)
+                ->whereNull('appointments.deleted_at')
+                ->where('queues.is_called', true)
+                ->whereIn('appointments.status', ['confirmed', 'completed'])
+                ->tap(static fn ($query) => AppointmentQueueOrder::applyDescending($query))
+                ->select([
+                    'queues.queue_number',
+                    'queues.is_called',
+                    'appointments.id as appointment_id',
+                    'appointments.status',
+                    'appointments.time_slot',
+                    'services.name as service_name',
+                    'patient_records.first_name',
+                    'patient_records.last_name',
+                ])
+                ->first();
 
-        $nextUp = Queue::query()
-            ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
-            ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
-            ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
-            ->where('queues.queue_date', $queueDate)
-            ->whereNull('appointments.deleted_at')
-            ->where('queues.is_called', false)
-            ->whereIn('appointments.status', self::ELIGIBLE_CALL_STATUSES)
-            ->tap(static fn ($query) => AppointmentQueueOrder::apply($query))
-            ->select([
-                'queues.queue_number',
-                'queues.is_called',
-                'appointments.id as appointment_id',
-                'appointments.status',
-                'appointments.time_slot',
-                'services.name as service_name',
-                'patient_records.first_name',
-                'patient_records.last_name',
-            ])
-            ->first();
+            $nextUp = Queue::query()
+                ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
+                ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
+                ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+                ->where('queues.queue_date', $queueDate)
+                ->whereNull('appointments.deleted_at')
+                ->where('queues.is_called', false)
+                ->whereIn('appointments.status', self::ELIGIBLE_CALL_STATUSES)
+                ->tap(static fn ($query) => AppointmentQueueOrder::apply($query))
+                ->select([
+                    'queues.queue_number',
+                    'queues.is_called',
+                    'appointments.id as appointment_id',
+                    'appointments.status',
+                    'appointments.time_slot',
+                    'services.name as service_name',
+                    'patient_records.first_name',
+                    'patient_records.last_name',
+                ])
+                ->first();
+
+            $totalQueued = Queue::query()
+                ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
+                ->where('queues.queue_date', $queueDate)
+                ->whereNull('appointments.deleted_at')
+                ->whereIn('appointments.status', self::ACTIVE_DISPLAY_STATUSES)
+                ->count();
+
+            return [
+                'date' => $queueDate,
+                'now_serving' => $nowServing !== null ? $this->formatQueueEntry($nowServing) : null,
+                'next_up' => $nextUp !== null ? $this->formatQueueEntry($nextUp) : null,
+                'queue_summary' => [
+                    'total_queued' => $totalQueued,
+                    'now_serving_number' => $nowServing !== null ? (int) $nowServing->queue_number : null,
+                    'next_queue_number' => $nextUp !== null ? (int) $nextUp->queue_number : null,
+                    'next_slot' => $nextUp !== null ? (string) $nextUp->time_slot : null,
+                ],
+            ];
+        }, $forceRefresh);
 
         return [
             'date' => $queueDate,
-            'now_serving' => $nowServing !== null ? $this->formatQueueEntry($nowServing) : null,
-            'next_up' => $nextUp !== null ? $this->formatQueueEntry($nextUp) : null,
+            'now_serving' => $summary['now_serving'],
+            'next_up' => $summary['next_up'],
+            'queue_summary' => $summary['queue_summary'],
             'patient_queue' => $patientRecordId !== null
-                ? $this->getPatientQueueEntry($patientRecordId, $queueDate, $nowServing !== null ? (int) $nowServing->queue_number : null)
+                ? $this->getPatientQueueEntry(
+                    $patientRecordId,
+                    $queueDate,
+                    $summary['queue_summary']['now_serving_number'],
+                )
                 : null,
         ];
     }
@@ -333,7 +348,8 @@ class QueueService
                         ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
                         ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
                         ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
-                        ->where('queues.id', (int) $calledQueue->id)
+                        ->where('queues.appointment_id', (int) $calledQueue->appointment_id)
+                        ->where('queues.queue_date', $queueDate)
                         ->whereNull('appointments.deleted_at')
                         ->select([
                             'queues.queue_number',

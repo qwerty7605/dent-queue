@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
 use App\Models\PatientNotification;
+use App\Models\StaffNotification;
+use App\Models\User;
 use App\Support\AppointmentQueueOrder;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\Eloquent\Builder;
@@ -44,6 +46,7 @@ class AppointmentService
     public function __construct(
         protected BookingRulesEngine $bookingRulesEngine,
         protected QueueService $queueService,
+        protected DoctorAvailabilityService $doctorAvailabilityService,
     )
     {
     }
@@ -109,8 +112,6 @@ class AppointmentService
 
     public function getApprovedAppointmentsByDate(string $date)
     {
-        $this->syncDailyQueueNumbers($date);
-
         return Appointment::query()
             ->join('queues', 'queues.appointment_id', '=', 'appointments.id')
             ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
@@ -296,6 +297,7 @@ class AppointmentService
 
                     $appointment->load(['patient', 'queue', 'service']);
                     $this->createBookingNotification($appointment);
+                    $this->createStaffBookingNotification($appointment);
 
                     if ($initialStatus === self::STATUS_CONFIRMED) {
                         $this->createApprovalNotification($appointment);
@@ -303,7 +305,7 @@ class AppointmentService
 
                     return $appointment;
                 });
-            }
+            },
         );
     }
 
@@ -662,19 +664,14 @@ class AppointmentService
         string $timeSlot,
         ?int $ignoreAppointmentId = null,
     ): void {
-        $conflictingAppointment = Appointment::query()
-            ->where('appointment_date', $appointmentDate)
-            ->where('time_slot', $timeSlot)
-            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES);
-
-        if ($ignoreAppointmentId !== null) {
-            $conflictingAppointment->whereKeyNot($ignoreAppointmentId);
-        }
-
-        if ($conflictingAppointment->exists()) {
-            throw ValidationException::withMessages([
-                'time_slot' => ['This time slot is already booked. Please choose another time.'],
-            ]);
+        try {
+            $this->doctorAvailabilityService->assertDateTimeAvailable(
+                $appointmentDate,
+                $timeSlot,
+                $ignoreAppointmentId,
+            );
+        } catch (ValidationException $exception) {
+            throw $exception;
         }
     }
 
@@ -716,6 +713,42 @@ class AppointmentService
                 (string) $appointment->appointment_date,
             ),
         ]);
+    }
+
+    private function createStaffBookingNotification(Appointment $appointment): void
+    {
+        $appointment->loadMissing(['patient.user.role', 'service']);
+
+        $patientName = trim(sprintf(
+            '%s %s',
+            (string) ($appointment->patient?->first_name ?? ''),
+            (string) ($appointment->patient?->last_name ?? ''),
+        ));
+        $serviceName = $this->resolveServiceType($appointment->service?->name, (int) $appointment->service_id);
+        $timeSlot = (string) $appointment->time_slot;
+
+        $recipientIds = User::query()
+            ->where('is_active', true)
+            ->whereHas('role', static function ($query): void {
+                $query->whereRaw('LOWER(name) IN (?, ?)', ['staff', 'admin']);
+            })
+            ->pluck('id');
+
+        foreach ($recipientIds as $recipientId) {
+            StaffNotification::create([
+                'user_id' => (int) $recipientId,
+                'appointment_id' => (int) $appointment->id,
+                'type' => 'staff_appointment_created',
+                'title' => 'New appointment booked',
+                'message' => sprintf(
+                    '%s booked %s for %s at %s.',
+                    $patientName !== '' ? $patientName : 'A patient',
+                    $serviceName,
+                    (string) $appointment->appointment_date,
+                    $timeSlot,
+                ),
+            ]);
+        }
     }
 
     private function recycleCancelledAppointment(Appointment $appointment): Appointment

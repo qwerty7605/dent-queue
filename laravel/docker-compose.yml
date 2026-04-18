@@ -2,6 +2,8 @@ services:
   php:
     build: .
     working_dir: /var/www
+    environment:
+      - DB_HOST=db
     volumes:
       - ./:/var/www
     depends_on:
@@ -24,7 +26,6 @@ services:
       - MYSQL_DATABASE=smartdentque
       - MYSQL_USER=user
       - MYSQL_PASSWORD=password
-      - MYSQL_ROOT_PASSWORD=root_password
     ports:
       - "3306:3306"
     volumes:
@@ -45,5 +46,5 @@ services:
     depends_on:
       - db
 
-volumes:  
+volumes:
   mysql_data:

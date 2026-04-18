@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/appointment_status_badge.dart';
+import 'app_dialog_scaffold.dart';
+import 'appointment_status_badge.dart';
 
 class AppointmentDetailsDialog extends StatelessWidget {
   final Map<String, dynamic> appointment;
@@ -26,159 +27,50 @@ class AppointmentDetailsDialog extends StatelessWidget {
       }
     }
     final time = formattedTime;
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: Title and Status Pill
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Appointment Details',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF2C3E50),
-                  ),
-                ),
-                AppointmentStatusBadge(
-                  status: appointment['status'],
-                  compact: true,
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Service Type
-            const Text(
-              'SERVICE TYPE',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF7E8CA0),
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              serviceType,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2C3E50),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Date and Time
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'DATE',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF7E8CA0),
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _formatDate(date),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2C3E50),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'TIME',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF7E8CA0),
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        time, // It's already basically HH:MM, could format more if needed
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF2C3E50),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Notes
-            const Text(
-              'NOTES',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF7E8CA0),
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              appointment['notes']?.toString().isNotEmpty == true
-                  ? appointment['notes'].toString()
-                  : 'No notes provided',
-              style: const TextStyle(fontSize: 16, color: Color(0xFF2C3E50)),
-            ),
-            const SizedBox(height: 32),
-
-            // Close Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF679B6A),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Close',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ],
+    return AppDialogScaffold(
+      title: 'Appointment Details',
+      onClose: () => Navigator.of(context).pop(),
+      headerTrailing: AppointmentStatusBadge(
+        status: appointment['status'],
+        compact: true,
+      ),
+      footer: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF679B6A),
+            elevation: 0,
+          ),
+          child: const Text('Close'),
         ),
+      ),
+      showFooterDivider: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DetailBlock(label: 'SERVICE TYPE', value: serviceType, large: true),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: _DetailBlock(label: 'DATE', value: _formatDate(date)),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _DetailBlock(label: 'TIME', value: time),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _DetailBlock(
+            label: 'NOTES',
+            value: appointment['notes']?.toString().isNotEmpty == true
+                ? appointment['notes'].toString()
+                : 'No notes provided',
+          ),
+        ],
       ),
     );
   }
@@ -218,5 +110,45 @@ class AppointmentDetailsDialog extends StatelessWidget {
       // ignore
     }
     return dateStr;
+  }
+}
+
+class _DetailBlock extends StatelessWidget {
+  const _DetailBlock({
+    required this.label,
+    required this.value,
+    this.large = false,
+  });
+
+  final String label;
+  final String value;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF7E8CA0),
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: large ? 18 : 16,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF2C3E50),
+            height: 1.3,
+          ),
+        ),
+      ],
+    );
   }
 }

@@ -38,12 +38,12 @@ class AdminDashboardService {
 
   final BaseService _baseService;
 
-  Future<Map<String, int>> getStats() async {
+  Future<Map<String, int>> getStats({bool forceRefresh = false}) async {
     final dynamic cachedStats = ShortTermCache.read<dynamic>(
       _dashboardStatsCache,
       'all',
     );
-    if (cachedStats is Map) {
+    if (!forceRefresh && cachedStats is Map) {
       return Map<String, int>.from(cachedStats);
     }
 
@@ -52,7 +52,11 @@ class AdminDashboardService {
       'all',
       () async {
         final response = await _baseService.getJson<dynamic>(
-          Endpoints.adminDashboardStats,
+          Endpoints.adminDashboardStats(
+            forceRefresh
+                ? const <String, String>{'force_refresh': 'true'}
+                : const <String, String>{},
+          ),
           (data) => data,
         );
 
@@ -97,13 +101,14 @@ class AdminDashboardService {
 
   Future<Map<String, int>> getReportSummary([
     Map<String, String> filters = const <String, String>{},
+    bool forceRefresh = false,
   ]) async {
     final String cacheKey = _filterCacheKey(filters);
     final dynamic cachedSummary = ShortTermCache.read<dynamic>(
       _reportSummaryCache,
       cacheKey,
     );
-    if (cachedSummary is Map) {
+    if (!forceRefresh && cachedSummary is Map) {
       return Map<String, int>.from(cachedSummary);
     }
 
@@ -112,7 +117,7 @@ class AdminDashboardService {
       cacheKey,
       () async {
         final response = await _baseService.getJson<dynamic>(
-          Endpoints.adminReportsSummary(filters),
+          Endpoints.adminReportsSummary(_forceRefreshFilters(filters, forceRefresh)),
           (data) => data,
         );
 
@@ -160,13 +165,14 @@ class AdminDashboardService {
   Future<List<Map<String, dynamic>>> getAppointmentTrends(
     String trendType, [
     Map<String, String> filters = const <String, String>{},
+    bool forceRefresh = false,
   ]) async {
     final String cacheKey = '$trendType|${_filterCacheKey(filters)}';
     final dynamic cachedTrends = ShortTermCache.read<dynamic>(
       _reportTrendsCache,
       cacheKey,
     );
-    if (cachedTrends is List) {
+    if (!forceRefresh && cachedTrends is List) {
       return cachedTrends
           .whereType<Map>()
           .map((dynamic item) => Map<String, dynamic>.from(item as Map))
@@ -178,7 +184,10 @@ class AdminDashboardService {
       cacheKey,
       () async {
         final response = await _baseService.getJson<dynamic>(
-          Endpoints.adminReportsTrends(trendType, filters),
+          Endpoints.adminReportsTrends(
+            trendType,
+            _forceRefreshFilters(filters, forceRefresh),
+          ),
           (data) => data,
         );
 
@@ -212,10 +221,12 @@ class AdminDashboardService {
   Future<ReportExportFile> exportDetailedRecords([
     ReportExportFormat format = ReportExportFormat.csv,
     Map<String, String> filters = const <String, String>{},
+    bool forceRefresh = false,
   ]) async {
     final Map<String, String> exportFilters = <String, String>{
       ...filters,
       'format': format.queryValue,
+      if (forceRefresh) 'force_refresh': 'true',
     };
     final response = await _baseService.getRaw(
       Endpoints.adminReportsExport(exportFilters),
@@ -227,6 +238,17 @@ class AdminDashboardService {
       bytes: response.bodyBytes,
       contentType: response.headers['content-type'] ?? format.acceptHeader,
     );
+  }
+
+  Map<String, String> _forceRefreshFilters(
+    Map<String, String> filters,
+    bool forceRefresh,
+  ) {
+    if (!forceRefresh) {
+      return filters;
+    }
+
+    return <String, String>{...filters, 'force_refresh': 'true'};
   }
 
   String _extractFilename(String? contentDisposition) {

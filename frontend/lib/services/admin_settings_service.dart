@@ -7,6 +7,8 @@ class AdminSettingsService {
 
   static const Duration _cacheTtl = Duration(seconds: 30);
   static const String _clinicSettingsCache = 'admin-clinic-settings';
+  static const String _doctorUnavailabilityCache =
+      'admin-doctor-unavailability';
 
   final BaseService _baseService;
 
@@ -63,7 +65,82 @@ class AdminSettingsService {
     return {};
   }
 
+  Future<List<Map<String, dynamic>>> getDoctorUnavailability() async {
+    final dynamic cached = ShortTermCache.read<dynamic>(
+      _doctorUnavailabilityCache,
+      'all',
+    );
+    if (cached is List) {
+      return cached
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.adminDoctorUnavailability,
+      (data) => data,
+    );
+
+    if (response is Map<String, dynamic> && response['data'] is List) {
+      final result = (response['data'] as List<dynamic>)
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+      ShortTermCache.write(
+        _doctorUnavailabilityCache,
+        'all',
+        result,
+        ttl: _cacheTtl,
+      );
+      return result;
+    }
+
+    const result = <Map<String, dynamic>>[];
+    ShortTermCache.write(
+      _doctorUnavailabilityCache,
+      'all',
+      result,
+      ttl: _cacheTtl,
+    );
+    return result;
+  }
+
+  Future<List<Map<String, dynamic>>> createDoctorUnavailability(
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _baseService.postJson<dynamic>(
+      Endpoints.adminDoctorUnavailability,
+      payload,
+      (data) => data,
+    );
+
+    invalidateDoctorUnavailabilityCache();
+
+    if (response is Map<String, dynamic> && response['data'] is List) {
+      return (response['data'] as List<dynamic>)
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
+    return <Map<String, dynamic>>[];
+  }
+
+  Future<void> deleteDoctorUnavailability(int id) async {
+    await _baseService.deleteJson<dynamic>(
+      Endpoints.adminDeleteDoctorUnavailability(id),
+      (data) => data,
+    );
+
+    invalidateDoctorUnavailabilityCache();
+  }
+
   void invalidateClinicSettingsCache() {
     ShortTermCache.invalidateNamespace(_clinicSettingsCache);
+  }
+
+  void invalidateDoctorUnavailabilityCache() {
+    ShortTermCache.invalidateNamespace(_doctorUnavailabilityCache);
   }
 }

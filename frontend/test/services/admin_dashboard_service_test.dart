@@ -70,6 +70,41 @@ void main() {
     expect(fakeBaseService.getJsonCallCount, 2);
   });
 
+  test('getStats appends force refresh and bypasses the short-term cache', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'data': <String, dynamic>{
+        'patients_count': 5,
+        'staff_count': 2,
+        'intern_count': 1,
+        'staff_accounts_count': 3,
+        'appointments_count': 12,
+      },
+    };
+
+    await adminDashboardService.getStats();
+
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'data': <String, dynamic>{
+        'patients_count': 6,
+        'staff_count': 2,
+        'intern_count': 1,
+        'staff_accounts_count': 3,
+        'appointments_count': 13,
+      },
+    };
+
+    final Map<String, int> refreshed = await adminDashboardService.getStats(
+      forceRefresh: true,
+    );
+
+    expect(
+      fakeBaseService.lastPath,
+      '/api/v1/admin/dashboard/stats?force_refresh=true',
+    );
+    expect(refreshed['patients_count'], 6);
+    expect(fakeBaseService.getJsonCallCount, 2);
+  });
+
   test('getReportSummary requests the summary endpoint with filters', () async {
     fakeBaseService.nextResponse = <String, dynamic>{
       'data': <String, dynamic>{
@@ -95,6 +130,28 @@ void main() {
     expect(result['total'], 2);
     expect(result['report_records'], 5);
     expect(result['approved'], 2);
+  });
+
+  test('getReportSummary appends force refresh when requested', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'data': <String, dynamic>{
+        'total_appointments': 2,
+        'pending_count': 0,
+        'approved_count': 2,
+        'completed_count': 0,
+        'cancelled_count': 0,
+      },
+    };
+
+    await adminDashboardService.getReportSummary(
+      <String, String>{'status': 'Approved'},
+      true,
+    );
+
+    expect(
+      fakeBaseService.lastPath,
+      '/api/v1/admin/reports/summary?status=Approved&force_refresh=true',
+    );
   });
 
   test('getReportSummary uses a short-term cache until invalidated', () async {
