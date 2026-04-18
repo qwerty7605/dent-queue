@@ -6,6 +6,28 @@ use Symfony\Component\Console\Input\ArgvInput;
 
 define('LARAVEL_START', microtime(true));
 
+if (PHP_SAPI === 'cli' && isset($_SERVER['argv'][1]) && $_SERVER['argv'][1] === 'test') {
+    $arguments = $_SERVER['argv'] ?? [];
+    $hasExplicitEnvironment = false;
+
+    foreach ($arguments as $argument) {
+        if (! is_string($argument)) {
+            continue;
+        }
+
+        if ($argument === '--env' || str_starts_with($argument, '--env=')) {
+            $hasExplicitEnvironment = true;
+            break;
+        }
+    }
+
+    if (! $hasExplicitEnvironment) {
+        putenv('APP_ENV=testing');
+        $_ENV['APP_ENV'] = 'testing';
+        $_SERVER['APP_ENV'] = 'testing';
+    }
+}
+
 // Register the Composer autoloader...
 require __DIR__.'/vendor/autoload.php';
 
