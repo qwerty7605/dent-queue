@@ -44,6 +44,7 @@ class AppointmentService
     public function __construct(
         protected BookingRulesEngine $bookingRulesEngine,
         protected QueueService $queueService,
+        protected DoctorAvailabilityService $doctorAvailabilityService,
     )
     {
     }
@@ -638,19 +639,14 @@ class AppointmentService
         string $timeSlot,
         ?int $ignoreAppointmentId = null,
     ): void {
-        $conflictingAppointment = Appointment::query()
-            ->where('appointment_date', $appointmentDate)
-            ->where('time_slot', $timeSlot)
-            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES);
-
-        if ($ignoreAppointmentId !== null) {
-            $conflictingAppointment->whereKeyNot($ignoreAppointmentId);
-        }
-
-        if ($conflictingAppointment->exists()) {
-            throw ValidationException::withMessages([
-                'time_slot' => ['This time slot is already booked. Please choose another time.'],
-            ]);
+        try {
+            $this->doctorAvailabilityService->assertDateTimeAvailable(
+                $appointmentDate,
+                $timeSlot,
+                $ignoreAppointmentId,
+            );
+        } catch (ValidationException $exception) {
+            throw $exception;
         }
     }
 

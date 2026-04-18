@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AdminProfileController;
 use App\Http\Controllers\Api\AdminStaffController;
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DoctorAvailabilityController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PatientProfileController;
 use App\Http\Controllers\Api\PatientRecordController;
@@ -26,6 +27,7 @@ Route::prefix('v1')->group(function () {
     // Protected routes
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+        Route::get('/availability/slots', [DoctorAvailabilityController::class, 'slots']);
 
         Route::prefix('admin')->group(function () {
             Route::middleware('role:admin,staff,intern')->group(function () {
@@ -61,6 +63,9 @@ Route::prefix('v1')->group(function () {
                     Route::get('/reports/export', [ReportController::class, 'export']);
                     Route::get('/settings/clinic', [AdminClinicSettingsController::class, 'show']);
                     Route::put('/settings/clinic', [AdminClinicSettingsController::class, 'update']);
+                    Route::get('/settings/doctor-unavailability', [DoctorAvailabilityController::class, 'index']);
+                    Route::post('/settings/doctor-unavailability', [DoctorAvailabilityController::class, 'store']);
+                    Route::delete('/settings/doctor-unavailability/{doctorUnavailability}', [DoctorAvailabilityController::class, 'destroy']);
                 });
             });
         });

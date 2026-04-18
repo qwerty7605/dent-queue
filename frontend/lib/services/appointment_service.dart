@@ -24,6 +24,7 @@ class AppointmentService {
       'appointment-patient-today-queue';
   static const String _adminTodayQueueCache = 'appointment-admin-today-queue';
   static const String _servicesCache = 'appointment-services';
+  static const String _availabilitySlotsCache = 'appointment-availability';
 
   final BaseService _baseService;
 
@@ -78,6 +79,47 @@ class AppointmentService {
     );
     _invalidateAfterAppointmentCreated();
     return response as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> getAvailabilitySlots(String date) async {
+    final dynamic cached = ShortTermCache.read<dynamic>(
+      _availabilitySlotsCache,
+      date,
+    );
+    if (cached is Map) {
+      return Map<String, dynamic>.from(cached);
+    }
+
+    return ShortTermCache.runSingleFlight(
+      _availabilitySlotsCache,
+      date,
+      () async {
+        final response = await _baseService.getJson<dynamic>(
+          Endpoints.availabilitySlots(date),
+          (data) => data,
+        );
+
+        if (response is Map<String, dynamic> && response['data'] is Map) {
+          final result = Map<String, dynamic>.from(response['data'] as Map);
+          ShortTermCache.write(
+            _availabilitySlotsCache,
+            date,
+            result,
+            ttl: _cacheTtl,
+          );
+          return result;
+        }
+
+        const result = <String, dynamic>{};
+        ShortTermCache.write(
+          _availabilitySlotsCache,
+          date,
+          result,
+          ttl: _cacheTtl,
+        );
+        return result;
+      },
+    );
   }
 
   Future<List<Map<String, dynamic>>> getAdminMasterList([
@@ -677,6 +719,7 @@ class AppointmentService {
     ShortTermCache.invalidateNamespace(_calendarAppointmentDetailsCache);
     ShortTermCache.invalidateNamespace(_patientTodayQueueCache);
     ShortTermCache.invalidateNamespace(_adminTodayQueueCache);
+    ShortTermCache.invalidateNamespace(_availabilitySlotsCache);
   }
 
   void _invalidateCommonAppointmentMutationCaches() {
@@ -688,6 +731,7 @@ class AppointmentService {
     ShortTermCache.invalidateNamespace(_calendarAppointmentDetailsCache);
     ShortTermCache.invalidateNamespace(_patientTodayQueueCache);
     ShortTermCache.invalidateNamespace(_adminTodayQueueCache);
+    ShortTermCache.invalidateNamespace(_availabilitySlotsCache);
     AdminDashboardService.invalidateSharedDashboardStatsCache();
     AdminDashboardService.invalidateSharedReportCaches();
   }
