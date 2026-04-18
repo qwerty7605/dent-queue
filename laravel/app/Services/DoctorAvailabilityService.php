@@ -4,9 +4,11 @@ namespace App\Services;
 
 use App\Models\Appointment;
 use App\Models\DoctorUnavailability;
+use App\Models\PatientNotification;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class DoctorAvailabilityService
@@ -30,13 +32,19 @@ class DoctorAvailabilityService
             $schedule['end_time'],
         );
 
-        return DoctorUnavailability::query()->create([
-            'unavailable_date' => $schedule['unavailable_date'],
-            'start_time' => $schedule['start_time'],
-            'end_time' => $schedule['end_time'],
-            'reason' => $schedule['reason'] ?? null,
-            'created_by_user_id' => (int) $user->id,
-        ]);
+        return DB::transaction(function () use ($schedule, $user): DoctorUnavailability {
+            $doctorUnavailability = DoctorUnavailability::query()->create([
+                'unavailable_date' => $schedule['unavailable_date'],
+                'start_time' => $schedule['start_time'],
+                'end_time' => $schedule['end_time'],
+                'reason' => $schedule['reason'] ?? null,
+                'created_by_user_id' => (int) $user->id,
+            ]);
+
+            $this->notifyAffectedPatients($doctorUnavailability);
+
+            return $doctorUnavailability;
+        });
     }
 
     public function delete(DoctorUnavailability $doctorUnavailability): void
@@ -322,6 +330,36 @@ class DoctorAvailabilityService
             ->get();
     }
 
+    /**
+     * @return Collection<int, Appointment>
+     */
+    private function affectedAppointmentsForSchedule(DoctorUnavailability $schedule): Collection
+    {
+        $timezone = (string) config('app.timezone', 'UTC');
+        $date = (string) $schedule->unavailable_date;
+        $blockedStart = $this->combineDateAndTime($date, (string) $schedule->start_time, $timezone);
+        $blockedEnd = $this->combineDateAndTime($date, (string) $schedule->end_time, $timezone);
+
+        return Appointment::query()
+            ->with(['patient', 'service'])
+            ->whereDate('appointment_date', $date)
+            ->whereNull('deleted_at')
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->get()
+            ->filter(function (Appointment $appointment) use ($date, $timezone, $blockedStart, $blockedEnd): bool {
+                $normalizedTime = $this->normalizeTimeString((string) $appointment->time_slot, $timezone);
+                if ($normalizedTime === null) {
+                    return false;
+                }
+
+                $appointmentTime = $this->combineDateAndTime($date, $normalizedTime, $timezone);
+
+                return $appointmentTime->greaterThanOrEqualTo($blockedStart)
+                    && $appointmentTime->lessThan($blockedEnd);
+            })
+            ->values();
+    }
+
     private function combineDateAndTime(string $date, string $time, string $timezone): Carbon
     {
         $normalizedTime = $this->normalizeTimeString($time, $timezone) ?? $time;
@@ -336,6 +374,40 @@ class DoctorAvailabilityService
         Carbon $secondEnd,
     ): bool {
         return $firstStart->lt($secondEnd) && $firstEnd->gt($secondStart);
+    }
+
+    private function notifyAffectedPatients(DoctorUnavailability $schedule): void
+    {
+        foreach ($this->affectedAppointmentsForSchedule($schedule) as $appointment) {
+            PatientNotification::create([
+                'patient_id' => (int) $appointment->patient_id,
+                'appointment_id' => (int) $appointment->id,
+                'type' => 'doctor_unavailable',
+                'title' => 'Appointment affected by doctor unavailability',
+                'message' => $this->buildAffectedAppointmentMessage($appointment, $schedule),
+            ]);
+        }
+    }
+
+    private function buildAffectedAppointmentMessage(
+        Appointment $appointment,
+        DoctorUnavailability $schedule,
+    ): string {
+        $serviceName = trim((string) ($appointment->service?->name ?? 'your appointment'));
+        $reason = trim((string) ($schedule->reason ?? ''));
+
+        $message = sprintf(
+            'Your appointment for %s on %s at %s is no longer available because the doctor is unavailable.',
+            $serviceName !== '' ? $serviceName : 'your appointment',
+            (string) $appointment->appointment_date,
+            (string) $appointment->time_slot,
+        );
+
+        if ($reason !== '') {
+            $message .= ' Reason: ' . $reason . '.';
+        }
+
+        return $message . ' Please contact the clinic to reschedule.';
     }
 
     /**
