@@ -182,6 +182,7 @@ class _FakeBaseService extends Fake implements BaseService {
 
     return <String, dynamic>{
       'total_appointments': filteredRecords.length,
+      'total_report_records': filteredRecords.length,
       'pending_count': countByStatus('Pending'),
       'approved_count': countByStatus('Approved'),
       'completed_count': countByStatus('Completed'),

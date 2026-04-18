@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Appointment;
+use App\Models\Report;
 use App\Models\Role;
 use App\Models\Service;
 use App\Models\User;
@@ -24,14 +25,14 @@ class AdminReportsSummaryApiTest extends TestCase
 
         // Create appointments with various statuses
         // 2 Pending
-        Appointment::create([
+        $pendingAppointmentOne = Appointment::create([
             'patient_id' => $patient->id,
             'service_id' => $service->id,
             'appointment_date' => '2026-04-01',
             'time_slot' => '08:00',
             'status' => 'pending',
         ]);
-        Appointment::create([
+        $pendingAppointmentTwo = Appointment::create([
             'patient_id' => $patient->id,
             'service_id' => $service->id,
             'appointment_date' => '2026-04-01',
@@ -54,7 +55,7 @@ class AdminReportsSummaryApiTest extends TestCase
             'time_slot' => '11:00',
             'status' => 'confirmed',
         ]);
-        Appointment::create([
+        $approvedAppointmentThree = Appointment::create([
             'patient_id' => $patient->id,
             'service_id' => $service->id,
             'appointment_date' => '2026-04-02',
@@ -80,6 +81,25 @@ class AdminReportsSummaryApiTest extends TestCase
             'status' => 'cancelled',
         ]);
 
+        Report::create([
+            'appointment_id' => $pendingAppointmentOne->id,
+            'report_type' => 'clinical-summary',
+            'report_date' => '2026-04-01',
+            'data' => ['source' => 'test'],
+        ]);
+        Report::create([
+            'appointment_id' => $pendingAppointmentTwo->id,
+            'report_type' => 'follow-up-note',
+            'report_date' => '2026-04-01',
+            'data' => ['source' => 'test'],
+        ]);
+        Report::create([
+            'appointment_id' => $approvedAppointmentThree->id,
+            'report_type' => 'treatment-plan',
+            'report_date' => '2026-04-02',
+            'data' => ['source' => 'test'],
+        ]);
+
         Sanctum::actingAs($admin);
 
         $response = $this->getJson('/api/v1/admin/reports/summary');
@@ -92,6 +112,7 @@ class AdminReportsSummaryApiTest extends TestCase
                     'approved_count',
                     'completed_count',
                     'cancelled_count',
+                    'total_report_records',
                 ]
             ])
             ->assertJsonFragment([
@@ -100,6 +121,7 @@ class AdminReportsSummaryApiTest extends TestCase
                 'approved_count' => 3,
                 'completed_count' => 1,
                 'cancelled_count' => 1,
+                'total_report_records' => 3,
             ]);
     }
 
@@ -127,6 +149,7 @@ class AdminReportsSummaryApiTest extends TestCase
                 'approved_count' => 0,
                 'completed_count' => 0,
                 'cancelled_count' => 0,
+                'total_report_records' => 0,
             ]);
     }
 

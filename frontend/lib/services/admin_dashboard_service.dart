@@ -127,6 +127,7 @@ class AdminDashboardService {
             final data = Map<String, dynamic>.from(dataMap);
             final result = <String, int>{
               'total': data['total_appointments'] as int? ?? 0,
+              'report_records': data['total_report_records'] as int? ?? 0,
               'pending': data['pending_count'] as int? ?? 0,
               'approved': data['approved_count'] as int? ?? 0,
               'completed': data['completed_count'] as int? ?? 0,
@@ -144,6 +145,7 @@ class AdminDashboardService {
 
         final result = <String, int>{
           'total': 0,
+          'report_records': 0,
           'pending': 0,
           'approved': 0,
           'completed': 0,
