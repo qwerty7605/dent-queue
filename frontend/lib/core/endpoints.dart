@@ -12,6 +12,8 @@ class Endpoints {
   static const services = '$_base/patient/services';
   static const appointments = '$_base/patient/appointments';
   static const medicalHistory = '$_base/patient/appointments/history';
+  static String availabilitySlots(String date) =>
+      '$_base/availability/slots?date=$date';
   static String patientNotifications([
     Map<String, String> queryParameters = const <String, String>{},
   ]) => _withQueryParameters('$_base/patient/notifications', queryParameters);
@@ -71,6 +73,10 @@ class Endpoints {
   );
   static const staffRecycleBin = '$_base/admin/appointments/recycle-bin';
   static const adminClinicSettings = '$_base/admin/settings/clinic';
+  static const adminDoctorUnavailability =
+      '$_base/admin/settings/doctor-unavailability';
+  static String adminDeleteDoctorUnavailability(int id) =>
+      '$_base/admin/settings/doctor-unavailability/$id';
   static String adminTodayQueue(
     String? date, {
     Map<String, String> queryParameters = const <String, String>{},

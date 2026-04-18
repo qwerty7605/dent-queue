@@ -32,11 +32,14 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
 
   late final AppointmentService _appointmentService;
   bool _isLoading = false;
+  bool _isLoadingAvailability = false;
 
   String? _selectedService;
   DateTime? _selectedDate;
-  TimeOfDay? _selectedTime;
+  String? _selectedTimeSlot;
   final TextEditingController _notesController = TextEditingController();
+  List<Map<String, dynamic>> _availabilitySlots = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _unavailableRanges = <Map<String, dynamic>>[];
 
   Map<String, String> _fieldErrors = <String, String>{};
   String? _formErrorText;
@@ -75,15 +78,6 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
     });
   }
 
-  void _setFieldError(String fieldKey, String message) {
-    setState(() {
-      _fieldErrors[fieldKey] = message;
-      _formErrorText = null;
-      _autoValidateMode = AutovalidateMode.always;
-    });
-    _formKey.currentState?.validate();
-  }
-
   String? _mergeFieldError(String fieldKey, String? localError) {
     return localError ?? _fieldErrors[fieldKey];
   }
@@ -119,6 +113,8 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
       } else if (normalizedMessage.contains('Past dates') ||
           normalizedMessage.contains('in the past')) {
         fieldErrors['date'] = 'Cannot book an appointment in the past.';
+      } else if (normalizedMessage.contains('Doctor Unavailable')) {
+        fieldErrors['time'] = normalizedMessage;
       } else {
         formError = normalizedMessage.isNotEmpty ? normalizedMessage : null;
       }
@@ -142,10 +138,8 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
       try {
         final payload = {
           'service_id': int.parse(_selectedService!),
-          'appointment_date':
-              '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
-          'time_slot':
-              '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+          'appointment_date': _formatSelectedDate(),
+          'time_slot': _selectedTimeSlot!,
           'notes': _notesController.text.trim(),
         };
         await _appointmentService.createAppointment(payload);
@@ -427,10 +421,14 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                 if (picked != null) {
                   setState(() {
                     _selectedDate = picked;
+                    _selectedTimeSlot = null;
+                    _availabilitySlots = <Map<String, dynamic>>[];
+                    _unavailableRanges = <Map<String, dynamic>>[];
                   });
                   _clearFieldError('date');
                   _clearFieldError('time');
                   state.didChange(picked);
+                  _loadAvailabilityForSelectedDate();
                 }
               },
               child: InputDecorator(
@@ -479,185 +477,259 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   }
 
   Widget _buildTimeField() {
-    return FormField<TimeOfDay>(
+    return FormField<String>(
       validator: (val) {
         final String? externalError = _fieldErrors['time'];
         if (externalError != null) {
           return externalError;
         }
 
-        if (_selectedTime == null) return 'Required';
-
-        // Final validation before submit just in case
-        if (_selectedDate != null) {
-          final now = DateTime.now();
-          final isToday =
-              _selectedDate!.year == now.year &&
-              _selectedDate!.month == now.month &&
-              _selectedDate!.day == now.day;
-
-          if (isToday) {
-            final double timeInDouble =
-                _selectedTime!.hour + _selectedTime!.minute / 60.0;
-            final double nowInDouble = now.hour + now.minute / 60.0;
-            if (timeInDouble <= nowInDouble) {
-              return 'Invalid Time';
-            }
-          }
-        }
-        return null;
+        return _selectedTimeSlot == null ? 'Required' : null;
       },
-      builder: (FormFieldState<TimeOfDay> state) {
+      builder: (FormFieldState<String> state) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildLabel('TIME'),
             const SizedBox(height: 8),
-            InkWell(
-              onTap: () async {
-                if (_selectedDate == null) {
-                  _setFieldError('date', 'Please select a date first.');
-                  return;
-                }
-
-                final picked = await showTimePicker(
-                  context: context,
-                  initialTime: const TimeOfDay(hour: 8, minute: 0),
-                  builder: (context, child) {
-                    return Theme(
-                      data: Theme.of(context).copyWith(
-                        colorScheme: const ColorScheme.light(
-                          primary: Color(0xFF679B6A), // indicator and header
-                          onPrimary: Colors.white, // header text color
-                          onSurface: Color(0xFF2C3E50), // dial numbers
-                          surface: Colors.white, // dial background
-                          surfaceContainerHighest: Color(
-                            0xFFE2E8F0,
-                          ), // unselected boxes background
-                        ),
-                        timePickerTheme: TimePickerThemeData(
-                          dayPeriodColor: WidgetStateColor.resolveWith(
-                            (states) => states.contains(WidgetState.selected)
-                                ? const Color(0xFF679B6A)
-                                : Colors.transparent,
-                          ),
-                          dayPeriodTextColor: WidgetStateColor.resolveWith(
-                            (states) => states.contains(WidgetState.selected)
-                                ? Colors.white
-                                : const Color(0xFF2C3E50),
-                          ),
-                          hourMinuteColor: WidgetStateColor.resolveWith(
-                            (states) => states.contains(WidgetState.selected)
-                                ? const Color(0xFF679B6A)
-                                : const Color(0xFFE2E8F0),
-                          ),
-                          hourMinuteTextColor: WidgetStateColor.resolveWith(
-                            (states) => states.contains(WidgetState.selected)
-                                ? Colors.white
-                                : const Color(0xFF2C3E50),
-                          ),
-                          dialHandColor: const Color(0xFF679B6A),
-                        ),
-                        textButtonTheme: TextButtonThemeData(
-                          style: TextButton.styleFrom(
-                            foregroundColor: const Color(
-                              0xFF679B6A,
-                            ), // button text color
-                          ),
-                        ),
-                      ),
-                      child: MediaQuery(
-                        data: MediaQuery.of(
-                          context,
-                        ).copyWith(alwaysUse24HourFormat: false),
-                        child: child!,
-                      ),
-                    );
-                  },
-                );
-
-                if (picked != null) {
-                  final double timeInDouble =
-                      picked.hour + picked.minute / 60.0;
-
-                  // Rule 1: Prevent time selection outside 7:30 AM (7.5) - 6:00 PM (18.0)
-                  if (timeInDouble < 7.5 || timeInDouble > 18.0) {
-                    if (!mounted) return;
-                    _setFieldError(
-                      'time',
-                      'Please select a time between 7:30 AM and 6:00 PM.',
-                    );
-                    return;
-                  }
-
-                  // Rule 2: If selecting today, prevent selecting past time
-                  final now = DateTime.now();
-                  final isToday =
-                      _selectedDate!.year == now.year &&
-                      _selectedDate!.month == now.month &&
-                      _selectedDate!.day == now.day;
-
-                  if (isToday) {
-                    final double nowInDouble = now.hour + now.minute / 60.0;
-                    if (timeInDouble <= nowInDouble) {
-                      if (!mounted) return;
-                      _setFieldError(
-                        'time',
-                        'Cannot book an appointment in the past.',
-                      );
-                      return;
-                    }
-                  }
-
-                  setState(() {
-                    _selectedTime = picked;
-                  });
-                  _clearFieldError('time');
-                  state.didChange(picked);
-                }
-              },
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.redAccent),
-                  ),
-                  errorText: state.errorText,
-                  suffixIcon: const Icon(
-                    Icons.access_time_outlined,
-                    color: Color(0xFF1E293B),
-                    size: 18,
-                  ),
-                ),
-                isEmpty: _selectedTime == null,
-                child: Text(
-                  _selectedTime == null
-                      ? '--:-- --'
-                      : '${_selectedTime!.hourOfPeriod == 0 ? 12 : _selectedTime!.hourOfPeriod}:${_selectedTime!.minute.toString().padLeft(2, '0')} ${_selectedTime!.period == DayPeriod.am ? 'AM' : 'PM'}',
-                  style: TextStyle(
-                    color: _selectedTime == null
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF2C3E50),
-                    fontSize: 14,
-                  ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: state.errorText != null
+                      ? Colors.redAccent
+                      : const Color(0xFFE2E8F0),
                 ),
               ),
+              child: _buildAvailabilityContent(state),
             ),
           ],
         );
       },
     );
+  }
+
+  Widget _buildAvailabilityContent(FormFieldState<String> state) {
+    if (_selectedDate == null) {
+      return const Text(
+        'Select a date first',
+        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+      );
+    }
+
+    if (_isLoadingAvailability) {
+      return const SizedBox(
+        height: 48,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
+    if (_availabilitySlots.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'No slots available for this date.',
+            style: TextStyle(color: Color(0xFF2C3E50), fontSize: 14),
+          ),
+          if (state.errorText != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              state.errorText!,
+              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+            ),
+          ],
+        ],
+      );
+    }
+
+    final List<Map<String, dynamic>> blockedSlots = _availabilitySlots
+        .where(
+          (Map<String, dynamic> slot) =>
+              _effectiveSlotStatus(slot) == 'doctor_unavailable',
+        )
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _availabilitySlots.map((slot) {
+            final bool disabled = _isSlotDisabled(slot);
+            final bool selected = _selectedTimeSlot == slot['time'];
+
+            return ChoiceChip(
+              label: Text(
+                slot['time_label']?.toString() ??
+                    slot['time']?.toString() ??
+                    '--',
+              ),
+              selected: selected,
+              onSelected: disabled
+                  ? null
+                  : (_) {
+                      setState(() {
+                        _selectedTimeSlot = slot['time']?.toString();
+                      });
+                      _clearFieldError('time');
+                      state.didChange(_selectedTimeSlot);
+                    },
+              selectedColor: const Color(0xFF679B6A),
+              disabledColor: _slotDisabledColor(slot),
+              labelStyle: TextStyle(
+                color: selected
+                    ? Colors.white
+                    : disabled
+                    ? const Color(0xFF475569)
+                    : const Color(0xFF1E293B),
+                fontWeight: FontWeight.w600,
+              ),
+              backgroundColor: const Color(0xFFF8FAFC),
+            );
+          }).toList(),
+        ),
+        if (_selectedTimeSlot != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Selected: ${_availabilitySlots.firstWhere((slot) => slot['time'] == _selectedTimeSlot, orElse: () => <String, dynamic>{'time_label': _selectedTimeSlot})['time_label']}',
+            style: const TextStyle(
+              color: Color(0xFF2C3E50),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        if (blockedSlots.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          const Text(
+            'Doctor Unavailable',
+            style: TextStyle(
+              color: Color(0xFFB45309),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ..._unavailableRanges.map((Map<String, dynamic> range) {
+            final String start = range['start_time']?.toString() ?? '--:--';
+            final String end = range['end_time']?.toString() ?? '--:--';
+            final String rawReason = range['reason']?.toString().trim() ?? '';
+            final String reason = rawReason.isNotEmpty
+                ? rawReason
+                : 'Doctor Unavailable';
+
+            return Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                '$start - $end: $reason',
+                style: const TextStyle(
+                  color: Color(0xFF92400E),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            );
+          }),
+        ],
+        if (state.errorText != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            state.errorText!,
+            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _loadAvailabilityForSelectedDate() async {
+    if (_selectedDate == null) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingAvailability = true;
+    });
+
+    try {
+      final payload = await _appointmentService.getAvailabilitySlots(
+        _formatSelectedDate(),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _availabilitySlots = ((payload['slots'] as List?) ?? const <dynamic>[])
+            .whereType<Map>()
+            .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+        _unavailableRanges =
+            ((payload['unavailable_ranges'] as List?) ?? const <dynamic>[])
+                .whereType<Map>()
+                .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+                .toList();
+        _isLoadingAvailability = false;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _availabilitySlots = <Map<String, dynamic>>[];
+        _unavailableRanges = <Map<String, dynamic>>[];
+        _isLoadingAvailability = false;
+        _fieldErrors['time'] = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _availabilitySlots = <Map<String, dynamic>>[];
+        _unavailableRanges = <Map<String, dynamic>>[];
+        _isLoadingAvailability = false;
+      });
+    }
+  }
+
+  String _formatSelectedDate() {
+    return '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}';
+  }
+
+  String _effectiveSlotStatus(Map<String, dynamic> slot) {
+    final String status = slot['status']?.toString() ?? 'available';
+    if (status != 'available') {
+      return status;
+    }
+
+    final String slotTime = slot['time']?.toString() ?? '';
+    for (final range in _unavailableRanges) {
+      final String start = range['start_time']?.toString() ?? '';
+      final String end = range['end_time']?.toString() ?? '';
+      if (slotTime.compareTo(start) >= 0 && slotTime.compareTo(end) < 0) {
+        return 'doctor_unavailable';
+      }
+    }
+
+    return status;
+  }
+
+  bool _isSlotDisabled(Map<String, dynamic> slot) {
+    final status = _effectiveSlotStatus(slot);
+    return status != 'available';
+  }
+
+  Color _slotDisabledColor(Map<String, dynamic> slot) {
+    switch (_effectiveSlotStatus(slot)) {
+      case 'doctor_unavailable':
+        return const Color(0xFFFDE68A);
+      case 'booked':
+        return const Color(0xFFE2E8F0);
+      case 'past':
+        return const Color(0xFFE5E7EB);
+      default:
+        return const Color(0xFFE2E8F0);
+    }
   }
 }

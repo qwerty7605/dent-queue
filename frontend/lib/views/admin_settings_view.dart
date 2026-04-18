@@ -42,8 +42,15 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
   TimeOfDay? _openingTime;
   TimeOfDay? _closingTime;
   final Set<String> _selectedDays = Set<String>.from(_defaultWorkingDays);
+  DateTime? _unavailableDate;
+  TimeOfDay? _unavailableStartTime;
+  TimeOfDay? _unavailableEndTime;
+  final TextEditingController _unavailableReasonController =
+      TextEditingController();
+  List<Map<String, dynamic>> _doctorUnavailability = <Map<String, dynamic>>[];
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isSavingUnavailable = false;
   String? _loadError;
 
   @override
@@ -59,6 +66,12 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     _loadSettings();
   }
 
+  @override
+  void dispose() {
+    _unavailableReasonController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadSettings() async {
     if (!mounted) {
       return;
@@ -71,6 +84,8 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
 
     try {
       final settings = await widget.adminSettingsService.getClinicSettings();
+      final doctorUnavailability = await widget.adminSettingsService
+          .getDoctorUnavailability();
 
       if (!mounted) {
         return;
@@ -78,6 +93,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
 
       setState(() {
         _applySettings(settings);
+        _doctorUnavailability = doctorUnavailability;
         _isLoading = false;
         _loadError = null;
       });
@@ -100,6 +116,49 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
         _loadError = 'Failed to load clinic settings.';
       });
     }
+  }
+
+  Future<void> _pickUnavailableDate() async {
+    final DateTime initialDate = _unavailableDate ?? DateTime.now();
+    final DateTime? selectedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+
+    if (selectedDate == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _unavailableDate = selectedDate;
+    });
+  }
+
+  Future<void> _pickUnavailableTime({required bool isStart}) async {
+    final TimeOfDay initialTime = isStart
+        ? (_unavailableStartTime ??
+              (_openingTime ?? const TimeOfDay(hour: 8, minute: 0)))
+        : (_unavailableEndTime ??
+              (_closingTime ?? const TimeOfDay(hour: 17, minute: 0)));
+
+    final TimeOfDay? selectedTime = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+
+    if (selectedTime == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      if (isStart) {
+        _unavailableStartTime = selectedTime;
+      } else {
+        _unavailableEndTime = selectedTime;
+      }
+    });
   }
 
   void _applySettings(Map<String, dynamic> settings) {
@@ -219,6 +278,91 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     }
   }
 
+  Future<void> _saveDoctorUnavailability() async {
+    final String? validationMessage = _validateUnavailableBeforeSave();
+    if (validationMessage != null) {
+      _showSnackBar(validationMessage, isError: true);
+      return;
+    }
+
+    setState(() {
+      _isSavingUnavailable = true;
+    });
+
+    try {
+      final List<Map<String, dynamic>> result = await widget
+          .adminSettingsService
+          .createDoctorUnavailability(<String, dynamic>{
+            'unavailable_date': _formatDateForApi(_unavailableDate!),
+            'start_time': _formatTimeForApi(_unavailableStartTime!),
+            'end_time': _formatTimeForApi(_unavailableEndTime!),
+            'reason': _unavailableReasonController.text.trim(),
+          });
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _doctorUnavailability = result;
+        _unavailableDate = null;
+        _unavailableStartTime = null;
+        _unavailableEndTime = null;
+        _unavailableReasonController.clear();
+      });
+
+      _showSnackBar('Doctor unavailability saved successfully.');
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showSnackBar(_resolveApiErrorMessage(error), isError: true);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _showSnackBar('Failed to save doctor unavailability.', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingUnavailable = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteDoctorUnavailability(int id) async {
+    try {
+      await widget.adminSettingsService.deleteDoctorUnavailability(id);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _doctorUnavailability.removeWhere(
+          (Map<String, dynamic> item) => item['id'] == id,
+        );
+      });
+
+      _showSnackBar('Doctor unavailability removed successfully.');
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showSnackBar(_resolveApiErrorMessage(error), isError: true);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _showSnackBar('Failed to remove doctor unavailability.', isError: true);
+    }
+  }
+
   String? _validateBeforeSave() {
     if (_openingTime == null) {
       return 'Opening time is required.';
@@ -234,6 +378,27 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
 
     if (_toMinutes(_closingTime!) <= _toMinutes(_openingTime!)) {
       return 'Closing time must be later than opening time.';
+    }
+
+    return null;
+  }
+
+  String? _validateUnavailableBeforeSave() {
+    if (_unavailableDate == null) {
+      return 'Unavailable date is required.';
+    }
+
+    if (_unavailableStartTime == null) {
+      return 'Unavailable start time is required.';
+    }
+
+    if (_unavailableEndTime == null) {
+      return 'Unavailable end time is required.';
+    }
+
+    if (_toMinutes(_unavailableEndTime!) <=
+        _toMinutes(_unavailableStartTime!)) {
+      return 'Unavailable end time must be later than start time.';
     }
 
     return null;
@@ -297,6 +462,12 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     final minute = value.minute.toString().padLeft(2, '0');
 
     return '$hour:$minute';
+  }
+
+  String _formatDateForApi(DateTime value) {
+    final String month = value.month.toString().padLeft(2, '0');
+    final String day = value.day.toString().padLeft(2, '0');
+    return '${value.year}-$month-$day';
   }
 
   int _toMinutes(TimeOfDay value) {
@@ -435,6 +606,131 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
             children: _allDays.map(_buildDayChip).toList(),
           ),
         ),
+        _buildFieldSection(
+          label: 'Doctor Unavailability',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _buildDateActionField(
+                    label: 'Unavailable Date',
+                    value: _unavailableDate == null
+                        ? null
+                        : _formatDateForApi(_unavailableDate!),
+                    placeholder: 'Select Date',
+                    onTap: _pickUnavailableDate,
+                  ),
+                  _buildDateActionField(
+                    label: 'Start Time',
+                    value: _unavailableStartTime?.format(context),
+                    placeholder: 'Start Time',
+                    onTap: () => _pickUnavailableTime(isStart: true),
+                  ),
+                  _buildDateActionField(
+                    label: 'End Time',
+                    value: _unavailableEndTime?.format(context),
+                    placeholder: 'End Time',
+                    onTap: () => _pickUnavailableTime(isStart: false),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _unavailableReasonController,
+                decoration: const InputDecoration(
+                  labelText: 'Reason (optional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLength: 255,
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _buildPresetButton(
+                    label: 'Morning Only',
+                    onTap: () => _applyUnavailablePreset(blockMorning: false),
+                  ),
+                  _buildPresetButton(
+                    label: 'Afternoon Only',
+                    onTap: () => _applyUnavailablePreset(blockMorning: true),
+                  ),
+                  _buildPresetButton(
+                    label: 'Block Whole Day',
+                    onTap: _applyWholeDayPreset,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: ElevatedButton(
+                  onPressed: _isSavingUnavailable
+                      ? null
+                      : _saveDoctorUnavailability,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFB45309),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: _isSavingUnavailable
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Save Unavailable Range'),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Saved unavailable schedules',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_doctorUnavailability.isEmpty)
+                const Text(
+                  'No blocked schedules yet.',
+                  style: TextStyle(color: Color(0xFF64748B)),
+                )
+              else
+                Column(
+                  children: _doctorUnavailability.map((item) {
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      child: ListTile(
+                        title: Text(
+                          '${item['unavailable_date']}  ${item['start_time']} - ${item['end_time']}',
+                        ),
+                        subtitle: Text(
+                          (item['reason']?.toString().trim().isNotEmpty ??
+                                  false)
+                              ? item['reason'].toString()
+                              : 'Doctor Unavailable',
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _deleteDoctorUnavailability(
+                            (item['id'] as num).toInt(),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+            ],
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 18, 24, 30),
           child: Center(
@@ -535,6 +831,48 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     );
   }
 
+  Widget _buildDateActionField({
+    required String label,
+    required String? value,
+    required String placeholder,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: 200,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF374151),
+            ),
+          ),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: onTap,
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                suffixIcon: Icon(Icons.edit_calendar),
+              ),
+              child: Text(value ?? placeholder),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPresetButton({
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return OutlinedButton(onPressed: onTap, child: Text(label));
+  }
+
   Widget _buildTimeField({
     required String label,
     required TimeOfDay? value,
@@ -627,5 +965,43 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
         ),
       ),
     );
+  }
+
+  void _applyUnavailablePreset({required bool blockMorning}) {
+    final TimeOfDay opening =
+        _openingTime ?? const TimeOfDay(hour: 7, minute: 30);
+    final TimeOfDay closing =
+        _closingTime ?? const TimeOfDay(hour: 18, minute: 0);
+    final TimeOfDay midday = const TimeOfDay(hour: 12, minute: 0);
+
+    setState(() {
+      _unavailableDate ??= DateTime.now();
+      if (blockMorning) {
+        _unavailableStartTime = opening;
+        _unavailableEndTime = midday;
+        _unavailableReasonController.text =
+            'Doctor available in the afternoon only';
+      } else {
+        _unavailableStartTime = midday;
+        _unavailableEndTime = closing;
+        _unavailableReasonController.text =
+            'Doctor available in the morning only';
+      }
+    });
+  }
+
+  void _applyWholeDayPreset() {
+    final TimeOfDay opening =
+        _openingTime ?? const TimeOfDay(hour: 7, minute: 30);
+    final TimeOfDay closing =
+        _closingTime ?? const TimeOfDay(hour: 18, minute: 0);
+
+    setState(() {
+      _unavailableDate ??= DateTime.now();
+      _unavailableStartTime = opening;
+      _unavailableEndTime = closing;
+      _unavailableReasonController.text =
+          'Doctor unavailable for the whole day';
+    });
   }
 }
