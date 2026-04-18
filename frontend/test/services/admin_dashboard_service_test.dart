@@ -74,6 +74,7 @@ void main() {
     fakeBaseService.nextResponse = <String, dynamic>{
       'data': <String, dynamic>{
         'total_appointments': 2,
+        'total_report_records': 5,
         'pending_count': 0,
         'approved_count': 2,
         'completed_count': 0,
@@ -92,6 +93,7 @@ void main() {
       '/api/v1/admin/reports/summary?status=Approved&booking_type=Online+Booking',
     );
     expect(result['total'], 2);
+    expect(result['report_records'], 5);
     expect(result['approved'], 2);
   });
 
@@ -99,6 +101,7 @@ void main() {
     fakeBaseService.nextResponse = <String, dynamic>{
       'data': <String, dynamic>{
         'total_appointments': 4,
+        'total_report_records': 9,
         'pending_count': 1,
         'approved_count': 2,
         'completed_count': 1,
@@ -137,6 +140,7 @@ void main() {
     fakeBaseService.pendingGetJsonResponse!.complete(<String, dynamic>{
       'data': <String, dynamic>{
         'total_appointments': 3,
+        'total_report_records': 7,
         'pending_count': 0,
         'approved_count': 3,
         'completed_count': 0,

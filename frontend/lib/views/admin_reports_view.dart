@@ -86,6 +86,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   // Default zero state keeps the layout stable when the API returns no rows.
   Map<String, int> _reportStats = <String, int>{
     'total': 0,
+    'report_records': 0,
     'pending': 0,
     'approved': 0,
     'completed': 0,
@@ -167,6 +168,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       setState(() {
         _reportStats = <String, int>{
           'total': 0,
+          'report_records': 0,
           'pending': 0,
           'approved': 0,
           'completed': 0,
@@ -642,6 +644,15 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               icon: Icons.calendar_month,
               mainColor: const Color(0xFF6A9A8B),
               darkColor: const Color(0xFF50786A),
+            ),
+            _buildReportCard(
+              title: 'Linked Reports',
+              value: _isLoading
+                  ? '...'
+                  : _reportStats['report_records'].toString(),
+              icon: Icons.summarize_outlined,
+              mainColor: const Color(0xFF5F8F9F),
+              darkColor: const Color(0xFF456874),
             ),
             _buildReportCard(
               title: 'Pending',

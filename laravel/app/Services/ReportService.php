@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Appointment;
+use App\Models\Report;
 use App\Support\AppointmentQueueOrder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -27,12 +28,16 @@ class ReportService
 
     public function createReport(array $data)
     {
-        //
+        return Report::query()->create($data);
     }
 
     public function getAppointmentReports(int $appointmentId)
     {
-        //
+        return Report::query()
+            ->where('appointment_id', $appointmentId)
+            ->orderByDesc('report_date')
+            ->orderByDesc('id')
+            ->get();
     }
 
     public static function supportedTrendTypes(): array
@@ -96,6 +101,7 @@ class ReportService
             'approved_count' => (int) ($summary->approved_count ?? 0),
             'completed_count' => (int) ($summary->completed_count ?? 0),
             'cancelled_count' => (int) ($summary->cancelled_count ?? 0),
+            'total_report_records' => $this->getReportRecordCount($filters),
         ];
     }
 
@@ -268,6 +274,16 @@ class ReportService
                 : '-',
             'created_at' => $createdAt,
         ];
+    }
+
+    private function getReportRecordCount(array $filters): int
+    {
+        return Report::query()
+            ->whereIn(
+                'appointment_id',
+                $this->newFilteredAppointmentsQuery($filters)->select('appointments.id'),
+            )
+            ->count();
     }
 
     private function newFilteredAppointmentsQuery(array $filters): Builder

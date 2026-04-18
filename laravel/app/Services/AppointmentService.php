@@ -6,9 +6,11 @@ use App\Models\Appointment;
 use App\Models\PatientRecord;
 use App\Models\PatientNotification;
 use App\Support\AppointmentQueueOrder;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -251,52 +253,58 @@ class AppointmentService
         $validatedBooking = $this->bookingRulesEngine->validate($data);
         $initialStatus = $this->resolveInitialStatus($data);
 
-        $this->assertTimeSlotAvailable(
+        return $this->withAppointmentDateLock(
             (string) $validatedBooking['appointment_date'],
-            (string) $validatedBooking['time_slot'],
-        );
+            function () use ($data, $validatedBooking, $initialStatus) {
+                $this->assertTimeSlotAvailable(
+                    (string) $validatedBooking['appointment_date'],
+                    (string) $validatedBooking['time_slot'],
+                );
 
-        $existingAppointment = Appointment::where('patient_id', $data['patient_id'])
-            ->where('appointment_date', $validatedBooking['appointment_date'])
-            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
-            ->exists();
+                $existingAppointment = Appointment::where('patient_id', $data['patient_id'])
+                    ->where('appointment_date', $validatedBooking['appointment_date'])
+                    ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
+                    ->exists();
 
-        if ($existingAppointment) {
-            throw ValidationException::withMessages([
-                'appointment_date' => ['You already have a booking for this date.'],
-            ]);
-        }
-
-        return DB::transaction(function () use ($data, $validatedBooking, $initialStatus) {
-            try {
-                $appointment = Appointment::create([
-                    'patient_id' => $data['patient_id'],
-                    'service_id' => $data['service_id'],
-                    'appointment_date' => $validatedBooking['appointment_date'],
-                    'time_slot' => $validatedBooking['time_slot'],
-                    'status' => $initialStatus,
-                    'notes' => $data['notes'] ?? null,
-                ]);
-            } catch (QueryException $exception) {
-                if ($this->isUniqueConstraintViolation($exception)) {
+                if ($existingAppointment) {
                     throw ValidationException::withMessages([
-                        'time_slot' => ['This patient already has a booking for the selected date and time.'],
+                        'appointment_date' => ['You already have a booking for this date.'],
                     ]);
                 }
-                throw $exception;
+
+                return DB::transaction(function () use ($data, $validatedBooking, $initialStatus) {
+                    try {
+                        $appointment = Appointment::create([
+                            'patient_id' => $data['patient_id'],
+                            'service_id' => $data['service_id'],
+                            'appointment_date' => $validatedBooking['appointment_date'],
+                            'time_slot' => $validatedBooking['time_slot'],
+                            'status' => $initialStatus,
+                            'notes' => $data['notes'] ?? null,
+                        ]);
+                    } catch (QueryException $exception) {
+                        if ($this->isUniqueConstraintViolation($exception)) {
+                            throw ValidationException::withMessages([
+                                'time_slot' => ['This patient already has a booking for the selected date and time.'],
+                            ]);
+                        }
+
+                        throw $exception;
+                    }
+
+                    $this->queueService->generateQueueNumber((int) $appointment->id);
+
+                    $appointment->load(['patient', 'queue', 'service']);
+                    $this->createBookingNotification($appointment);
+
+                    if ($initialStatus === self::STATUS_CONFIRMED) {
+                        $this->createApprovalNotification($appointment);
+                    }
+
+                    return $appointment;
+                });
             }
-
-            $this->queueService->generateQueueNumber((int) $appointment->id);
-
-            $appointment->load(['patient', 'queue', 'service']);
-            $this->createBookingNotification($appointment);
-
-            if ($initialStatus === self::STATUS_CONFIRMED) {
-                $this->createApprovalNotification($appointment);
-            }
-
-            return $appointment;
-        });
+        );
     }
 
     public function createWalkInAppointment(array $patientData, array $appointmentData): array
@@ -410,30 +418,33 @@ class AppointmentService
     public function restoreAppointment(Appointment $appointment): Appointment
     {
         $this->assertRecycleBinAppointmentCanBeRestored($appointment);
-        $this->assertTimeSlotAvailable(
-            (string) $appointment->appointment_date,
-            (string) $appointment->time_slot,
-            (int) $appointment->id,
-        );
 
-        $existingAppointment = Appointment::where('patient_id', $appointment->patient_id)
-            ->where('appointment_date', $appointment->appointment_date)
-            ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
-            ->exists();
+        $this->withAppointmentDateLock((string) $appointment->appointment_date, function () use ($appointment): void {
+            $this->assertTimeSlotAvailable(
+                (string) $appointment->appointment_date,
+                (string) $appointment->time_slot,
+                (int) $appointment->id,
+            );
 
-        if ($existingAppointment) {
-            throw ValidationException::withMessages([
-                'appointment_date' => ['The patient already has an active booking for this date.'],
-            ]);
-        }
+            $existingAppointment = Appointment::where('patient_id', $appointment->patient_id)
+                ->where('appointment_date', $appointment->appointment_date)
+                ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
+                ->exists();
 
-        DB::transaction(function () use ($appointment) {
-            $appointment->restore();
-            // Default to pending. Admin can approve it later if needed.
-            $appointment->status = self::STATUS_PENDING;
-            $appointment->save();
+            if ($existingAppointment) {
+                throw ValidationException::withMessages([
+                    'appointment_date' => ['The patient already has an active booking for this date.'],
+                ]);
+            }
 
-            $this->queueService->generateQueueNumber((int) $appointment->id);
+            DB::transaction(function () use ($appointment): void {
+                $appointment->restore();
+                // Default to pending. Admin can approve it later if needed.
+                $appointment->status = self::STATUS_PENDING;
+                $appointment->save();
+
+                $this->queueService->generateQueueNumber((int) $appointment->id);
+            });
         });
 
         Log::info('appointment.restored', [
@@ -629,6 +640,20 @@ class AppointmentService
 
         if ($hasActiveAppointments) {
             $this->queueService->syncQueueNumbersForDate($date);
+        }
+    }
+
+    private function withAppointmentDateLock(string $appointmentDate, callable $callback): mixed
+    {
+        $lockName = sprintf('appointment-booking:%s', $appointmentDate);
+
+        try {
+            return Cache::lock($lockName, 10)->block(5, $callback);
+        }
+        catch (LockTimeoutException) {
+            throw ValidationException::withMessages([
+                'appointment_date' => ['Another booking is being processed for this date. Please try again.'],
+            ]);
         }
     }
 
