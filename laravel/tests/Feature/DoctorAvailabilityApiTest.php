@@ -2,8 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Appointment;
 use App\Models\DoctorUnavailability;
+use App\Models\PatientNotification;
+use App\Models\PatientRecord;
 use App\Models\Role;
+use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -68,6 +72,114 @@ class DoctorAvailabilityApiTest extends TestCase
 
         $this->assertIsArray($slots);
         $this->assertSame(30, $response->json('data.slot_duration_minutes'));
+    }
+
+    public function test_creating_doctor_unavailability_notifies_only_affected_patients(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        $service = $this->createService();
+        $affectedPatientOne = $this->createUserWithRole('Patient');
+        $affectedPatientTwo = $this->createUserWithRole('Patient');
+        $unaffectedPatient = $this->createUserWithRole('Patient');
+        $otherDatePatient = $this->createUserWithRole('Patient');
+        $date = now()->addDays(21)->format('Y-m-d');
+
+        $affectedAppointmentOne = $this->createAppointment(
+            PatientRecord::resolveForUser($affectedPatientOne)->id,
+            $service->id,
+            $date,
+            '10:00',
+        );
+        $affectedAppointmentTwo = $this->createAppointment(
+            PatientRecord::resolveForUser($affectedPatientTwo)->id,
+            $service->id,
+            $date,
+            '10:15',
+            'confirmed',
+        );
+        $unaffectedAppointment = $this->createAppointment(
+            PatientRecord::resolveForUser($unaffectedPatient)->id,
+            $service->id,
+            $date,
+            '14:00',
+        );
+        $otherDateAppointment = $this->createAppointment(
+            PatientRecord::resolveForUser($otherDatePatient)->id,
+            $service->id,
+            now()->addDays(22)->format('Y-m-d'),
+            '10:00',
+        );
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/v1/admin/settings/doctor-unavailability', [
+            'unavailable_date' => $date,
+            'start_time' => '10:00',
+            'end_time' => '12:00',
+            'reason' => 'Emergency leave',
+        ])->assertCreated();
+
+        $this->assertDatabaseCount('patient_notifications', 2);
+        $this->assertDatabaseHas('patient_notifications', [
+            'patient_id' => (int) $affectedAppointmentOne->patient_id,
+            'appointment_id' => (int) $affectedAppointmentOne->id,
+            'type' => 'doctor_unavailable',
+            'title' => 'Appointment affected by doctor unavailability',
+        ]);
+        $this->assertDatabaseHas('patient_notifications', [
+            'patient_id' => (int) $affectedAppointmentTwo->patient_id,
+            'appointment_id' => (int) $affectedAppointmentTwo->id,
+            'type' => 'doctor_unavailable',
+            'title' => 'Appointment affected by doctor unavailability',
+        ]);
+        $this->assertDatabaseMissing('patient_notifications', [
+            'appointment_id' => (int) $unaffectedAppointment->id,
+        ]);
+        $this->assertDatabaseMissing('patient_notifications', [
+            'appointment_id' => (int) $otherDateAppointment->id,
+        ]);
+
+        $notification = PatientNotification::query()
+            ->where('appointment_id', (int) $affectedAppointmentOne->id)
+            ->firstOrFail();
+
+        $this->assertStringContainsString('doctor is unavailable', (string) $notification->message);
+        $this->assertStringContainsString('Emergency leave', (string) $notification->message);
+        $this->assertStringContainsString($date, (string) $notification->message);
+        $this->assertStringContainsString('10:00', (string) $notification->message);
+
+        Sanctum::actingAs($affectedPatientOne);
+
+        $this->getJson('/api/v1/patient/notifications')
+            ->assertOk()
+            ->assertJsonPath('notifications.0.type', 'doctor_unavailable')
+            ->assertJsonPath('notifications.0.related_appointment_id', (int) $affectedAppointmentOne->id)
+            ->assertJsonPath('notifications.0.title', 'Appointment affected by doctor unavailability');
+    }
+
+    private function createAppointment(
+        int $patientId,
+        int $serviceId,
+        string $date,
+        string $timeSlot,
+        string $status = 'pending',
+    ): Appointment {
+        return Appointment::create([
+            'patient_id' => $patientId,
+            'service_id' => $serviceId,
+            'appointment_date' => $date,
+            'time_slot' => $timeSlot,
+            'status' => $status,
+        ]);
+    }
+
+    private function createService(): Service
+    {
+        return Service::create([
+            'name' => 'Dental Check-up',
+            'description' => 'Doctor availability notification test service.',
+            'is_active' => true,
+        ]);
     }
 
     private function createUserWithRole(string $roleName): User

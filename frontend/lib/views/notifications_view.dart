@@ -262,6 +262,8 @@ class _NotificationsViewState extends State<NotificationsView> {
         return Icons.check_circle_outline;
       case 'cancelled':
         return Icons.cancel_outlined;
+      case 'doctor_unavailable':
+        return Icons.event_busy_outlined;
       case 'reminder':
         return Icons.alarm;
       case 'queue':
@@ -277,6 +279,8 @@ class _NotificationsViewState extends State<NotificationsView> {
         return const Color(0xFF1D4ED8); // Blue
       case 'cancelled':
         return const Color(0xFFDC2626); // Red
+      case 'doctor_unavailable':
+        return const Color(0xFFB45309); // Amber brown
       case 'reminder':
         return const Color(0xFFF59E0B); // Amber
       case 'queue':
