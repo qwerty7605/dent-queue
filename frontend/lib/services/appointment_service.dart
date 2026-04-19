@@ -81,10 +81,16 @@ class AppointmentService {
     return response as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getAvailabilitySlots(String date) async {
+  Future<Map<String, dynamic>> getAvailabilitySlots(
+    String date, {
+    int? ignoreAppointmentId,
+  }) async {
+    final String cacheKey = ignoreAppointmentId == null
+        ? date
+        : '$date::$ignoreAppointmentId';
     final dynamic cached = ShortTermCache.read<dynamic>(
       _availabilitySlotsCache,
-      date,
+      cacheKey,
     );
     if (cached is Map) {
       return Map<String, dynamic>.from(cached);
@@ -92,10 +98,13 @@ class AppointmentService {
 
     return ShortTermCache.runSingleFlight(
       _availabilitySlotsCache,
-      date,
+      cacheKey,
       () async {
         final response = await _baseService.getJson<dynamic>(
-          Endpoints.availabilitySlots(date),
+          Endpoints.availabilitySlots(
+            date,
+            ignoreAppointmentId: ignoreAppointmentId,
+          ),
           (data) => data,
         );
 
@@ -103,7 +112,7 @@ class AppointmentService {
           final result = Map<String, dynamic>.from(response['data'] as Map);
           ShortTermCache.write(
             _availabilitySlotsCache,
-            date,
+            cacheKey,
             result,
             ttl: _cacheTtl,
           );
@@ -113,7 +122,7 @@ class AppointmentService {
         const result = <String, dynamic>{};
         ShortTermCache.write(
           _availabilitySlotsCache,
-          date,
+          cacheKey,
           result,
           ttl: _cacheTtl,
         );
@@ -346,6 +355,19 @@ class AppointmentService {
       (data) => data,
     );
     _invalidateAfterAppointmentCancelled();
+    return response as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> rescheduleAppointment(
+    int id,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _baseService.putJson<dynamic>(
+      Endpoints.rescheduleAppointment(id),
+      payload,
+      (data) => data,
+    );
+    _invalidateAfterAppointmentCreated();
     return response as Map<String, dynamic>;
   }
 

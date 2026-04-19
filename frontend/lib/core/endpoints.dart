@@ -12,8 +12,12 @@ class Endpoints {
   static const services = '$_base/patient/services';
   static const appointments = '$_base/patient/appointments';
   static const medicalHistory = '$_base/patient/appointments/history';
-  static String availabilitySlots(String date) =>
-      '$_base/availability/slots?date=$date';
+  static String availabilitySlots(String date, {int? ignoreAppointmentId}) =>
+      _withQueryParameters('$_base/availability/slots', <String, String>{
+        'date': date,
+        if (ignoreAppointmentId != null)
+          'ignore_appointment_id': ignoreAppointmentId.toString(),
+      });
   static String patientNotifications([
     Map<String, String> queryParameters = const <String, String>{},
   ]) => _withQueryParameters('$_base/patient/notifications', queryParameters);
@@ -25,6 +29,8 @@ class Endpoints {
   static const patientJoinQueue = '$_base/patient/queues/join';
   static String cancelAppointment(int id) =>
       '$_base/patient/appointments/$id/cancel';
+  static String rescheduleAppointment(int id) =>
+      '$_base/patient/appointments/$id';
   static String restoreAppointment(int id) =>
       '$_base/patient/appointments/$id/restore';
   static const patientRecycleBin = '$_base/patient/appointments/recycle-bin';

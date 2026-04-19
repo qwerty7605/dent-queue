@@ -36,6 +36,7 @@ class AdminReportFilteringApiTest extends TestCase
                 'approved_count' => 1,
                 'completed_count' => 1,
                 'cancelled_count' => 1,
+                'total_report_records' => 0,
             ],
         ]);
     }
@@ -169,6 +170,7 @@ class AdminReportFilteringApiTest extends TestCase
                 'approved_count' => 0,
                 'completed_count' => 1,
                 'cancelled_count' => 0,
+                'total_report_records' => 0,
             ],
         ]);
 
@@ -224,6 +226,7 @@ class AdminReportFilteringApiTest extends TestCase
                 'approved_count' => 0,
                 'completed_count' => 0,
                 'cancelled_count' => 0,
+                'total_report_records' => 0,
             ],
         ]);
 

@@ -18,6 +18,7 @@ import '../widgets/app_empty_state.dart';
 import '../widgets/dashboard_stat_card.dart';
 import '../widgets/edit_profile_dialog.dart';
 import '../widgets/navigation_chrome.dart';
+import '../widgets/reschedule_appointment_dialog.dart';
 import 'notifications_view.dart';
 import 'recycle_bin_view.dart';
 
@@ -440,6 +441,33 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
 
     if (result == true) {
       _loadAppointments();
+    }
+  }
+
+  Future<void> _openRescheduleDialog(Map<String, dynamic> appointment) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => RescheduleAppointmentDialog(
+        appointment: appointment,
+        appointmentService: _appointmentService,
+      ),
+    );
+
+    if (result == true) {
+      await _loadAppointments(showLoader: false, forceRefresh: true);
+      if (!mounted) return;
+      setState(() {
+        _successMessage = 'Appointment Rescheduled Successfully!';
+        _messageType = 'success';
+      });
+
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _successMessage = null;
+          });
+        }
+      });
     }
   }
 
@@ -1634,30 +1662,67 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
               ),
             ),
             if (status == 'pending' || status == 'approved')
-              InkWell(
-                onTap: () =>
-                    _showCancelConfirmationDialog((appt['id'] as num).toInt()),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFFF1F1),
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
-                    ),
-                    border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+              Container(
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
                   ),
-                  child: const Center(
-                    child: Text(
-                      'CANCEL APPOINTMENT',
-                      style: TextStyle(
-                        color: Colors.redAccent,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _openRescheduleDialog(appt),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF1F7FF),
+                            borderRadius: BorderRadius.only(
+                              bottomLeft: Radius.circular(12),
+                            ),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'RESCHEDULE',
+                              style: TextStyle(
+                                color: Color(0xFF1D4ED8),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _showCancelConfirmationDialog(
+                          (appt['id'] as num).toInt(),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFFF1F1),
+                            borderRadius: BorderRadius.only(
+                              bottomRight: Radius.circular(12),
+                            ),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'CANCEL',
+                              style: TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
           ],

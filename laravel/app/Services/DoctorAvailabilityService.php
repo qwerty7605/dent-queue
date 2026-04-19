@@ -79,17 +79,22 @@ class DoctorAvailabilityService
     /**
      * @return array{date: string, opening_time: string, closing_time: string, slot_duration_minutes: int, slots: array<int, array<string, mixed>>, unavailable_ranges: array<int, array<string, mixed>>}
      */
-    public function getSlotAvailability(string $date): array
+    public function getSlotAvailability(string $date, ?int $ignoreAppointmentId = null): array
     {
         $timezone = (string) config('app.timezone', 'UTC');
         $schedule = $this->resolveClinicSchedule($timezone);
         $day = Carbon::createFromFormat('Y-m-d', $date, $timezone)->startOfDay();
         $unavailabilities = $this->unavailabilitiesForDate($date);
-        $bookedAppointments = Appointment::query()
+        $bookedAppointmentsQuery = Appointment::query()
             ->whereDate('appointment_date', $date)
             ->whereNull('deleted_at')
-            ->whereIn('status', ['pending', 'confirmed', 'completed'])
-            ->get(['id', 'time_slot', 'status']);
+            ->whereIn('status', ['pending', 'confirmed', 'completed']);
+
+        if ($ignoreAppointmentId !== null) {
+            $bookedAppointmentsQuery->whereKeyNot($ignoreAppointmentId);
+        }
+
+        $bookedAppointments = $bookedAppointmentsQuery->get(['id', 'time_slot', 'status']);
 
         $slots = [];
         $current = $this->combineDateAndTime($date, $schedule['opening_time'], $timezone);
