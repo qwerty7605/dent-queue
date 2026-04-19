@@ -415,9 +415,37 @@ class AppointmentController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, string $id): JsonResponse
     {
-        //
+        $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
+
+        /** @var Appointment $appointment */
+        $appointment = Appointment::query()
+            ->with(['patient', 'queue', 'service'])
+            ->findOrFail($id);
+
+        if ((int) $appointment->patient_id !== (int) $patientRecord->id) {
+            return response()->json([
+                'message' => 'Unauthorized. You can only update your own appointments.',
+            ], 403);
+        }
+
+        $payload = $request->validate([
+            'appointment_date' => ['required', 'date_format:Y-m-d'],
+            'time_slot' => ['required', 'string'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $updatedAppointment = $this->appointmentService->rescheduleByPatient(
+            $appointment,
+            (int) $patientRecord->id,
+            $payload,
+        );
+
+        return response()->json([
+            'message' => 'Appointment rescheduled successfully.',
+            'appointment' => $this->formatAppointmentResponse($updatedAppointment),
+        ]);
     }
 
     /**

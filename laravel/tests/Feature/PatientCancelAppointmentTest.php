@@ -223,6 +223,66 @@ class PatientCancelAppointmentTest extends TestCase
             ->assertJsonPath('appointment.status', 'Completed');
     }
 
+    public function test_patient_can_reschedule_pending_appointment(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $appointment = $this->createAppointment($patient->id, 'pending');
+        Sanctum::actingAs($patient);
+
+        $newDate = now()->next('Tuesday')->format('Y-m-d');
+
+        $this->putJson('/api/v1/patient/appointments/' . $appointment->id, [
+            'appointment_date' => $newDate,
+            'time_slot' => '10:30',
+            'notes' => 'Needs a later slot',
+        ])->assertOk()
+            ->assertJsonPath('message', 'Appointment rescheduled successfully.')
+            ->assertJsonPath('appointment.appointment_date', $newDate)
+            ->assertJsonPath('appointment.appointment_time', '10:30')
+            ->assertJsonPath('appointment.notes', 'Needs a later slot');
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $appointment->id,
+            'appointment_date' => $newDate,
+            'time_slot' => '10:30',
+            'notes' => 'Needs a later slot',
+            'status' => 'pending',
+        ]);
+    }
+
+    public function test_patient_cannot_reschedule_to_booked_time_slot(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $otherPatient = $this->createUserWithRole('Patient');
+        $date = now()->next('Tuesday')->format('Y-m-d');
+        $appointment = $this->createAppointment($patient->id, 'pending');
+        $this->createAppointment($otherPatient->id, 'confirmed')->update([
+            'appointment_date' => $date,
+            'time_slot' => '11:00',
+        ]);
+        Sanctum::actingAs($patient);
+
+        $this->putJson('/api/v1/patient/appointments/' . $appointment->id, [
+            'appointment_date' => $date,
+            'time_slot' => '11:00',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['time_slot']);
+    }
+
+    public function test_patient_cannot_reschedule_completed_appointment(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $appointment = $this->createAppointment($patient->id, 'completed');
+        Sanctum::actingAs($patient);
+
+        $this->putJson('/api/v1/patient/appointments/' . $appointment->id, [
+            'appointment_date' => now()->next('Tuesday')->format('Y-m-d'),
+            'time_slot' => '11:00',
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['status'])
+            ->assertJsonPath('errors.status.0', 'Only pending or approved appointments can be rescheduled.');
+    }
+
     private function createAppointment(int $patientId, string $status): Appointment
     {
         return Appointment::create([

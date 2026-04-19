@@ -19,10 +19,14 @@ class DoctorAvailabilityController extends Controller
     {
         $payload = $request->validate([
             'date' => ['required', 'date_format:Y-m-d'],
+            'ignore_appointment_id' => ['nullable', 'integer', 'exists:appointments,id'],
         ]);
 
         return response()->json([
-            'data' => $this->doctorAvailabilityService->getSlotAvailability((string) $payload['date']),
+            'data' => $this->doctorAvailabilityService->getSlotAvailability(
+                (string) $payload['date'],
+                isset($payload['ignore_appointment_id']) ? (int) $payload['ignore_appointment_id'] : null,
+            ),
         ]);
     }
 

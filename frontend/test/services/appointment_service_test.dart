@@ -11,6 +11,7 @@ class FakeBaseService extends Fake implements BaseService {
   Object? lastBody;
   int getJsonCallCount = 0;
   int postJsonCallCount = 0;
+  int putJsonCallCount = 0;
   int patchJsonCallCount = 0;
   Completer<dynamic>? pendingGetJsonResponse;
 
@@ -31,6 +32,18 @@ class FakeBaseService extends Fake implements BaseService {
     T Function(dynamic json) mapper,
   ) async {
     postJsonCallCount += 1;
+    lastPath = path;
+    lastBody = body;
+    return mapper(nextResponse);
+  }
+
+  @override
+  Future<T> putJson<T>(
+    String path,
+    Object? body,
+    T Function(dynamic json) mapper,
+  ) async {
+    putJsonCallCount += 1;
     lastPath = path;
     lastBody = body;
     return mapper(nextResponse);
@@ -204,6 +217,71 @@ void main() {
 
     expect(fakeBaseService.getJsonCallCount, 2);
   });
+
+  test(
+    'rescheduleAppointment uses patient update endpoint and invalidates cache',
+    () async {
+      fakeBaseService.nextResponse = {
+        'appointments': [
+          {
+            'id': 9,
+            'appointment_date': '2026-04-10',
+            'appointment_time': '09:00',
+          },
+        ],
+      };
+      await appointmentService.getPatientAppointments();
+      expect(fakeBaseService.getJsonCallCount, 1);
+
+      fakeBaseService.nextResponse = {'message': 'Rescheduled'};
+      await appointmentService.rescheduleAppointment(9, <String, dynamic>{
+        'appointment_date': '2026-04-11',
+        'time_slot': '10:00',
+      });
+
+      expect(fakeBaseService.lastPath, '/api/v1/patient/appointments/9');
+      expect(fakeBaseService.lastBody, <String, dynamic>{
+        'appointment_date': '2026-04-11',
+        'time_slot': '10:00',
+      });
+
+      fakeBaseService.nextResponse = {
+        'appointments': [
+          {
+            'id': 9,
+            'appointment_date': '2026-04-11',
+            'appointment_time': '10:00',
+          },
+        ],
+      };
+      await appointmentService.getPatientAppointments();
+      expect(fakeBaseService.getJsonCallCount, 2);
+    },
+  );
+
+  test(
+    'getAvailabilitySlots can include ignore_appointment_id in request',
+    () async {
+      fakeBaseService.nextResponse = {
+        'data': {
+          'slots': [
+            {'time': '09:00', 'is_available': true},
+          ],
+        },
+      };
+
+      final result = await appointmentService.getAvailabilitySlots(
+        '2026-04-20',
+        ignoreAppointmentId: 44,
+      );
+
+      expect(
+        fakeBaseService.lastPath,
+        '/api/v1/availability/slots?date=2026-04-20&ignore_appointment_id=44',
+      );
+      expect(result['slots'], isNotEmpty);
+    },
+  );
 
   test(
     'createAppointment clears appointment, queue, dashboard, and report caches without clearing services',

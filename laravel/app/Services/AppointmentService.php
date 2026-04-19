@@ -457,6 +457,97 @@ class AppointmentService
         return $this->loadAppointmentForResponse((int) $appointment->id);
     }
 
+    public function rescheduleByPatient(Appointment $appointment, int $patientId, array $data): Appointment
+    {
+        $currentStatus = $this->normalizeStatus((string) $appointment->status);
+
+        if (!in_array($currentStatus, [self::STATUS_PENDING, self::STATUS_CONFIRMED], true)) {
+            throw ValidationException::withMessages([
+                'status' => ['Only pending or approved appointments can be rescheduled.'],
+            ]);
+        }
+
+        $validatedBooking = $this->bookingRulesEngine->validate([
+            ...$data,
+            'patient_id' => $patientId,
+            'service_id' => (int) $appointment->service_id,
+        ]);
+        $validatedBooking['notes'] = $data['notes'] ?? $appointment->notes;
+
+        $originalDate = (string) $appointment->appointment_date;
+        $originalTime = (string) $appointment->time_slot;
+        $targetDate = (string) $validatedBooking['appointment_date'];
+        $targetTime = (string) $validatedBooking['time_slot'];
+
+        $performReschedule = function () use (
+            $appointment,
+            $patientId,
+            $validatedBooking,
+            $originalDate,
+            $originalTime,
+            $targetDate,
+            $targetTime,
+            $currentStatus,
+        ) {
+            $this->assertTimeSlotAvailable(
+                $targetDate,
+                $targetTime,
+                (int) $appointment->id,
+            );
+
+            $existingAppointment = Appointment::query()
+                ->where('patient_id', $patientId)
+                ->where('appointment_date', $targetDate)
+                ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
+                ->whereKeyNot((int) $appointment->id)
+                ->exists();
+
+            if ($existingAppointment) {
+                throw ValidationException::withMessages([
+                    'appointment_date' => ['You already have a booking for this date.'],
+                ]);
+            }
+
+            DB::transaction(function () use ($appointment, $validatedBooking, $originalDate, $targetDate): void {
+                $appointment->forceFill([
+                    'appointment_date' => $validatedBooking['appointment_date'],
+                    'time_slot' => $validatedBooking['time_slot'],
+                    'notes' => $validatedBooking['notes'] ?? $appointment->notes,
+                ])->save();
+
+                if ($originalDate !== $targetDate) {
+                    $this->queueService->syncQueueNumbersForDate($originalDate);
+                }
+
+                $this->queueService->generateQueueNumber((int) $appointment->id);
+            });
+
+            Log::info('appointment.rescheduled.by_patient', [
+                'appointment_id' => (int) $appointment->id,
+                'patient_id' => $patientId,
+                'previous_status' => $currentStatus,
+                'previous_date' => $originalDate,
+                'previous_time_slot' => $originalTime,
+                'new_date' => $targetDate,
+                'new_time_slot' => $targetTime,
+                'occurred_at' => now()->toISOString(),
+            ]);
+
+            return $this->loadAppointmentForResponse((int) $appointment->id);
+        };
+
+        if ($originalDate === $targetDate) {
+            return $this->withAppointmentDateLock($targetDate, $performReschedule);
+        }
+
+        $lockDates = [$originalDate, $targetDate];
+        sort($lockDates);
+
+        return $this->withAppointmentDateLock($lockDates[0], function () use ($lockDates, $performReschedule) {
+            return $this->withAppointmentDateLock($lockDates[1], $performReschedule);
+        });
+    }
+
     public function getRecycleBinAppointments(?int $patientId = null)
     {
         $query = $this->recycleBinAppointmentsQuery()

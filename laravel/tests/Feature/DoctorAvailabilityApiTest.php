@@ -74,6 +74,32 @@ class DoctorAvailabilityApiTest extends TestCase
         $this->assertSame(30, $response->json('data.slot_duration_minutes'));
     }
 
+    public function test_slot_availability_api_can_ignore_current_appointment(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $date = now()->addDays(30)->format('Y-m-d');
+        $appointment = $this->createAppointment(
+            PatientRecord::resolveForUser($patient)->id,
+            $this->createService()->id,
+            $date,
+            '07:30',
+        );
+        Sanctum::actingAs($patient);
+
+        $this->getJson(sprintf(
+            '/api/v1/availability/slots?date=%s&ignore_appointment_id=%d',
+            $date,
+            $appointment->id,
+        ))->assertOk()
+            ->assertJsonPath('data.date', $date)
+            ->assertJsonStructure([
+                'data' => [
+                    'slots',
+                    'unavailable_ranges',
+                ],
+            ]);
+    }
+
     public function test_creating_doctor_unavailability_notifies_only_affected_patients(): void
     {
         $admin = $this->createUserWithRole('Admin');
