@@ -71,7 +71,7 @@ class AdminAppointmentListByDateApiTest extends TestCase
             ->assertJsonPath('appointments.0.patient_name', trim($patientA->first_name . ' ' . $patientA->last_name))
             ->assertJsonPath('appointments.0.service_type', $serviceA->name)
             ->assertJsonPath('appointments.0.time', '08:30')
-            ->assertJsonPath('appointments.0.status', 'Confirmed')
+            ->assertJsonPath('appointments.0.status', 'Approved')
             ->assertJsonPath('appointments.0.queue_number', 1)
             ->assertJsonPath('appointments.1.id', $sameTimeEarlierCreated->id)
             ->assertJsonPath('appointments.1.time', '09:00')
@@ -79,7 +79,7 @@ class AdminAppointmentListByDateApiTest extends TestCase
             ->assertJsonPath('appointments.1.queue_number', 2)
             ->assertJsonPath('appointments.2.id', $sameTimeLaterCreated->id)
             ->assertJsonPath('appointments.2.time', '09:00')
-            ->assertJsonPath('appointments.2.status', 'Confirmed')
+            ->assertJsonPath('appointments.2.status', 'Approved')
             ->assertJsonPath('appointments.2.queue_number', 3);
 
         $appointmentIds = array_map(
