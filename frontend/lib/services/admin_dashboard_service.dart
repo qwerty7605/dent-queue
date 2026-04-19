@@ -132,6 +132,10 @@ class AdminDashboardService {
               'approved': data['approved_count'] as int? ?? 0,
               'completed': data['completed_count'] as int? ?? 0,
               'cancelled': data['cancelled_count'] as int? ?? 0,
+              'cancelled_by_doctor':
+                  data['cancelled_by_doctor_count'] as int? ?? 0,
+              'reschedule_required':
+                  data['reschedule_required_count'] as int? ?? 0,
             };
             ShortTermCache.write(
               _reportSummaryCache,
@@ -150,6 +154,8 @@ class AdminDashboardService {
           'approved': 0,
           'completed': 0,
           'cancelled': 0,
+          'cancelled_by_doctor': 0,
+          'reschedule_required': 0,
         };
         ShortTermCache.write(
           _reportSummaryCache,

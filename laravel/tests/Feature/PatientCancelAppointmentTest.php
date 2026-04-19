@@ -280,7 +280,7 @@ class PatientCancelAppointmentTest extends TestCase
             'time_slot' => '11:00',
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['status'])
-            ->assertJsonPath('errors.status.0', 'Only pending or approved appointments can be rescheduled.');
+            ->assertJsonPath('errors.status.0', 'Only pending, approved, cancelled by doctor, or reschedule required appointments can be rescheduled.');
     }
 
     private function createAppointment(int $patientId, string $status): Appointment

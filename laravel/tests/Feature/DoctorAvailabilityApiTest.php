@@ -164,12 +164,25 @@ class DoctorAvailabilityApiTest extends TestCase
         $this->assertDatabaseMissing('patient_notifications', [
             'appointment_id' => (int) $otherDateAppointment->id,
         ]);
+        $this->assertDatabaseHas('appointments', [
+            'id' => (int) $affectedAppointmentOne->id,
+            'status' => 'reschedule_required',
+        ]);
+        $this->assertDatabaseHas('appointments', [
+            'id' => (int) $affectedAppointmentTwo->id,
+            'status' => 'cancelled_by_doctor',
+        ]);
+        $this->assertDatabaseHas('appointments', [
+            'id' => (int) $unaffectedAppointment->id,
+            'status' => 'pending',
+        ]);
 
         $notification = PatientNotification::query()
             ->where('appointment_id', (int) $affectedAppointmentOne->id)
             ->firstOrFail();
 
         $this->assertStringContainsString('doctor is unavailable', (string) $notification->message);
+        $this->assertStringContainsString('Reschedule Required', (string) $notification->message);
         $this->assertStringContainsString('Emergency leave', (string) $notification->message);
         $this->assertStringContainsString($date, (string) $notification->message);
         $this->assertStringContainsString('10:00', (string) $notification->message);

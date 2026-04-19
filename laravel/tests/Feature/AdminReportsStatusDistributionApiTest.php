@@ -29,6 +29,8 @@ class AdminReportsStatusDistributionApiTest extends TestCase
         $this->createAppointment($patient, $service, 'confirmed'); // approved
         $this->createAppointment($patient, $service, 'completed');
         $this->createAppointment($patient, $service, 'cancelled');
+        $this->createAppointment($patient, $service, 'cancelled_by_doctor');
+        $this->createAppointment($patient, $service, 'reschedule_required');
 
         Sanctum::actingAs($admin);
 
@@ -43,7 +45,9 @@ class AdminReportsStatusDistributionApiTest extends TestCase
             ->assertJsonFragment(['status' => 'pending', 'count' => 2])
             ->assertJsonFragment(['status' => 'approved', 'count' => 1])
             ->assertJsonFragment(['status' => 'completed', 'count' => 1])
-            ->assertJsonFragment(['status' => 'cancelled', 'count' => 1]);
+            ->assertJsonFragment(['status' => 'cancelled', 'count' => 1])
+            ->assertJsonFragment(['status' => 'cancelled_by_doctor', 'count' => 1])
+            ->assertJsonFragment(['status' => 'reschedule_required', 'count' => 1]);
     }
 
     public function test_unauthorized_patient_cannot_access_status_distribution(): void
@@ -67,7 +71,9 @@ class AdminReportsStatusDistributionApiTest extends TestCase
             ->assertJsonFragment(['status' => 'pending', 'count' => 0])
             ->assertJsonFragment(['status' => 'approved', 'count' => 0])
             ->assertJsonFragment(['status' => 'completed', 'count' => 0])
-            ->assertJsonFragment(['status' => 'cancelled', 'count' => 0]);
+            ->assertJsonFragment(['status' => 'cancelled', 'count' => 0])
+            ->assertJsonFragment(['status' => 'cancelled_by_doctor', 'count' => 0])
+            ->assertJsonFragment(['status' => 'reschedule_required', 'count' => 0]);
     }
 
     private function createUserWithRole(string $roleName): User
