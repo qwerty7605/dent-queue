@@ -19,6 +19,7 @@ class DoctorAvailabilityService
 
     public function __construct(
         private readonly ClinicSettingService $clinicSettingService,
+        private readonly QueueService $queueService,
     ) {
     }
 
@@ -41,7 +42,8 @@ class DoctorAvailabilityService
                 'created_by_user_id' => (int) $user->id,
             ]);
 
-            $this->notifyAffectedPatients($doctorUnavailability);
+            $affectedAppointments = $this->updateAffectedAppointmentStatuses($doctorUnavailability);
+            $this->notifyAffectedPatients($doctorUnavailability, $affectedAppointments);
 
             return $doctorUnavailability;
         });
@@ -381,9 +383,12 @@ class DoctorAvailabilityService
         return $firstStart->lt($secondEnd) && $firstEnd->gt($secondStart);
     }
 
-    private function notifyAffectedPatients(DoctorUnavailability $schedule): void
+    private function notifyAffectedPatients(
+        DoctorUnavailability $schedule,
+        Collection $appointments,
+    ): void
     {
-        foreach ($this->affectedAppointmentsForSchedule($schedule) as $appointment) {
+        foreach ($appointments as $appointment) {
             PatientNotification::create([
                 'patient_id' => (int) $appointment->patient_id,
                 'appointment_id' => (int) $appointment->id,
@@ -402,10 +407,11 @@ class DoctorAvailabilityService
         $reason = trim((string) ($schedule->reason ?? ''));
 
         $message = sprintf(
-            'Your appointment for %s on %s at %s is no longer available because the doctor is unavailable.',
+            'Your appointment for %s on %s at %s is no longer available because the doctor is unavailable. Status updated to %s.',
             $serviceName !== '' ? $serviceName : 'your appointment',
             (string) $appointment->appointment_date,
             (string) $appointment->time_slot,
+            AppointmentService::humanStatusLabel((string) $appointment->status),
         );
 
         if ($reason !== '') {
@@ -413,6 +419,25 @@ class DoctorAvailabilityService
         }
 
         return $message . ' Please contact the clinic to reschedule.';
+    }
+
+    private function updateAffectedAppointmentStatuses(DoctorUnavailability $schedule): Collection
+    {
+        $appointments = $this->affectedAppointmentsForSchedule($schedule);
+
+        foreach ($appointments as $appointment) {
+            $appointment->forceFill([
+                'status' => (string) $appointment->status === 'confirmed'
+                    ? 'cancelled_by_doctor'
+                    : 'reschedule_required',
+            ])->save();
+        }
+
+        if ($appointments->isNotEmpty()) {
+            $this->queueService->syncQueueNumbersForDate((string) $schedule->unavailable_date);
+        }
+
+        return $appointments;
     }
 
     /**

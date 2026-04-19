@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AppointmentService
@@ -24,23 +25,33 @@ class AppointmentService
     private const STATUS_CONFIRMED = 'confirmed';
     private const STATUS_CANCELLED = 'cancelled';
     private const STATUS_COMPLETED = 'completed';
+    private const STATUS_CANCELLED_BY_DOCTOR = 'cancelled_by_doctor';
+    private const STATUS_RESCHEDULE_REQUIRED = 'reschedule_required';
     private const STATUS_ALIASES = [
         self::STATUS_PENDING => self::STATUS_PENDING,
         'approved' => self::STATUS_CONFIRMED,
         self::STATUS_CONFIRMED => self::STATUS_CONFIRMED,
         self::STATUS_CANCELLED => self::STATUS_CANCELLED,
         self::STATUS_COMPLETED => self::STATUS_COMPLETED,
+        'cancelled by doctor' => self::STATUS_CANCELLED_BY_DOCTOR,
+        self::STATUS_CANCELLED_BY_DOCTOR => self::STATUS_CANCELLED_BY_DOCTOR,
+        'reschedule required' => self::STATUS_RESCHEDULE_REQUIRED,
+        self::STATUS_RESCHEDULE_REQUIRED => self::STATUS_RESCHEDULE_REQUIRED,
     ];
     private const ACTIVE_BOOKING_STATUSES = [
         self::STATUS_PENDING,
         self::STATUS_CONFIRMED,
         self::STATUS_COMPLETED,
+        self::STATUS_CANCELLED_BY_DOCTOR,
+        self::STATUS_RESCHEDULE_REQUIRED,
     ];
     private const STATUS_TRANSITIONS = [
         self::STATUS_PENDING => [self::STATUS_CONFIRMED, self::STATUS_CANCELLED],
         self::STATUS_CONFIRMED => [self::STATUS_COMPLETED, self::STATUS_CANCELLED],
         self::STATUS_COMPLETED => [],
         self::STATUS_CANCELLED => [],
+        self::STATUS_CANCELLED_BY_DOCTOR => [],
+        self::STATUS_RESCHEDULE_REQUIRED => [],
     ];
 
     public function __construct(
@@ -103,7 +114,7 @@ class AppointmentService
                     'service' => $appointment->service_type !== null ? (string) $appointment->service_type : 'Unknown Service',
                     'date' => (string) $appointment->appointment_date,
                     'contact' => (string) $appointment->contact,
-                    'status' => $appointment->status === 'confirmed' ? 'Approved' : ucfirst((string) $appointment->status),
+                    'status' => self::humanStatusLabel((string) $appointment->status),
                     'booking_type' => $isWalkIn ? 'Walk-in' : 'Online',
                     'queue_number' => $appointment->queue_number ? str_pad((string)$appointment->queue_number, 2, '0', STR_PAD_LEFT) : '-',
                 ];
@@ -113,7 +124,7 @@ class AppointmentService
     public function getApprovedAppointmentsByDate(string $date)
     {
         return Appointment::query()
-            ->join('queues', 'queues.appointment_id', '=', 'appointments.id')
+            ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id')
             ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->where('appointments.appointment_date', $date)
@@ -147,7 +158,9 @@ class AppointmentService
                     ),
                     'appointment_time' => (string) $appointment->time_slot,
                     'status' => 'Approved',
-                    'queue_number' => (int) $appointment->queue_number,
+                    'queue_number' => $appointment->queue_number !== null
+                        ? (int) $appointment->queue_number
+                        : null,
                     'appointment_date' => (string) $appointment->appointment_date,
                     'timestamp_created' => $appointment->created_at !== null
                         ? Carbon::parse((string) $appointment->created_at)->toIso8601String()
@@ -238,7 +251,7 @@ class AppointmentService
                         (int) $appointment->service_id,
                     ),
                     'time' => (string) $appointment->time_slot,
-                    'status' => ucfirst((string) $appointment->status),
+                    'status' => self::humanStatusLabel((string) $appointment->status),
                     'queue_number' => (int) $appointment->queue_number,
                     'is_called' => (bool) $appointment->is_called,
                     'appointment_date' => (string) $appointment->appointment_date,
@@ -344,7 +357,7 @@ class AppointmentService
         $targetStatus = $this->normalizeStatus($status);
         if ($targetStatus === null) {
             throw ValidationException::withMessages([
-                'status' => ['Status must be one of: pending, approved, cancelled, completed.'],
+                'status' => ['Status must be one of: pending, approved, cancelled, completed, cancelled by doctor, reschedule required.'],
             ]);
         }
 
@@ -461,9 +474,14 @@ class AppointmentService
     {
         $currentStatus = $this->normalizeStatus((string) $appointment->status);
 
-        if (!in_array($currentStatus, [self::STATUS_PENDING, self::STATUS_CONFIRMED], true)) {
+        if (!in_array($currentStatus, [
+            self::STATUS_PENDING,
+            self::STATUS_CONFIRMED,
+            self::STATUS_CANCELLED_BY_DOCTOR,
+            self::STATUS_RESCHEDULE_REQUIRED,
+        ], true)) {
             throw ValidationException::withMessages([
-                'status' => ['Only pending or approved appointments can be rescheduled.'],
+                'status' => ['Only pending, approved, cancelled by doctor, or reschedule required appointments can be rescheduled.'],
             ]);
         }
 
@@ -508,10 +526,13 @@ class AppointmentService
                 ]);
             }
 
-            DB::transaction(function () use ($appointment, $validatedBooking, $originalDate, $targetDate): void {
+            DB::transaction(function () use ($appointment, $validatedBooking, $originalDate, $targetDate, $currentStatus): void {
                 $appointment->forceFill([
                     'appointment_date' => $validatedBooking['appointment_date'],
                     'time_slot' => $validatedBooking['time_slot'],
+                    'status' => in_array($currentStatus, [self::STATUS_CANCELLED_BY_DOCTOR, self::STATUS_RESCHEDULE_REQUIRED], true)
+                        ? self::STATUS_PENDING
+                        : $appointment->status,
                     'notes' => $validatedBooking['notes'] ?? $appointment->notes,
                 ])->save();
 
@@ -656,19 +677,31 @@ class AppointmentService
 
         if ($normalized === null) {
             throw ValidationException::withMessages([
-                'status' => ['Status must be one of: pending, approved, cancelled, completed.'],
+                'status' => ['Status must be one of: pending, approved, cancelled, completed, cancelled by doctor, reschedule required.'],
             ]);
         }
 
         return $normalized;
     }
 
-    private function displayStatusLabel(string $status): string
+    public static function formatStatusLabel(string $status): string
     {
         return match ($status) {
             self::STATUS_CONFIRMED => 'approved',
+            self::STATUS_CANCELLED_BY_DOCTOR => 'cancelled by doctor',
+            self::STATUS_RESCHEDULE_REQUIRED => 'reschedule required',
             default => $status,
         };
+    }
+
+    public static function humanStatusLabel(string $status): string
+    {
+        return Str::headline(self::formatStatusLabel($status));
+    }
+
+    private function displayStatusLabel(string $status): string
+    {
+        return self::formatStatusLabel($status);
     }
 
     public function getPatientAppointments(int $patientId)
@@ -690,7 +723,12 @@ class AppointmentService
                 '>=',
                 Carbon::today((string) config('app.timezone', 'UTC'))->toDateString(),
             )
-            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED])
+            ->whereIn('status', [
+                self::STATUS_PENDING,
+                self::STATUS_CONFIRMED,
+                self::STATUS_CANCELLED_BY_DOCTOR,
+                self::STATUS_RESCHEDULE_REQUIRED,
+            ])
             ->orderBy('appointment_date')
             ->orderBy('time_slot')
             ->get();

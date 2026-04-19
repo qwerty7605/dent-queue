@@ -36,6 +36,8 @@ class AdminReportFilteringApiTest extends TestCase
                 'approved_count' => 1,
                 'completed_count' => 1,
                 'cancelled_count' => 1,
+                'cancelled_by_doctor_count' => 0,
+                'reschedule_required_count' => 0,
                 'total_report_records' => 0,
             ],
         ]);
@@ -170,6 +172,8 @@ class AdminReportFilteringApiTest extends TestCase
                 'approved_count' => 0,
                 'completed_count' => 1,
                 'cancelled_count' => 0,
+                'cancelled_by_doctor_count' => 0,
+                'reschedule_required_count' => 0,
                 'total_report_records' => 0,
             ],
         ]);
@@ -183,6 +187,8 @@ class AdminReportFilteringApiTest extends TestCase
                 ['status' => 'approved', 'count' => 0],
                 ['status' => 'completed', 'count' => 1],
                 ['status' => 'cancelled', 'count' => 0],
+                ['status' => 'cancelled_by_doctor', 'count' => 0],
+                ['status' => 'reschedule_required', 'count' => 0],
             ],
         ]);
 
@@ -226,6 +232,8 @@ class AdminReportFilteringApiTest extends TestCase
                 'approved_count' => 0,
                 'completed_count' => 0,
                 'cancelled_count' => 0,
+                'cancelled_by_doctor_count' => 0,
+                'reschedule_required_count' => 0,
                 'total_report_records' => 0,
             ],
         ]);
@@ -239,6 +247,8 @@ class AdminReportFilteringApiTest extends TestCase
                 ['status' => 'approved', 'count' => 0],
                 ['status' => 'completed', 'count' => 0],
                 ['status' => 'cancelled', 'count' => 0],
+                ['status' => 'cancelled_by_doctor', 'count' => 0],
+                ['status' => 'reschedule_required', 'count' => 0],
             ],
         ]);
 

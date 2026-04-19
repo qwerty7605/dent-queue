@@ -209,10 +209,7 @@ class PatientRecordController extends Controller
 
     private function displayStatus(string $status): string
     {
-        return match (mb_strtolower(trim($status))) {
-            'confirmed' => 'Approved',
-            default => ucfirst(mb_strtolower(trim($status))),
-        };
+        return AppointmentService::humanStatusLabel($status);
     }
 
     private function fallbackServiceType(int $serviceId): string

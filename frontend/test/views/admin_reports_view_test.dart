@@ -187,6 +187,8 @@ class _FakeBaseService extends Fake implements BaseService {
       'approved_count': countByStatus('Approved'),
       'completed_count': countByStatus('Completed'),
       'cancelled_count': countByStatus('Cancelled'),
+      'cancelled_by_doctor_count': countByStatus('Cancelled by Doctor'),
+      'reschedule_required_count': countByStatus('Reschedule Required'),
     };
   }
 
@@ -304,6 +306,14 @@ void main() {
       );
       expect(
         find.byKey(const Key('report-filter-status-option-cancelled')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('report-filter-status-option-cancelled-by-doctor')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('report-filter-status-option-reschedule-required')),
         findsOneWidget,
       );
 

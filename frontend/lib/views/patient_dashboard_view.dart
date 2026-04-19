@@ -1661,7 +1661,10 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                 ],
               ),
             ),
-            if (status == 'pending' || status == 'approved')
+            if (status == 'pending' ||
+                status == 'approved' ||
+                status == 'cancelled_by_doctor' ||
+                status == 'reschedule_required')
               Container(
                 decoration: const BoxDecoration(
                   border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
@@ -1697,30 +1700,52 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                       ),
                     ),
                     Expanded(
-                      child: InkWell(
-                        onTap: () => _showCancelConfirmationDialog(
-                          (appt['id'] as num).toInt(),
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFFFF1F1),
-                            borderRadius: BorderRadius.only(
-                              bottomRight: Radius.circular(12),
-                            ),
-                          ),
-                          child: const Center(
-                            child: Text(
-                              'CANCEL',
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                      child: status == 'pending' || status == 'approved'
+                          ? InkWell(
+                              onTap: () => _showCancelConfirmationDialog(
+                                (appt['id'] as num).toInt(),
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFFFF1F1),
+                                  borderRadius: BorderRadius.only(
+                                    bottomRight: Radius.circular(12),
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    'CANCEL',
+                                    style: TextStyle(
+                                      color: Colors.redAccent,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.only(
+                                  bottomRight: Radius.circular(12),
+                                ),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  'REQUIRES ACTION',
+                                  style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                      ),
                     ),
                   ],
                 ),

@@ -52,7 +52,7 @@ class AppointmentController extends Controller
                     6 => 'Tooth Extraction',
                     default => 'Unknown Service',
                 },
-                'status' => ucfirst((string) $appointment->status),
+                'status' => AppointmentService::humanStatusLabel((string) $appointment->status),
             ]),
         ]);
     }
@@ -488,7 +488,7 @@ class AppointmentController extends Controller
             },
             'appointment_date' => (string) $appointment->appointment_date,
             'appointment_time' => (string) $appointment->time_slot,
-            'status' => $appointment->status === 'confirmed' ? 'Approved' : ucfirst((string) $appointment->status),
+            'status' => AppointmentService::humanStatusLabel((string) $appointment->status),
             'queue_number' => $appointment->queue ? str_pad((string) $appointment->queue->queue_number, 2, '0', STR_PAD_LEFT) : null,
             'is_called' => (bool) ($appointment->queue?->is_called ?? false),
             'timestamp_created' => optional($appointment->created_at)?->toIso8601String(),

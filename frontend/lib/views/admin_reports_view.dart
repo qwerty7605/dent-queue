@@ -58,6 +58,8 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     'Approved',
     'Completed',
     'Cancelled',
+    'Cancelled by Doctor',
+    'Reschedule Required',
   ];
   static const List<String> _reportBookingTypes = <String>[
     'Online Booking',
@@ -99,6 +101,8 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     'approved': 0,
     'completed': 0,
     'cancelled': 0,
+    'cancelled_by_doctor': 0,
+    'reschedule_required': 0,
   };
 
   @override
@@ -236,6 +240,8 @@ class _AdminReportsViewState extends State<AdminReportsView> {
           'approved': 0,
           'completed': 0,
           'cancelled': 0,
+          'cancelled_by_doctor': 0,
+          'reschedule_required': 0,
         };
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -738,6 +744,24 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               icon: Icons.cancel_outlined,
               mainColor: const Color(0xFFE28B71),
               darkColor: const Color(0xFFBA6952),
+            ),
+            _buildReportCard(
+              title: 'Cancelled by Doctor',
+              value: _isLoading
+                  ? '...'
+                  : _reportStats['cancelled_by_doctor'].toString(),
+              icon: Icons.event_busy_outlined,
+              mainColor: const Color(0xFFF59E9E),
+              darkColor: const Color(0xFFB91C1C),
+            ),
+            _buildReportCard(
+              title: 'Reschedule Required',
+              value: _isLoading
+                  ? '...'
+                  : _reportStats['reschedule_required'].toString(),
+              icon: Icons.update_outlined,
+              mainColor: const Color(0xFFF5C56B),
+              darkColor: const Color(0xFFB45309),
             ),
           ],
         ),
@@ -2163,6 +2187,29 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   _reportStats['cancelled'] ?? 0,
                   total,
                   const Color(0xFFE28B71),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildChartRow(
+                  'Cancelled by Doctor',
+                  _reportStats['cancelled_by_doctor'] ?? 0,
+                  total,
+                  const Color(0xFFF59E9E),
+                ),
+              ),
+              const SizedBox(width: 48),
+              Expanded(
+                child: _buildChartRow(
+                  'Reschedule Required',
+                  _reportStats['reschedule_required'] ?? 0,
+                  total,
+                  const Color(0xFFF5C56B),
                 ),
               ),
             ],

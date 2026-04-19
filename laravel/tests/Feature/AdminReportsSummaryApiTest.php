@@ -112,6 +112,8 @@ class AdminReportsSummaryApiTest extends TestCase
                     'approved_count',
                     'completed_count',
                     'cancelled_count',
+                    'cancelled_by_doctor_count',
+                    'reschedule_required_count',
                     'total_report_records',
                 ]
             ])
@@ -121,6 +123,8 @@ class AdminReportsSummaryApiTest extends TestCase
                 'approved_count' => 3,
                 'completed_count' => 1,
                 'cancelled_count' => 1,
+                'cancelled_by_doctor_count' => 0,
+                'reschedule_required_count' => 0,
                 'total_report_records' => 3,
             ]);
     }
@@ -149,6 +153,8 @@ class AdminReportsSummaryApiTest extends TestCase
                 'approved_count' => 0,
                 'completed_count' => 0,
                 'cancelled_count' => 0,
+                'cancelled_by_doctor_count' => 0,
+                'reschedule_required_count' => 0,
                 'total_report_records' => 0,
             ]);
     }

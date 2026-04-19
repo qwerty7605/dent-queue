@@ -19,6 +19,8 @@ class ReportService
     private const STATUS_CONFIRMED = 'confirmed';
     private const STATUS_COMPLETED = 'completed';
     private const STATUS_CANCELLED = 'cancelled';
+    private const STATUS_CANCELLED_BY_DOCTOR = 'cancelled_by_doctor';
+    private const STATUS_RESCHEDULE_REQUIRED = 'reschedule_required';
     private const BOOKING_TYPE_ONLINE = 'Online Booking';
     private const BOOKING_TYPE_WALK_IN = 'Walk-In Booking';
     private const SUPPORTED_TREND_TYPES = [
@@ -62,6 +64,8 @@ class ReportService
             'approved', self::STATUS_CONFIRMED => self::STATUS_CONFIRMED,
             self::STATUS_COMPLETED => self::STATUS_COMPLETED,
             self::STATUS_CANCELLED, 'canceled' => self::STATUS_CANCELLED,
+            'cancelled by doctor', self::STATUS_CANCELLED_BY_DOCTOR => self::STATUS_CANCELLED_BY_DOCTOR,
+            'reschedule required', self::STATUS_RESCHEDULE_REQUIRED => self::STATUS_RESCHEDULE_REQUIRED,
             default => null,
         };
     }
@@ -100,6 +104,14 @@ class ReportService
                     "SUM(CASE WHEN appointments.status = '%s' THEN 1 ELSE 0 END) as cancelled_count",
                     self::STATUS_CANCELLED,
                 ))
+                ->selectRaw(sprintf(
+                    "SUM(CASE WHEN appointments.status = '%s' THEN 1 ELSE 0 END) as cancelled_by_doctor_count",
+                    self::STATUS_CANCELLED_BY_DOCTOR,
+                ))
+                ->selectRaw(sprintf(
+                    "SUM(CASE WHEN appointments.status = '%s' THEN 1 ELSE 0 END) as reschedule_required_count",
+                    self::STATUS_RESCHEDULE_REQUIRED,
+                ))
                 ->first();
 
             return [
@@ -108,6 +120,8 @@ class ReportService
                 'approved_count' => (int) ($summary->approved_count ?? 0),
                 'completed_count' => (int) ($summary->completed_count ?? 0),
                 'cancelled_count' => (int) ($summary->cancelled_count ?? 0),
+                'cancelled_by_doctor_count' => (int) ($summary->cancelled_by_doctor_count ?? 0),
+                'reschedule_required_count' => (int) ($summary->reschedule_required_count ?? 0),
                 'total_report_records' => $this->getReportRecordCount($filters),
             ];
         }, $forceRefresh);
@@ -128,6 +142,8 @@ class ReportService
                 self::STATUS_CONFIRMED => 'approved',
                 self::STATUS_COMPLETED => self::STATUS_COMPLETED,
                 self::STATUS_CANCELLED => self::STATUS_CANCELLED,
+                self::STATUS_CANCELLED_BY_DOCTOR => self::STATUS_CANCELLED_BY_DOCTOR,
+                self::STATUS_RESCHEDULE_REQUIRED => self::STATUS_RESCHEDULE_REQUIRED,
             ];
 
             $data = [];
@@ -382,9 +398,7 @@ class ReportService
 
     private function formatStatusLabel(string $status): string
     {
-        return $status === self::STATUS_CONFIRMED
-            ? 'Approved'
-            : ucfirst($status);
+        return AppointmentService::humanStatusLabel($status);
     }
 
     private function formatTrendLabel(Carbon $date, string $trendType): string

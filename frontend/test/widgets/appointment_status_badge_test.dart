@@ -32,6 +32,16 @@ void main() {
     expect(cancelled.icon, Icons.cancel_rounded);
     expect(cancelled.foregroundColor, const Color(0xFFDC2626));
     expect(cancelled.backgroundColor, const Color(0xFFFEF2F2));
+
+    final cancelledByDoctor = appointmentStatusVisual('cancelled_by_doctor');
+    expect(cancelledByDoctor.key, 'cancelled_by_doctor');
+    expect(cancelledByDoctor.label, 'Cancelled by Doctor');
+    expect(cancelledByDoctor.icon, Icons.event_busy_rounded);
+
+    final rescheduleRequired = appointmentStatusVisual('Reschedule Required');
+    expect(rescheduleRequired.key, 'reschedule_required');
+    expect(rescheduleRequired.label, 'Reschedule Required');
+    expect(rescheduleRequired.icon, Icons.update_rounded);
   });
 
   testWidgets('renders the status icon together with the text label', (
@@ -48,6 +58,14 @@ void main() {
               AppointmentStatusBadge(status: 'Approved', compact: true),
               AppointmentStatusBadge(status: 'Completed', compact: true),
               AppointmentStatusBadge(status: 'Cancelled', compact: true),
+              AppointmentStatusBadge(
+                status: 'Cancelled by Doctor',
+                compact: true,
+              ),
+              AppointmentStatusBadge(
+                status: 'Reschedule Required',
+                compact: true,
+              ),
             ],
           ),
         ),
@@ -58,9 +76,13 @@ void main() {
     expect(find.text('Approved'), findsOneWidget);
     expect(find.text('Completed'), findsOneWidget);
     expect(find.text('Cancelled'), findsOneWidget);
+    expect(find.text('Cancelled by Doctor'), findsOneWidget);
+    expect(find.text('Reschedule Required'), findsOneWidget);
     expect(find.byIcon(Icons.schedule_rounded), findsOneWidget);
     expect(find.byIcon(Icons.event_available_rounded), findsOneWidget);
     expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
     expect(find.byIcon(Icons.cancel_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.event_busy_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.update_rounded), findsOneWidget);
   });
 }

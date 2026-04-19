@@ -25,6 +25,8 @@ String normalizeAppointmentStatus(dynamic value) {
     'approved' || 'confirmed' => 'approved',
     'completed' => 'completed',
     'cancelled' || 'canceled' => 'cancelled',
+    'cancelled by doctor' || 'cancelled_by_doctor' => 'cancelled_by_doctor',
+    'reschedule required' || 'reschedule_required' => 'reschedule_required',
     _ => 'pending',
   };
 }
@@ -60,6 +62,22 @@ AppointmentStatusVisual appointmentStatusVisual(dynamic value) {
       foregroundColor: Color(0xFFDC2626),
       backgroundColor: Color(0xFFFEF2F2),
       borderColor: Color(0xFFFECACA),
+    ),
+    'cancelled_by_doctor' => const AppointmentStatusVisual(
+      key: 'cancelled_by_doctor',
+      label: 'Cancelled by Doctor',
+      icon: Icons.event_busy_rounded,
+      foregroundColor: Color(0xFFB91C1C),
+      backgroundColor: Color(0xFFFFE4E6),
+      borderColor: Color(0xFFFDA4AF),
+    ),
+    'reschedule_required' => const AppointmentStatusVisual(
+      key: 'reschedule_required',
+      label: 'Reschedule Required',
+      icon: Icons.update_rounded,
+      foregroundColor: Color(0xFF92400E),
+      backgroundColor: Color(0xFFFFF7ED),
+      borderColor: Color(0xFFFCD34D),
     ),
     _ => const AppointmentStatusVisual(
       key: 'pending',
