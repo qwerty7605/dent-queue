@@ -152,13 +152,13 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF679B6A), // header background color
+              primary: Color(0xFF4A769E), // header background color
               onPrimary: Colors.white, // header text color
               onSurface: Color(0xFF2C3E50), // body text color
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF679B6A), // button text color
+                foregroundColor: const Color(0xFF4A769E), // button text color
               ),
             ),
           ),
@@ -414,7 +414,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                     ),
                     const SizedBox(height: 24),
 
-                    const Divider(color: Color(0xFF679B6A), thickness: 3),
+                    const Divider(color: Color(0xFF4A769E), thickness: 3),
                     const SizedBox(height: 8),
                     const Center(
                       child: Text(
@@ -480,7 +480,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                       child: ElevatedButton(
                         onPressed: _isSubmitting ? null : _submit,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF679B6A),
+                          backgroundColor: const Color(0xFF4A769E),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -736,7 +736,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
                       _formKey.currentState?.validate();
                     },
               disabledColor: _slotDisabledColor(slot),
-              selectedColor: const Color(0xFF679B6A),
+              selectedColor: const Color(0xFF4A769E),
               labelStyle: TextStyle(
                 color: selected
                     ? Colors.white
@@ -900,7 +900,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF679B6A), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFF4A769E), width: 1.5),
       ),
       errorStyle: const TextStyle(height: 0.8),
     );

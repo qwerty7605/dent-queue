@@ -148,7 +148,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
         ..showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: const Color(0xFF679B6A),
+            backgroundColor: const Color(0xFF4A769E),
           ),
         );
     } catch (_) {
@@ -161,69 +161,84 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(40.0),
+    final bool compactHeader = MediaQuery.sizeOf(context).width < 1100;
+    final EdgeInsets pagePadding = MediaQuery.sizeOf(context).width < 900
+        ? const EdgeInsets.all(16)
+        : const EdgeInsets.all(24);
+    final Widget title = const Text(
+      'Patients Accounts',
+      style: TextStyle(
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+        color: Colors.black,
+      ),
+    );
+
+    return SingleChildScrollView(
+      padding: pagePadding,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Patients Accounts',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: const Border(
-                  top: BorderSide(
-                    color: Color(0xFF679B6A), // Dark Green matching sidebar
-                    width: 6.0,
-                  ),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+          if (compactHeader)
+            title
+          else
+            Row(children: [Expanded(child: title)]),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: const Border(
+                top: BorderSide(color: Color(0xFF4A769E), width: 6.0),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: const Text(
-                      'Patient List',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black54,
-                      ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    'Patient List',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black54,
                     ),
                   ),
-                  const Divider(height: 1, thickness: 1, color: Colors.black12),
-                  if (_isLoading)
-                    const Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF679B6A),
-                        ),
+                ),
+                const Divider(height: 1, thickness: 1, color: Colors.black12),
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 96),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF4A769E),
                       ),
-                    )
-                  else
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: AdminDataTable(
-                              minWidth: 760,
-                              columnSpacing: 26,
+                    ),
+                  )
+                else
+                  Column(
+                    children: [
+                      AdminDataTable(
+                              enableVerticalScroll: false,
+                              minWidth: 720,
+                              columnSpacing: 18,
+                              horizontalMargin: 14,
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                12,
+                                8,
+                                12,
+                                12,
+                              ),
                               columns: <DataColumn>[
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
@@ -235,19 +250,19 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
                                     'Patient',
-                                    width: 240,
+                                    width: 220,
                                   ),
                                 ),
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
                                     'Gender',
-                                    width: 108,
+                                    width: 96,
                                   ),
                                 ),
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
                                     'Contact',
-                                    width: 170,
+                                    width: 150,
                                   ),
                                 ),
                                 DataColumn(
@@ -278,7 +293,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                                     DataCell(
                                       AdminDataTable.cellText(
                                         _displayText(patient['full_name']),
-                                        width: 240,
+                                        width: 220,
                                         maxLines: 2,
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -286,13 +301,13 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                                     DataCell(
                                       AdminDataTable.cellText(
                                         _displayText(patient['gender']),
-                                        width: 108,
+                                        width: 96,
                                       ),
                                     ),
                                     DataCell(
                                       AdminDataTable.cellText(
                                         _displayText(patient['contact_number']),
-                                        width: 170,
+                                        width: 150,
                                         maxLines: 2,
                                       ),
                                     ),
@@ -316,23 +331,20 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                                 );
                               }).toList(),
                             ),
-                          ),
-                          PaginatedTableFooter(
-                            loadedItemCount: _patients.length,
-                            totalItemCount: _totalPatients,
-                            itemLabel: 'patients',
-                            hasMorePages: _hasMorePages,
-                            isLoadingMore: _isLoadingMore,
-                            onLoadMore: _loadMorePatients,
-                            loadMoreButtonKey: const Key(
-                              'admin-patients-load-more',
-                            ),
-                          ),
-                        ],
+                      PaginatedTableFooter(
+                        loadedItemCount: _patients.length,
+                        totalItemCount: _totalPatients,
+                        itemLabel: 'patients',
+                        hasMorePages: _hasMorePages,
+                        isLoadingMore: _isLoadingMore,
+                        onLoadMore: _loadMorePatients,
+                        loadMoreButtonKey: const Key(
+                          'admin-patients-load-more',
+                        ),
                       ),
-                    ),
-                ],
-              ),
+                    ],
+                  ),
+              ],
             ),
           ),
         ],

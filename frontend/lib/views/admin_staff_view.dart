@@ -184,7 +184,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
         ..showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: const Color(0xFF679B6A),
+            backgroundColor: const Color(0xFF4A769E),
           ),
         );
     } catch (_) {
@@ -219,7 +219,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
           content: Text(
             result['message']?.toString() ?? 'Account successfully created.',
           ),
-          backgroundColor: Color(0xFF679B6A),
+          backgroundColor: Color(0xFF4A769E),
         ),
       );
       _loadStaff();
@@ -229,110 +229,133 @@ class _AdminStaffViewState extends State<AdminStaffView> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(40),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Staff & Intern Accounts',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: _isLoading ? null : _loadStaff,
-                icon: const Icon(Icons.refresh),
-                label: const Text(
-                  'Refresh',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(width: 16),
-              FilledButton.icon(
-                onPressed: _isLoading ? null : _showAddStaffDialog,
-                icon: const Icon(Icons.add),
-                label: const Text(
-                  'Add Staff / Intern',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
+    final bool compactHeader = MediaQuery.sizeOf(context).width < 1180;
+    final EdgeInsets pagePadding = MediaQuery.sizeOf(context).width < 900
+        ? const EdgeInsets.all(16)
+        : const EdgeInsets.all(24);
+    final Widget title = const Text(
+      'Staff & Intern Accounts',
+      style: TextStyle(
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+        color: Colors.black,
+      ),
+    );
+
+    final Widget actions = Wrap(
+      spacing: 16,
+      runSpacing: 12,
+      children: [
+        OutlinedButton.icon(
+          onPressed: _isLoading ? null : _loadStaff,
+          icon: const Icon(Icons.refresh),
+          label: const Text(
+            'Refresh',
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: const Border(
-                  top: BorderSide(color: Color(0xFF679B6A), width: 6),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
+        ),
+        FilledButton.icon(
+          onPressed: _isLoading ? null : _showAddStaffDialog,
+          icon: const Icon(Icons.add),
+          label: const Text(
+            'Add Staff / Intern',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+
+    return SingleChildScrollView(
+      padding: pagePadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (compactHeader)
+            Align(
+              alignment: Alignment.centerLeft,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'Staff & Intern List',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[700],
-                      ),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [title, const SizedBox(height: 16), actions],
+              ),
+            )
+          else
+            Row(
+              children: [
+                Expanded(child: title),
+                actions,
+              ],
+            ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: const Border(
+                top: BorderSide(color: Color(0xFF4A769E), width: 6),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Staff & Intern List',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[700],
                     ),
                   ),
-                  const Divider(height: 1, thickness: 1, color: Colors.black12),
-                  if (_isLoading)
-                    const Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF679B6A),
-                        ),
+                ),
+                const Divider(height: 1, thickness: 1, color: Colors.black12),
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 96),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF4A769E),
                       ),
-                    )
-                  else if (_staffMembers.isEmpty)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: AppEmptyState(
-                          key: const Key('admin-staff-empty-state'),
-                          icon: Icons.group_off_outlined,
-                          title: 'No staff accounts yet',
-                          message:
-                              'Staff and intern accounts will appear here after they are created.',
-                          actionLabel: 'Add Staff / Intern',
-                          actionIcon: Icons.person_add_alt_1_rounded,
-                          onAction: () {
-                            _showAddStaffDialog();
-                          },
-                        ),
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: AdminDataTable(
-                              minWidth: 900,
-                              columnSpacing: 32,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
+                    ),
+                  )
+                else if (_staffMembers.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: AppEmptyState(
+                      key: const Key('admin-staff-empty-state'),
+                      icon: Icons.group_off_outlined,
+                      title: 'No staff accounts yet',
+                      message:
+                          'Staff and intern accounts will appear here after they are created.',
+                      actionLabel: 'Add Staff / Intern',
+                      actionIcon: Icons.person_add_alt_1_rounded,
+                      onAction: () {
+                        _showAddStaffDialog();
+                      },
+                    ),
+                  )
+                else
+                  Column(
+                    children: [
+                      AdminDataTable(
+                              enableVerticalScroll: false,
+                              minWidth: 860,
+                              columnSpacing: 18,
+                              horizontalMargin: 14,
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                12,
+                                8,
+                                12,
+                                12,
                               ),
                               columns: <DataColumn>[
                                 DataColumn(
@@ -345,25 +368,25 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
                                     'Account',
-                                    width: 220,
+                                    width: 200,
                                   ),
                                 ),
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
                                     'Role',
-                                    width: 100,
-                                  ),
-                                ),
-                                DataColumn(
-                                  label: AdminDataTable.headerLabel(
-                                    'Gender',
                                     width: 90,
                                   ),
                                 ),
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
+                                    'Gender',
+                                    width: 84,
+                                  ),
+                                ),
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
                                     'Contact',
-                                    width: 160,
+                                    width: 150,
                                   ),
                                 ),
                                 DataColumn(
@@ -399,7 +422,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                                     ),
                                     DataCell(
                                       SizedBox(
-                                        width: 220,
+                                        width: 200,
                                         child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
@@ -437,21 +460,21 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                                     DataCell(
                                       AdminDataTable.cellText(
                                         _resolveRoleLabel(staffMember),
-                                        width: 100,
+                                        width: 90,
                                         fontWeight: FontWeight.w700,
-                                        color: const Color(0xFF356042),
+                                        color: const Color(0xFF1A2F64),
                                       ),
                                     ),
                                     DataCell(
                                       AdminDataTable.cellText(
                                         _resolveGender(staffMember),
-                                        width: 90,
+                                        width: 84,
                                       ),
                                     ),
                                     DataCell(
                                       AdminDataTable.cellText(
                                         _resolveContact(staffMember),
-                                        width: 160,
+                                        width: 150,
                                         maxLines: 2,
                                       ),
                                     ),
@@ -486,23 +509,20 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                                 );
                               }).toList(),
                             ),
-                          ),
-                          PaginatedTableFooter(
-                            loadedItemCount: _staffMembers.length,
-                            totalItemCount: _totalStaffMembers,
-                            itemLabel: 'staff accounts',
-                            hasMorePages: _hasMorePages,
-                            isLoadingMore: _isLoadingMore,
-                            onLoadMore: _loadMoreStaff,
-                            loadMoreButtonKey: const Key(
-                              'admin-staff-load-more',
-                            ),
-                          ),
-                        ],
+                      PaginatedTableFooter(
+                        loadedItemCount: _staffMembers.length,
+                        totalItemCount: _totalStaffMembers,
+                        itemLabel: 'staff accounts',
+                        hasMorePages: _hasMorePages,
+                        isLoadingMore: _isLoadingMore,
+                        onLoadMore: _loadMoreStaff,
+                        loadMoreButtonKey: const Key(
+                          'admin-staff-load-more',
+                        ),
                       ),
-                    ),
-                ],
-              ),
+                    ],
+                  ),
+              ],
             ),
           ),
         ],

@@ -130,35 +130,48 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(40.0),
+    final bool compactHeader = MediaQuery.sizeOf(context).width < 1100;
+    final EdgeInsets pagePadding = MediaQuery.sizeOf(context).width < 900
+        ? const EdgeInsets.all(16)
+        : const EdgeInsets.all(24);
+    final Widget title = const Text(
+      'Master List',
+      style: TextStyle(
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+        color: Colors.black,
+      ),
+    );
+    final Widget action = OutlinedButton.icon(
+      onPressed: _isLoading ? null : () => _loadMasterList(forceRefresh: true),
+      icon: const Icon(Icons.refresh),
+      label: const Text(
+        'Refresh',
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+    );
+
+    return SingleChildScrollView(
+      padding: pagePadding,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Master List',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
+          if (compactHeader)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [title, const SizedBox(height: 16), action],
               ),
-              OutlinedButton.icon(
-                onPressed: _isLoading
-                    ? null
-                    : () => _loadMasterList(forceRefresh: true),
-                icon: const Icon(Icons.refresh),
-                label: const Text(
-                  'Refresh',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
+            )
+          else
+            Row(
+              children: [
+                Expanded(child: title),
+                action,
+              ],
+            ),
+          const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerLeft,
             child: Wrap(
@@ -173,113 +186,117 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Align(alignment: Alignment.centerLeft, child: _buildDateFilterMenu()),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: const Border(
-                  top: BorderSide(
-                    color: Color(0xFF679B6A), // Dark Green matching sidebar
-                    width: 6.0,
-                  ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: const Border(
+                top: BorderSide(
+                  color: Color(0xFF4A769E),
+                  width: 6.0,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text(
-                      'All Appointments',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black54,
-                      ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    'All Appointments',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black54,
                     ),
                   ),
-                  const Divider(height: 1, thickness: 1, color: Colors.black12),
-                  if (_isLoading)
-                    const Expanded(
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF679B6A),
-                        ),
+                ),
+                const Divider(height: 1, thickness: 1, color: Colors.black12),
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 96),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF4A769E),
                       ),
-                    )
-                  else if (_appointments.isEmpty)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: AppEmptyState(
-                          key: const Key('admin-master-list-empty-state'),
-                          icon: Icons.list_alt_outlined,
-                          title: !_hasActiveFilters
-                              ? 'No appointments yet'
-                              : 'No appointments found',
-                          message: !_hasActiveFilters
-                              ? 'Appointments will appear in the master list once records are available.'
-                              : 'Try clearing the selected status or date filter to view more appointment records.',
-                          actionLabel: _hasActiveFilters
-                              ? 'Clear Filters'
-                              : null,
-                          actionIcon: Icons.restart_alt_rounded,
-                          onAction: _hasActiveFilters
-                              ? () {
-                                  _resetFilters();
-                                }
-                              : null,
-                        ),
-                      ),
-                    )
-                  else
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: AdminDataTable(
-                              minWidth: 980,
-                              columnSpacing: 28,
+                    ),
+                  )
+                else if (_appointments.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: AppEmptyState(
+                      key: const Key('admin-master-list-empty-state'),
+                      icon: Icons.list_alt_outlined,
+                      title: !_hasActiveFilters
+                          ? 'No appointments yet'
+                          : 'No appointments found',
+                      message: !_hasActiveFilters
+                          ? 'Appointments will appear in the master list once records are available.'
+                          : 'Try clearing the selected status or date filter to view more appointment records.',
+                      actionLabel: _hasActiveFilters ? 'Clear Filters' : null,
+                      actionIcon: Icons.restart_alt_rounded,
+                      onAction: _hasActiveFilters
+                          ? () {
+                              _resetFilters();
+                            }
+                          : null,
+                    ),
+                  )
+                else
+                  Column(
+                    children: [
+                      AdminDataTable(
+                              enableVerticalScroll: false,
+                              minWidth: 860,
+                              columnSpacing: 18,
+                              horizontalMargin: 14,
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                12,
+                                8,
+                                12,
+                                12,
+                              ),
                               columns: <DataColumn>[
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
                                     'Patient',
-                                    width: 220,
+                                    width: 200,
                                   ),
                                 ),
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
                                     'Service',
-                                    width: 220,
+                                    width: 190,
                                   ),
                                 ),
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
                                     'Date',
-                                    width: 128,
+                                    width: 116,
                                   ),
                                 ),
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
                                     'Contact',
-                                    width: 170,
+                                    width: 150,
                                   ),
                                 ),
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
                                     'Status',
-                                    width: 180,
+                                    width: 150,
                                     alignment: Alignment.center,
                                   ),
                                 ),
@@ -303,7 +320,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                                         _displayText(
                                           appointment['patient_name'],
                                         ),
-                                        width: 220,
+                                        width: 200,
                                         maxLines: 2,
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -311,19 +328,19 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                                     DataCell(
                                       AdminDataTable.cellText(
                                         _displayText(appointment['service']),
-                                        width: 220,
+                                        width: 190,
                                         maxLines: 2,
                                       ),
                                     ),
                                     DataCell(
                                       AdminDataTable.cellText(
                                         _displayText(appointment['date']),
-                                        width: 128,
+                                        width: 116,
                                       ),
                                     ),
                                     DataCell(
                                       SizedBox(
-                                        width: 170,
+                                        width: 150,
                                         child: Text(
                                           _displayText(appointment['contact']),
                                           maxLines: 2,
@@ -345,7 +362,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                                     ),
                                     DataCell(
                                       SizedBox(
-                                        width: 180,
+                                        width: 150,
                                         child: Align(
                                           alignment: Alignment.center,
                                           child: AppointmentStatusBadge(
@@ -358,24 +375,21 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                                   ],
                                 );
                               }).toList(),
-                            ),
-                          ),
-                          PaginatedTableFooter(
-                            loadedItemCount: _appointments.length,
-                            totalItemCount: _totalAppointments,
-                            itemLabel: 'appointments',
-                            hasMorePages: _hasMorePages,
-                            isLoadingMore: _isLoadingMore,
-                            onLoadMore: _loadMoreMasterList,
-                            loadMoreButtonKey: const Key(
-                              'admin-master-list-load-more',
-                            ),
-                          ),
-                        ],
                       ),
-                    ),
-                ],
-              ),
+                      PaginatedTableFooter(
+                        loadedItemCount: _appointments.length,
+                        totalItemCount: _totalAppointments,
+                        itemLabel: 'appointments',
+                        hasMorePages: _hasMorePages,
+                        isLoadingMore: _isLoadingMore,
+                        onLoadMore: _loadMoreMasterList,
+                        loadMoreButtonKey: const Key(
+                          'admin-master-list-load-more',
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
             ),
           ),
         ],
@@ -410,9 +424,9 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
         });
         _loadMasterList();
       },
-      selectedColor: const Color(0xFF679B6A),
+      selectedColor: const Color(0xFF4A769E),
       backgroundColor: Colors.white,
-      side: const BorderSide(color: Color(0xFF679B6A)),
+      side: const BorderSide(color: Color(0xFF4A769E)),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       showCheckmark: false,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -439,7 +453,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
           child: Row(
             children: [
               if (selected)
-                const Icon(Icons.check, size: 18, color: Color(0xFF3F6341))
+                const Icon(Icons.check, size: 18, color: Color(0xFF1A2F64))
               else
                 const SizedBox(width: 18),
               const SizedBox(width: 10),
@@ -461,7 +475,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
             const Icon(
               Icons.calendar_today_outlined,
               size: 18,
-              color: Color(0xFF3F6341),
+              color: Color(0xFF1A2F64),
             ),
             const SizedBox(width: 10),
             Text(

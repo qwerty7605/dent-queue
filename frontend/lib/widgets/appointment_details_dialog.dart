@@ -39,7 +39,7 @@ class AppointmentDetailsDialog extends StatelessWidget {
         child: ElevatedButton(
           onPressed: () => Navigator.of(context).pop(),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF679B6A),
+            backgroundColor: const Color(0xFF4A769E),
             elevation: 0,
           ),
           child: const Text('Close'),

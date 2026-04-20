@@ -8,6 +8,7 @@ import '../core/token_storage.dart';
 import '../services/appointment_service.dart';
 import '../services/base_service.dart';
 import 'app_dialog_scaffold.dart';
+import 'appointment_clock_picker.dart';
 import 'appointment_success_dialog.dart';
 
 class RescheduleAppointmentDialog extends StatefulWidget {
@@ -251,7 +252,7 @@ class _RescheduleAppointmentDialogState
           child: ElevatedButton(
             onPressed: _isLoading || !_hasScheduleChanged() ? null : _submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF356042),
+              backgroundColor: const Color(0xFF1A2F64),
               elevation: 0,
             ),
             child: _isLoading
@@ -350,7 +351,7 @@ class _RescheduleAppointmentDialogState
 
                 return _mergeFieldError('time', null);
               },
-              builder: (state) => _buildAvailabilityField(state),
+              builder: (state) => _buildTimeField(state),
             ),
           ],
         ),
@@ -358,124 +359,97 @@ class _RescheduleAppointmentDialogState
     );
   }
 
-  Widget _buildAvailabilityField(FormFieldState<String> state) {
-    if (_isLoadingAvailability) {
-      return const SizedBox(
-        height: 64,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
-
-    if (_availabilitySlots.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'No slots available for this date.',
-            style: TextStyle(color: Color(0xFF2C3E50), fontSize: 14),
+  Widget _buildTimeField(FormFieldState<String> state) {
+    return InkWell(
+      onTap: _isLoading ? null : () => _openTimePicker(state),
+      borderRadius: BorderRadius.circular(8),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
           ),
-          if (state.errorText != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              state.errorText!,
-              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-            ),
-          ],
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _availabilitySlots.map((slot) {
-            final bool disabled = _isSlotDisabled(slot);
-            final bool selected = _selectedTimeSlot == slot['time'];
-
-            return ChoiceChip(
-              label: Text(
-                slot['time_label']?.toString() ??
-                    slot['time']?.toString() ??
-                    '--',
-              ),
-              selected: selected,
-              onSelected: disabled
-                  ? null
-                  : (_) {
-                      setState(() {
-                        _selectedTimeSlot = slot['time']?.toString();
-                      });
-                      _clearFieldError('time');
-                      state.didChange(_selectedTimeSlot);
-                    },
-              selectedColor: const Color(0xFF356042),
-              disabledColor: _slotDisabledColor(slot),
-              labelStyle: TextStyle(
-                color: selected
-                    ? Colors.white
-                    : disabled
-                    ? const Color(0xFF475569)
-                    : const Color(0xFF1E293B),
-                fontWeight: FontWeight.w600,
-              ),
-              backgroundColor: const Color(0xFFF8FAFC),
-            );
-          }).toList(),
-        ),
-        if (_selectedTimeSlot != null) ...[
-          const SizedBox(height: 10),
-          Text(
-            'Selected: ${_formatTimeLabel(_selectedTimeSlot!)}',
-            style: const TextStyle(
-              color: Color(0xFF2C3E50),
-              fontWeight: FontWeight.w600,
-            ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
           ),
-        ],
-        if (_unavailableRanges.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          const Text(
-            'Doctor Unavailable',
-            style: TextStyle(
-              color: Color(0xFFB45309),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
           ),
-          const SizedBox(height: 4),
-          ..._unavailableRanges.map((Map<String, dynamic> range) {
-            final String start = range['start_time']?.toString() ?? '--:--';
-            final String end = range['end_time']?.toString() ?? '--:--';
-            final String rawReason = range['reason']?.toString().trim() ?? '';
-            final String reason = rawReason.isNotEmpty
-                ? rawReason
-                : 'Doctor Unavailable';
-
-            return Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                '$start - $end: $reason',
-                style: const TextStyle(
-                  color: Color(0xFF92400E),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFF1A2F64), width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.redAccent),
+          ),
+          errorText: state.errorText,
+          suffixIcon: _isLoadingAvailability
+              ? const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : const Icon(
+                  Icons.access_time_rounded,
+                  color: Color(0xFF64748B),
+                  size: 18,
                 ),
-              ),
-            );
-          }),
-        ],
-        if (state.errorText != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            state.errorText!,
-            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+        ),
+        child: Text(
+          _timeFieldLabel(),
+          style: TextStyle(
+            color: _selectedTimeSlot == null
+                ? const Color(0xFF94A3B8)
+                : const Color(0xFF1E293B),
+            fontWeight: _selectedTimeSlot == null
+                ? FontWeight.w500
+                : FontWeight.w700,
           ),
-        ],
-      ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _openTimePicker(FormFieldState<String> state) async {
+    final String? selected = await showAppointmentTimePickerModal(
+      context: context,
+      slots: _availabilitySlots,
+      selectedTimeSlot: _selectedTimeSlot,
+      isSlotDisabled: _isSlotDisabled,
+      unavailableRanges: _unavailableRanges,
+      errorText: state.errorText,
+      title: 'Choose New Time',
+    );
+
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedTimeSlot = selected;
+    });
+    _clearFieldError('time');
+    state.didChange(selected);
+  }
+
+  String _timeFieldLabel() {
+    if (_isLoadingAvailability) {
+      return 'Loading available times...';
+    }
+
+    if (_selectedTimeSlot == null) {
+      return _availabilitySlots.isEmpty
+          ? 'Tap to view available times'
+          : 'Tap to choose a new time';
+    }
+
+    return _formatTimeLabel(_selectedTimeSlot!);
   }
 
   Widget _buildErrorBanner(String message) {
@@ -593,16 +567,4 @@ class _RescheduleAppointmentDialogState
     return _effectiveSlotStatus(slot) != 'available';
   }
 
-  Color _slotDisabledColor(Map<String, dynamic> slot) {
-    switch (_effectiveSlotStatus(slot)) {
-      case 'doctor_unavailable':
-        return const Color(0xFFFDE68A);
-      case 'booked':
-        return const Color(0xFFE2E8F0);
-      case 'past':
-        return const Color(0xFFE5E7EB);
-      default:
-        return const Color(0xFFE2E8F0);
-    }
-  }
 }

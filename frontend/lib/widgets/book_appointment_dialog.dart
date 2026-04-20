@@ -8,6 +8,7 @@ import '../core/token_storage.dart';
 import '../services/base_service.dart';
 import '../services/appointment_service.dart';
 import 'app_dialog_scaffold.dart';
+import 'appointment_clock_picker.dart';
 import 'appointment_success_dialog.dart';
 
 class BookAppointmentDialog extends StatefulWidget {
@@ -203,7 +204,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
           child: ElevatedButton(
             onPressed: _isLoading ? null : _submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF679B6A),
+              backgroundColor: const Color(0xFF4A769E),
               elevation: 0,
             ),
             child: _isLoading
@@ -276,7 +277,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(
-                    color: Color(0xFF679B6A),
+                    color: Color(0xFF4A769E),
                     width: 2,
                   ),
                 ),
@@ -356,7 +357,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(
-                    color: Color(0xFF679B6A),
+                    color: Color(0xFF4A769E),
                     width: 2,
                   ),
                 ),
@@ -402,14 +403,14 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                     return Theme(
                       data: Theme.of(context).copyWith(
                         colorScheme: const ColorScheme.light(
-                          primary: Color(0xFF679B6A), // header background color
+                          primary: Color(0xFF4A769E), // header background color
                           onPrimary: Colors.white, // header text color
                           onSurface: Color(0xFF2C3E50), // body text color
                         ),
                         textButtonTheme: TextButtonThemeData(
                           style: TextButton.styleFrom(
                             foregroundColor: const Color(
-                              0xFF679B6A,
+                              0xFF4A769E,
                             ), // button text color
                           ),
                         ),
@@ -492,18 +493,63 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
           children: [
             _buildLabel('TIME'),
             const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: state.errorText != null
-                      ? Colors.redAccent
-                      : const Color(0xFFE2E8F0),
+            InkWell(
+              onTap: _isLoading ? null : () => _openTimePicker(state),
+              borderRadius: BorderRadius.circular(8),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF4A769E),
+                      width: 2,
+                    ),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.redAccent),
+                  ),
+                  errorText: state.errorText,
+                  suffixIcon: _isLoadingAvailability
+                      ? const Padding(
+                          padding: EdgeInsets.all(14),
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : const Icon(
+                          Icons.access_time_rounded,
+                          color: Color(0xFF1E293B),
+                          size: 18,
+                        ),
+                ),
+                child: Text(
+                  _timeFieldLabel(),
+                  style: TextStyle(
+                    color: _selectedTimeSlot == null
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF2C3E50),
+                    fontSize: 14,
+                    fontWeight: _selectedTimeSlot == null
+                        ? FontWeight.w500
+                        : FontWeight.w700,
+                  ),
                 ),
               ),
-              child: _buildAvailabilityContent(state),
             ),
           ],
         );
@@ -511,138 +557,65 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
     );
   }
 
-  Widget _buildAvailabilityContent(FormFieldState<String> state) {
+  Future<void> _openTimePicker(FormFieldState<String> state) async {
     if (_selectedDate == null) {
-      return const Text(
-        'Select a date first',
-        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-      );
+      setState(() => _autoValidateMode = AutovalidateMode.always);
+      _formKey.currentState?.validate();
+      return;
     }
 
-    if (_isLoadingAvailability) {
-      return const SizedBox(
-        height: 48,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
+    if (_availabilitySlots.isEmpty && !_isLoadingAvailability) {
+      await _loadAvailabilityForSelectedDate();
     }
 
-    if (_availabilitySlots.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'No slots available for this date.',
-            style: TextStyle(color: Color(0xFF2C3E50), fontSize: 14),
-          ),
-          if (state.errorText != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              state.errorText!,
-              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-            ),
-          ],
-        ],
-      );
+    if (!mounted) {
+      return;
     }
 
-    final List<Map<String, dynamic>> blockedSlots = _availabilitySlots
-        .where(
-          (Map<String, dynamic> slot) =>
-              _effectiveSlotStatus(slot) == 'doctor_unavailable',
-        )
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _availabilitySlots.map((slot) {
-            final bool disabled = _isSlotDisabled(slot);
-            final bool selected = _selectedTimeSlot == slot['time'];
-
-            return ChoiceChip(
-              label: Text(
-                slot['time_label']?.toString() ??
-                    slot['time']?.toString() ??
-                    '--',
-              ),
-              selected: selected,
-              onSelected: disabled
-                  ? null
-                  : (_) {
-                      setState(() {
-                        _selectedTimeSlot = slot['time']?.toString();
-                      });
-                      _clearFieldError('time');
-                      state.didChange(_selectedTimeSlot);
-                    },
-              selectedColor: const Color(0xFF679B6A),
-              disabledColor: _slotDisabledColor(slot),
-              labelStyle: TextStyle(
-                color: selected
-                    ? Colors.white
-                    : disabled
-                    ? const Color(0xFF475569)
-                    : const Color(0xFF1E293B),
-                fontWeight: FontWeight.w600,
-              ),
-              backgroundColor: const Color(0xFFF8FAFC),
-            );
-          }).toList(),
-        ),
-        if (_selectedTimeSlot != null) ...[
-          const SizedBox(height: 10),
-          Text(
-            'Selected: ${_availabilitySlots.firstWhere((slot) => slot['time'] == _selectedTimeSlot, orElse: () => <String, dynamic>{'time_label': _selectedTimeSlot})['time_label']}',
-            style: const TextStyle(
-              color: Color(0xFF2C3E50),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-        if (blockedSlots.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          const Text(
-            'Doctor Unavailable',
-            style: TextStyle(
-              color: Color(0xFFB45309),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          ..._unavailableRanges.map((Map<String, dynamic> range) {
-            final String start = range['start_time']?.toString() ?? '--:--';
-            final String end = range['end_time']?.toString() ?? '--:--';
-            final String rawReason = range['reason']?.toString().trim() ?? '';
-            final String reason = rawReason.isNotEmpty
-                ? rawReason
-                : 'Doctor Unavailable';
-
-            return Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                '$start - $end: $reason',
-                style: const TextStyle(
-                  color: Color(0xFF92400E),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            );
-          }),
-        ],
-        if (state.errorText != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            state.errorText!,
-            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-          ),
-        ],
-      ],
+    final String? selected = await showAppointmentTimePickerModal(
+      context: context,
+      slots: _availabilitySlots,
+      selectedTimeSlot: _selectedTimeSlot,
+      isSlotDisabled: _isSlotDisabled,
+      unavailableRanges: _unavailableRanges,
+      errorText: state.errorText,
+      title: 'Choose Appointment Time',
     );
+
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedTimeSlot = selected;
+    });
+    _clearFieldError('time');
+    state.didChange(selected);
+  }
+
+  String _timeFieldLabel() {
+    if (_selectedDate == null) {
+      return 'Select a date first';
+    }
+
+    if (_selectedTimeSlot == null) {
+      if (_isLoadingAvailability) {
+        return 'Loading available times...';
+      }
+
+      if (_availabilitySlots.isEmpty) {
+        return 'Tap to view available times';
+      }
+
+      return 'Tap to choose a time';
+    }
+
+    final Map<String, dynamic> slot = _availabilitySlots.firstWhere(
+      (Map<String, dynamic> item) => item['time'] == _selectedTimeSlot,
+      orElse: () => <String, dynamic>{'time_label': _selectedTimeSlot},
+    );
+
+    return slot['time_label']?.toString() ?? _selectedTimeSlot!;
   }
 
   Future<void> _loadAvailabilityForSelectedDate() async {
@@ -720,16 +693,4 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
     return status != 'available';
   }
 
-  Color _slotDisabledColor(Map<String, dynamic> slot) {
-    switch (_effectiveSlotStatus(slot)) {
-      case 'doctor_unavailable':
-        return const Color(0xFFFDE68A);
-      case 'booked':
-        return const Color(0xFFE2E8F0);
-      case 'past':
-        return const Color(0xFFE5E7EB);
-      default:
-        return const Color(0xFFE2E8F0);
-    }
-  }
 }

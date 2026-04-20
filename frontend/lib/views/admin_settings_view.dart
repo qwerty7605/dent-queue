@@ -795,8 +795,8 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
             OutlinedButton(
               onPressed: onAction,
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF497A52),
-                side: const BorderSide(color: Color(0xFF497A52)),
+                foregroundColor: const Color(0xFF1A2F64),
+                side: const BorderSide(color: Color(0xFF1A2F64)),
               ),
               child: Text(actionLabel),
             ),

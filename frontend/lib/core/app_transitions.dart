@@ -82,7 +82,7 @@ Future<T?> showAppDialog<T>({
   required WidgetBuilder builder,
   bool barrierDismissible = true,
   String? barrierLabel,
-  Color barrierColor = const Color(0x660B1A11),
+  Color barrierColor = const Color(0x660A101C),
   bool useRootNavigator = true,
   RouteSettings? routeSettings,
   Offset beginOffset = const Offset(0, 0.04),

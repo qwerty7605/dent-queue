@@ -37,12 +37,12 @@ class MyApp extends StatelessWidget {
   final HttpAuthService authService;
   final TokenStorage tokenStorage;
 
-  static const Color _buttonPrimary = Color(0xFF356042);
-  static const Color _buttonPrimaryHover = Color(0xFF2C5238);
-  static const Color _buttonPrimaryPressed = Color(0xFF24442E);
-  static const Color _buttonSecondary = Color(0xFFE5EFE1);
-  static const Color _buttonOutline = Color(0xFF4E7A57);
-  static const Color _buttonDisabled = Color(0xFFD5DED1);
+  static const Color _buttonPrimary = Color(0xFFF59E0B);
+  static const Color _buttonPrimaryHover = Color(0xFFD97706);
+  static const Color _buttonPrimaryPressed = Color(0xFFB45309);
+  static const Color _buttonSecondary = Color(0xFFE1E9FF);
+  static const Color _buttonOutline = Color(0xFF9CB5E8);
+  static const Color _buttonDisabled = Color(0xFFCFD6E6);
   static const double _buttonHeight = 48;
   static const double _buttonRadius = 12;
 
@@ -50,18 +50,18 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseTextTheme = GoogleFonts.nunitoTextTheme();
-    final baseScheme = ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB));
+    final baseScheme = ColorScheme.fromSeed(seedColor: const Color(0xFF1A2F64));
     final colorScheme = baseScheme.copyWith(
       primary: _buttonPrimary,
-      onPrimary: Colors.white,
+      onPrimary: const Color(0xFF1E293B),
       secondary: _buttonSecondary,
-      onSecondary: const Color(0xFF163321),
+      onSecondary: const Color(0xFF0A1833),
       outline: _buttonOutline,
-      surfaceContainerHighest: const Color(0xFFF1F5F2),
+      surfaceContainerHighest: const Color(0xFFEFF3FA),
     );
 
     return MaterialApp(
-      title: 'Frontend',
+      title: 'SmartDentQueue',
       theme: ThemeData(
         colorScheme: colorScheme,
         useMaterial3: true,
@@ -138,7 +138,7 @@ class MyApp extends StatelessWidget {
   static ButtonStyle _primaryButtonStyle(ColorScheme colorScheme) {
     return ButtonStyle(
       minimumSize: const WidgetStatePropertyAll<Size>(
-        Size.fromHeight(_buttonHeight),
+        Size(0, _buttonHeight),
       ),
       padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
         EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -176,7 +176,7 @@ class MyApp extends StatelessWidget {
       }),
       foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
         if (states.contains(WidgetState.disabled)) {
-          return Colors.white70;
+          return const Color(0x661E293B);
         }
         return colorScheme.onPrimary;
       }),
@@ -195,7 +195,7 @@ class MyApp extends StatelessWidget {
   static ButtonStyle _outlinedButtonStyle(ColorScheme colorScheme) {
     return ButtonStyle(
       minimumSize: const WidgetStatePropertyAll<Size>(
-        Size.fromHeight(_buttonHeight),
+        Size(0, _buttonHeight),
       ),
       padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
         EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -222,17 +222,17 @@ class MyApp extends StatelessWidget {
           return Colors.transparent;
         }
         if (states.contains(WidgetState.pressed)) {
-          return const Color(0xFFE2EBDF);
+          return const Color(0xFFD8E1F8);
         }
         if (states.contains(WidgetState.hovered) ||
             states.contains(WidgetState.focused)) {
-          return const Color(0xFFF1F5F2);
+          return const Color(0xFFEFF3FA);
         }
         return Colors.transparent;
       }),
       foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
         if (states.contains(WidgetState.disabled)) {
-          return const Color(0xFF8BA08D);
+          return const Color(0xFF94A1C8);
         }
         if (states.contains(WidgetState.pressed)) {
           return _buttonPrimaryPressed;
@@ -264,7 +264,7 @@ class MyApp extends StatelessWidget {
       ),
       foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
         if (states.contains(WidgetState.disabled)) {
-          return const Color(0xFF8BA08D);
+          return const Color(0xFF94A1C8);
         }
         if (states.contains(WidgetState.pressed)) {
           return _buttonPrimaryPressed;

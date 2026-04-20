@@ -242,7 +242,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                     color: Colors.black.withValues(alpha: 0.1),
                     child: const Center(
                       child: CircularProgressIndicator(
-                        color: Color(0xFF679B6A),
+                        color: Color(0xFF4A769E),
                       ),
                     ),
                   ),
@@ -285,7 +285,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F4EA),
+                  color: const Color(0xFFE2ECFA),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
@@ -333,7 +333,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
               decoration: BoxDecoration(
                 color: const Color(0xFFFFF6DB),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE8C355)),
+                border: Border.all(color: const Color(0xFF9CB5E8)),
               ),
               child: const Row(
                 children: [
@@ -365,7 +365,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                   key: const Key('recycle-bin-summary-recoverable'),
                   label: 'Recoverable',
                   value: recoverableCount.toString(),
-                  tint: const Color(0xFFE8F4EA),
+                  tint: const Color(0xFFE2ECFA),
                   textColor: const Color(0xFF497A52),
                 ),
               ),
@@ -486,7 +486,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                               ? 'Restore Available'
                               : 'Expired',
                           backgroundColor: entry.isRestorable
-                              ? const Color(0xFFE8F4EA)
+                              ? const Color(0xFFE2ECFA)
                               : const Color(0xFFF1F5F9),
                           textColor: entry.isRestorable
                               ? const Color(0xFF497A52)
@@ -502,7 +502,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                 height: 46,
                 decoration: BoxDecoration(
                   color: entry.isRestorable
-                      ? const Color(0xFFE8F4EA)
+                      ? const Color(0xFFE2ECFA)
                       : const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(14),
                 ),

@@ -24,6 +24,7 @@ class DashboardStatCard extends StatelessWidget {
     this.footerBackgroundColor,
     this.footerTextColor,
     this.footerIcon,
+    this.borderColor,
   });
 
   final String title;
@@ -31,6 +32,7 @@ class DashboardStatCard extends StatelessWidget {
   final IconData icon;
   final Color accentColor;
   final Color backgroundColor;
+  final Color? borderColor;
   final VoidCallback? onTap;
   final bool isSelected;
   final DashboardCardContentAlignment contentAlignment;
@@ -61,16 +63,16 @@ class DashboardStatCard extends StatelessWidget {
         color: backgroundColor,
         borderRadius: _cardRadius,
         border: Border.all(
-          color: isSelected
+          color: borderColor ?? (isSelected
               ? accentColor.withValues(alpha: 0.34)
-              : accentColor.withValues(alpha: 0.12),
-          width: isSelected ? 1.6 : 1,
+              : accentColor.withValues(alpha: 0.12)),
+          width: borderColor != null ? 1.5 : (isSelected ? 1.6 : 1),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
+            color: Colors.black.withValues(alpha: 0.035),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -195,7 +197,7 @@ class DashboardStatCard extends StatelessWidget {
             children: [
               if (value.trim().isNotEmpty) ...[
                 Text(value, style: resolvedValueStyle),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
               ],
               Text(
                 title,
@@ -210,7 +212,7 @@ class DashboardStatCard extends StatelessWidget {
         _buildIconBadge(
           resolvedIconColor,
           resolvedIconBackgroundColor,
-          size: 52,
+          size: 48,
         ),
       ],
     );

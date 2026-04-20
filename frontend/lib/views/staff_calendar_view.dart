@@ -257,12 +257,12 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
           child: Container(
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF679B6A) : Colors.transparent,
+              color: isSelected ? const Color(0xFF4A769E) : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF679B6A).withValues(alpha: 0.3),
+                        color: const Color(0xFF4A769E).withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),

@@ -6,6 +6,7 @@ import '../core/form_error_helpers.dart';
 import '../core/mobile_typography.dart';
 import '../services/appointment_service.dart';
 import 'app_dialog_scaffold.dart';
+import 'appointment_clock_picker.dart';
 import 'appointment_success_dialog.dart';
 
 class StaffBookAppointmentDialog extends StatefulWidget {
@@ -37,13 +38,15 @@ class _StaffBookAppointmentDialogState
 
   String? _selectedService = 'Dental Check-up';
   DateTime? _selectedDate;
-  TimeOfDay? _selectedTime;
+  String? _selectedTimeSlot;
 
   final TextEditingController _dateController = TextEditingController();
-  final TextEditingController _timeController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
   bool _isSubmitting = false;
+  bool _isLoadingAvailability = false;
+  List<Map<String, dynamic>> _availabilitySlots = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _unavailableRanges = <Map<String, dynamic>>[];
   Map<String, String> _fieldErrors = <String, String>{};
   String? _formErrorText;
   AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
@@ -60,7 +63,6 @@ class _StaffBookAppointmentDialogState
   @override
   void dispose() {
     _dateController.dispose();
-    _timeController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -77,28 +79,63 @@ class _StaffBookAppointmentDialogState
       setState(() {
         _selectedDate = picked;
         _dateController.text = DateFormat('dd/MM/yyyy').format(picked);
+        _selectedTimeSlot = null;
+        _availabilitySlots = <Map<String, dynamic>>[];
+        _unavailableRanges = <Map<String, dynamic>>[];
       });
       _clearFieldError('date');
       _clearFieldError('time');
+      await _loadAvailabilityForSelectedDate();
     }
   }
 
-  Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime ?? TimeOfDay.now(),
-    );
+  Future<void> _loadAvailabilityForSelectedDate() async {
+    if (_selectedDate == null) {
+      return;
+    }
 
-    if (picked != null) {
+    setState(() {
+      _isLoadingAvailability = true;
+      _fieldErrors.remove('time');
+    });
+
+    try {
+      final payload = await widget.appointmentService.getAvailabilitySlots(
+        '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
+      );
+
+      if (!mounted) return;
+
       setState(() {
-        _selectedTime = picked;
-        final format = DateFormat('hh:mm a');
-        final timeString = format.format(
-          DateTime(2020, 1, 1, picked.hour, picked.minute),
-        );
-        _timeController.text = timeString;
+        _availabilitySlots = ((payload['slots'] as List?) ?? const <dynamic>[])
+            .whereType<Map>()
+            .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+        _unavailableRanges =
+            ((payload['unavailable_ranges'] as List?) ?? const <dynamic>[])
+                .whereType<Map>()
+                .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+                .toList();
+        _isLoadingAvailability = false;
       });
-      _clearFieldError('time');
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _availabilitySlots = <Map<String, dynamic>>[];
+        _unavailableRanges = <Map<String, dynamic>>[];
+        _selectedTimeSlot = null;
+        _isLoadingAvailability = false;
+        _fieldErrors['time'] = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _availabilitySlots = <Map<String, dynamic>>[];
+        _unavailableRanges = <Map<String, dynamic>>[];
+        _selectedTimeSlot = null;
+        _isLoadingAvailability = false;
+        _formErrorText = 'Unable to load available slots right now.';
+      });
     }
   }
 
@@ -178,8 +215,7 @@ class _StaffBookAppointmentDialogState
       'service_type': _selectedService,
       'appointment_date':
           '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
-      'appointment_time':
-          '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+      'appointment_time': _selectedTimeSlot,
       'notes': _notesController.text.trim(),
     };
 
@@ -233,7 +269,7 @@ class _StaffBookAppointmentDialogState
           width: double.infinity,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF679B6A),
+              backgroundColor: const Color(0xFF4A769E),
               foregroundColor: Colors.white,
               elevation: 0,
             ),
@@ -267,6 +303,7 @@ class _StaffBookAppointmentDialogState
             _buildServiceTypeDropdown(),
             const SizedBox(height: 16),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: _buildDateInput()),
                 const SizedBox(width: 16),
@@ -391,26 +428,117 @@ class _StaffBookAppointmentDialogState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildFieldLabel('TIME'),
-        TextFormField(
-          controller: _timeController,
-          readOnly: true,
-          onTap: _pickTime,
-          validator: (value) => _mergeFieldError(
+        const SizedBox(height: 8),
+        FormField<String>(
+          validator: (_) => _mergeFieldError(
             'time',
-            value == null || value.isEmpty ? 'Required' : null,
+            _selectedTimeSlot == null ? 'Required' : null,
           ),
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1E293B),
-          ),
-          decoration: _inputDecoration(
-            hint: '--:-- --',
-            suffixIcon: Icons.access_time,
-          ),
+          builder: (state) {
+            return InkWell(
+              onTap: _isSubmitting ? null : () => _openTimePicker(state),
+              borderRadius: BorderRadius.circular(10),
+              child: InputDecorator(
+                decoration: _inputDecoration(
+                  suffixIcon: _isLoadingAvailability
+                      ? null
+                      : Icons.access_time_rounded,
+                ).copyWith(
+                  errorText: state.errorText,
+                  suffixIcon: _isLoadingAvailability
+                      ? const Padding(
+                          padding: EdgeInsets.all(14),
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : const Icon(
+                          Icons.access_time_rounded,
+                          color: Color(0xFF475569),
+                          size: 20,
+                        ),
+                ),
+                child: Text(
+                  _timeFieldLabel(),
+                  style: TextStyle(
+                    color: _selectedTimeSlot == null
+                        ? const Color(0xFF9CA3AF)
+                        : const Color(0xFF1E293B),
+                    fontSize: 16,
+                    fontWeight: _selectedTimeSlot == null
+                        ? FontWeight.w500
+                        : FontWeight.w700,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
+  }
+
+  Future<void> _openTimePicker(FormFieldState<String> state) async {
+    if (_selectedDate == null) {
+      setState(() => _autoValidateMode = AutovalidateMode.always);
+      _formKey.currentState?.validate();
+      return;
+    }
+
+    if (_availabilitySlots.isEmpty && !_isLoadingAvailability) {
+      await _loadAvailabilityForSelectedDate();
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final String? selected = await showAppointmentTimePickerModal(
+      context: context,
+      slots: _availabilitySlots,
+      selectedTimeSlot: _selectedTimeSlot,
+      isSlotDisabled: _isSlotDisabled,
+      unavailableRanges: _unavailableRanges,
+      errorText: state.errorText,
+      title: 'Choose Appointment Time',
+    );
+
+    if (!mounted || selected == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedTimeSlot = selected;
+    });
+    _clearFieldError('time');
+    state.didChange(selected);
+  }
+
+  String _timeFieldLabel() {
+    if (_selectedDate == null) {
+      return 'Select a date first';
+    }
+
+    if (_selectedTimeSlot == null) {
+      if (_isLoadingAvailability) {
+        return 'Loading available times...';
+      }
+
+      if (_availabilitySlots.isEmpty) {
+        return 'Tap to view available times';
+      }
+
+      return 'Tap to choose a time';
+    }
+
+    final Map<String, dynamic> slot = _availabilitySlots.firstWhere(
+      (Map<String, dynamic> item) => item['time'] == _selectedTimeSlot,
+      orElse: () => <String, dynamic>{'time_label': _selectedTimeSlot},
+    );
+
+    return slot['time_label']?.toString() ?? _selectedTimeSlot!;
   }
 
   Widget _buildNotesInput() {
@@ -453,7 +581,7 @@ class _StaffBookAppointmentDialogState
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFF679B6A), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFF4A769E), width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
@@ -467,5 +595,27 @@ class _StaffBookAppointmentDialogState
           ? Icon(suffixIcon, color: const Color(0xFF475569), size: 20)
           : null,
     );
+  }
+
+  String _effectiveSlotStatus(Map<String, dynamic> slot) {
+    final String status = slot['status']?.toString() ?? 'available';
+    if (status != 'available') {
+      return status;
+    }
+
+    final String slotTime = slot['time']?.toString() ?? '';
+    for (final range in _unavailableRanges) {
+      final String start = range['start_time']?.toString() ?? '';
+      final String end = range['end_time']?.toString() ?? '';
+      if (slotTime.compareTo(start) >= 0 && slotTime.compareTo(end) < 0) {
+        return 'doctor_unavailable';
+      }
+    }
+
+    return status;
+  }
+
+  bool _isSlotDisabled(Map<String, dynamic> slot) {
+    return _effectiveSlotStatus(slot) != 'available';
   }
 }

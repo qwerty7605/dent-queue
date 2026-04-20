@@ -1,6 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-class AdminDataTable extends StatelessWidget {
+class AdminDataTable extends StatefulWidget {
   const AdminDataTable({
     super.key,
     required this.columns,
@@ -12,6 +14,7 @@ class AdminDataTable extends StatelessWidget {
     this.headingRowHeight = 60,
     this.dataRowMinHeight = 72,
     this.dataRowMaxHeight = 84,
+    this.enableVerticalScroll = true,
   });
 
   final List<DataColumn> columns;
@@ -23,12 +26,13 @@ class AdminDataTable extends StatelessWidget {
   final double headingRowHeight;
   final double dataRowMinHeight;
   final double dataRowMaxHeight;
+  final bool enableVerticalScroll;
 
-  static const Color _headingBackgroundColor = Color(0xFFF4F8F4);
-  static const Color _headingTextColor = Color(0xFF29412B);
+  static const Color _headingBackgroundColor = Color(0xFFF5F7FB);
+  static const Color _headingTextColor = Color(0xFF142036);
   static const Color _bodyTextColor = Color(0xFF334155);
-  static const Color _borderColor = Color(0xFFE6ECE6);
-  static const Color _stripedRowColor = Color(0xFFFBFDFC);
+  static const Color _borderColor = Color(0xFFE1E7F5);
+  static const Color _stripedRowColor = Color(0xFFFAFBFF);
 
   static Widget headerLabel(
     String label, {
@@ -76,7 +80,7 @@ class AdminDataTable extends StatelessWidget {
   static WidgetStateProperty<Color?> rowColor(int index) {
     return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
       if (states.contains(WidgetState.selected)) {
-        return const Color(0xFFEFF5EF);
+        return const Color(0xFFEBF0FF);
       }
 
       return index.isEven ? Colors.white : _stripedRowColor;
@@ -98,51 +102,104 @@ class AdminDataTable extends StatelessWidget {
   }
 
   @override
+  State<AdminDataTable> createState() => _AdminDataTableState();
+}
+
+class _AdminDataTableState extends State<AdminDataTable> {
+  late final ScrollController _verticalController;
+  late final ScrollController _horizontalController;
+
+  @override
+  void initState() {
+    super.initState();
+    _verticalController = ScrollController();
+    _horizontalController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _verticalController.dispose();
+    _horizontalController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: minWidth ?? 0),
-          child: Padding(
-            padding: contentPadding,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: DataTableTheme(
-                data: const DataTableThemeData(
-                  headingRowColor: WidgetStatePropertyAll<Color>(
-                    _headingBackgroundColor,
-                  ),
-                  headingTextStyle: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.65,
-                    color: _headingTextColor,
-                  ),
-                  dataTextStyle: TextStyle(
-                    fontSize: 14,
-                    height: 1.35,
-                    fontWeight: FontWeight.w600,
-                    color: _bodyTextColor,
-                  ),
-                  dividerThickness: 0.75,
-                ),
-                child: DataTable(
-                  headingRowHeight: headingRowHeight,
-                  dataRowMinHeight: dataRowMinHeight,
-                  dataRowMaxHeight: dataRowMaxHeight,
-                  horizontalMargin: horizontalMargin,
-                  columnSpacing: columnSpacing,
-                  border: TableBorder.all(
-                    color: _borderColor,
-                    width: 0.75,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  columns: columns,
-                  rows: rows,
-                ),
-              ),
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double resolvedMinWidth = math.max(
+          widget.minWidth ?? 0,
+          constraints.maxWidth,
+        );
+
+        return Scrollbar(
+          controller: _horizontalController,
+          thumbVisibility: false,
+          trackVisibility: false,
+          notificationPredicate: (ScrollNotification notification) =>
+              notification.metrics.axis == Axis.horizontal,
+          child: SingleChildScrollView(
+            controller: _horizontalController,
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: resolvedMinWidth),
+              child: widget.enableVerticalScroll
+                  ? Scrollbar(
+                      controller: _verticalController,
+                      thumbVisibility: false,
+                      trackVisibility: false,
+                      notificationPredicate: (ScrollNotification notification) =>
+                          notification.metrics.axis == Axis.vertical,
+                      child: SingleChildScrollView(
+                        controller: _verticalController,
+                        child: _buildTable(),
+                      ),
+                    )
+                  : _buildTable(),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTable() {
+    return Padding(
+      padding: widget.contentPadding,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: DataTableTheme(
+          data: const DataTableThemeData(
+            headingRowColor: WidgetStatePropertyAll<Color>(
+              AdminDataTable._headingBackgroundColor,
+            ),
+            headingTextStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.65,
+              color: AdminDataTable._headingTextColor,
+            ),
+            dataTextStyle: TextStyle(
+              fontSize: 14,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+              color: AdminDataTable._bodyTextColor,
+            ),
+            dividerThickness: 0.75,
+          ),
+          child: DataTable(
+            headingRowHeight: widget.headingRowHeight,
+            dataRowMinHeight: widget.dataRowMinHeight,
+            dataRowMaxHeight: widget.dataRowMaxHeight,
+            horizontalMargin: widget.horizontalMargin,
+            columnSpacing: widget.columnSpacing,
+            border: TableBorder.all(
+              color: AdminDataTable._borderColor,
+              width: 0.75,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            columns: widget.columns,
+            rows: widget.rows,
           ),
         ),
       ),

@@ -206,58 +206,78 @@ class _AdminProfileViewState extends State<AdminProfileView> {
   @override
   Widget build(BuildContext context) {
     final isPhone = MobileTypography.isPhone(context);
+    final bool compactHeader = MediaQuery.sizeOf(context).width < 980;
+    final Widget title = Text(
+      'Admin Profile',
+      style: TextStyle(
+        fontSize: MobileTypography.pageTitle(context),
+        fontWeight: FontWeight.bold,
+        color: Colors.black,
+      ),
+    );
+
+    final Widget? action = !_isEditingProfile
+        ? ElevatedButton.icon(
+            onPressed: () {
+              setState(() {
+                _fieldErrors = <String, String>{};
+                _formErrorText = null;
+                _isEditingProfile = true;
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4A769E),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            icon: const Icon(Icons.edit, size: 20),
+            label: Text(
+              'Edit Profile',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: MobileTypography.button(context),
+              ),
+            ),
+          )
+        : null;
 
     return Padding(
       padding: MobileTypography.screenPadding(context),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Admin Profile',
-                style: TextStyle(
-                  fontSize: MobileTypography.pageTitle(context),
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
+          if (compactHeader)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  title,
+                  if (action != null) ...[
+                    const SizedBox(height: 16),
+                    action,
+                  ],
+                ],
               ),
-              if (!_isEditingProfile)
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _fieldErrors = <String, String>{};
-                      _formErrorText = null;
-                      _isEditingProfile = true;
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF679B6A),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                  ),
-                  icon: const Icon(Icons.edit, size: 20),
-                  label: Text(
-                    'Edit Profile',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: MobileTypography.button(context),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                title,
+                if (action case final Widget button) button,
+              ],
+            ),
           SizedBox(height: isPhone ? 16 : 24),
           Expanded(
             child: Container(
               width: double.infinity,
+              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
                 border: const Border(
-                  top: BorderSide(color: Color(0xFF679B6A), width: 6.0),
+                  top: BorderSide(color: Color(0xFF4A769E), width: 6.0),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -582,7 +602,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: const BorderSide(
-                color: Color(0xFF679B6A),
+                color: Color(0xFF4A769E),
                 width: 2.0,
               ),
             ),
@@ -652,7 +672,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: const BorderSide(
-                color: Color(0xFF679B6A),
+                color: Color(0xFF4A769E),
                 width: 2.0,
               ),
             ),

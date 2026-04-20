@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 class AppNavigationTheme {
-  static const Color primary = Color(0xFF356042);
-  static const Color accent = Color(0xFFE8C355);
-  static const Color background = Color(0xFFF4F5ED);
+  static const Color primary = Color(0xFF1A2F64);
+  static const Color accent = Color(0xFF9CB5E8);
+  static const Color background = Color(0xFFF5F7FB);
   static const Color surface = Colors.white;
   static const Color muted = Color(0xFF64748B);
-  static const Color activeSurface = Color(0xFFEAF3EC);
-  static const Color activeText = Color(0xFF24432C);
+  static const Color activeSurface = Color(0xFFEBF0FF);
+  static const Color activeText = Color(0xFF12224A);
   static const Color divider = Color(0xFFE2E8F0);
   static const Color chipBackground = Color(0x26000000);
 }
@@ -32,7 +32,7 @@ class AppBrandLockup extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Image.asset(
-          'assets/images/logo.png',
+          'assets/images/logo_blue.png',
           width: logoSize,
           height: logoSize,
         ),

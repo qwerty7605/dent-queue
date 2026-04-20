@@ -19,14 +19,14 @@ class ClinicSettingService
 
     public function getCurrentSettings(): array
     {
-        $clinicSetting = ClinicSetting::query()->with('updatedBy')->latest('id')->first();
+        $clinicSetting = $this->getCurrentClinicSetting();
 
         return $this->formatSettings($clinicSetting);
     }
 
     public function saveSettings(User $user, array $payload): array
     {
-        $clinicSetting = ClinicSetting::query()->with('updatedBy')->first() ?? new ClinicSetting();
+        $clinicSetting = $this->getCurrentClinicSetting() ?? new ClinicSetting();
         $clinicSetting->fill([
             'opening_time' => (string) $payload['opening_time'],
             'closing_time' => (string) $payload['closing_time'],
@@ -92,5 +92,13 @@ class ClinicSettingService
         }
 
         return $time;
+    }
+
+    private function getCurrentClinicSetting(): ?ClinicSetting
+    {
+        return ClinicSetting::query()
+            ->with('updatedBy')
+            ->latest('id')
+            ->first();
     }
 }

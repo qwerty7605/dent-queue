@@ -188,7 +188,7 @@ class _StaffAppointmentDetailsDialogState
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF679B6A),
+                backgroundColor: const Color(0xFF4A769E),
               ),
               child: Text(_confirmationButtonLabel(normalizedStatus)),
             ),
