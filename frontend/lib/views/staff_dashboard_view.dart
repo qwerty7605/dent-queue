@@ -174,7 +174,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         setState(() {
           _isLoadingAppointments = false;
         });
-        _showStatusMessage(e.message);
+        _showStatusMessage(_resolveApiErrorMessage(e));
         return;
       }
 
@@ -183,7 +183,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         _cancelledAppointments = [];
         _queueStatus = null;
         _isLoadingAppointments = false;
-        _appointmentsLoadError = e.message;
+        _appointmentsLoadError = _resolveApiErrorMessage(e);
       });
     } catch (_) {
       if (!mounted) return;
@@ -215,8 +215,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Future<void> _initializeAppointments() async {
-    await _selectNextBookedDateForInitialLoad();
-    if (!mounted) return;
     await _loadAppointmentsForSelectedDate();
   }
 
@@ -255,37 +253,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     );
     if (!mounted) return;
     await _loadUnreadNotificationCount();
-  }
-
-  Future<void> _selectNextBookedDateForInitialLoad() async {
-    try {
-      final appointments = await _appointmentService.getAdminMasterList();
-      final today = _startOfDay(DateTime.now());
-
-      DateTime? nextBookedDate;
-
-      for (final appointment in appointments) {
-        final status = normalizeAppointmentStatus(appointment['status']);
-        if (status == 'cancelled') {
-          continue;
-        }
-
-        final parsedDate = _parseApiDate(appointment['date']);
-        if (parsedDate == null || parsedDate.isBefore(today)) {
-          continue;
-        }
-
-        if (nextBookedDate == null || parsedDate.isBefore(nextBookedDate)) {
-          nextBookedDate = parsedDate;
-        }
-      }
-
-      if (nextBookedDate != null) {
-        _selectedDate = nextBookedDate;
-      }
-    } catch (_) {
-      // Fall back to today's queue when the master list is unavailable.
-    }
   }
 
   Future<void> _pickDate() async {
@@ -881,8 +848,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final horizontalPadding = constraints.maxWidth < 440 ? 14.0 : 22.0;
-        final maxWidth = constraints.maxWidth > 1024 ? 920.0 : double.infinity;
+        final horizontalPadding = constraints.maxWidth < 420 ? 16.0 : 24.0;
+        final maxWidth = constraints.maxWidth > 920 ? 920.0 : double.infinity;
         final summaryWidth = maxWidth == double.infinity
             ? constraints.maxWidth
             : maxWidth;
@@ -906,28 +873,26 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Text(
-                        '$_accountRoleTag DASHBOARD',
-                        style: TextStyle(
-                          fontSize: MobileTypography.pageTitle(context),
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.4,
-                          color: Colors.black87,
-                        ),
+                    Text(
+                      _isReadOnlyAccount ? 'INTERN DASHBOARD' : 'STAFF DASHBOARD',
+                      style: TextStyle(
+                        fontSize: MobileTypography.sectionTitle(context),
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     _buildDailyQueueHeader(),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 16),
                     _buildSummaryCards(summaryWidth),
-                    const SizedBox(height: 10),
-                    _buildTodayQueuePanel(),
                     const SizedBox(height: 14),
+                    _buildTodayQueuePanel(),
+                    const SizedBox(height: 20),
                     _buildSearchField(),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 16),
                     _buildFilterRow(),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     if (_isLoadingAppointments)
                       _buildLoadingState()
                     else if (_appointmentsLoadError != null)
@@ -966,41 +931,37 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         'label': 'PENDING',
         'count': pendingCount.toString(),
         'icon': Icons.access_time_filled,
-        'color': const Color(0xFFF97316),
-        'backgroundColor': const Color(0xFFFFF3E8),
+        'color': const Color(0xFF1A2F64),
+        'backgroundColor': Colors.white,
         'filter': _StaffFilter.pending,
       },
       {
         'label': 'APPROVED',
         'count': approvedCount.toString(),
         'icon': Icons.check_circle_outline,
-        'color': const Color(0xFF1D4ED8),
-        'backgroundColor': const Color(0xFFEFF5FF),
+        'color': const Color(0xFF1A2F64),
+        'backgroundColor': Colors.white,
         'filter': _StaffFilter.approved,
       },
       {
         'label': 'COMPLETED',
         'count': completedCount.toString(),
         'icon': Icons.medical_services_outlined,
-        'color': const Color(0xFF16A34A),
-        'backgroundColor': const Color(0xFFEFFCF3),
+        'color': const Color(0xFF1A2F64),
+        'backgroundColor': Colors.white,
         'filter': _StaffFilter.completed,
       },
       {
         'label': 'CANCELLED',
         'count': cancelledCount.toString(),
         'icon': Icons.cancel_outlined,
-        'color': const Color(0xFFDC2626),
-        'backgroundColor': const Color(0xFFFFF0F0),
+        'color': const Color(0xFF1A2F64),
+        'backgroundColor': Colors.white,
         'filter': _StaffFilter.cancelled,
       },
     ];
 
-    final crossAxisCount = availableWidth >= 860
-        ? 4
-        : availableWidth >= 420
-        ? 2
-        : 1;
+    final crossAxisCount = availableWidth >= 860 ? 4 : 2;
 
     return GridView.builder(
       itemCount: cards.length,
@@ -1027,6 +988,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           icon: icon,
           accentColor: color,
           backgroundColor: backgroundColor,
+          borderColor: color,
           isSelected: _selectedFilter == filter,
           onTap: () {
             setState(() {
@@ -1053,12 +1015,12 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1066,26 +1028,26 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         controller: _searchController,
         onChanged: (_) => setState(() {}),
         decoration: InputDecoration(
-          hintText: 'Search Patient name...',
+          hintText: 'Search patient name...',
           hintStyle: const TextStyle(
             color: Color(0xFF9CA3AF),
             fontWeight: FontWeight.w600,
           ),
           suffixIcon: const Icon(Icons.search, color: Color(0xFF6B7280)),
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 12,
+            horizontal: 16,
+            vertical: 14,
           ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: Color(0xFF1A2F64), width: 1.3),
           ),
           isDense: true,
@@ -1097,11 +1059,18 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   Widget _buildDailyQueueHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -1152,11 +1121,18 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1417,27 +1393,28 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   Widget _buildFilterChip(String label, _StaffFilter filter) {
     final selected = _selectedFilter == filter;
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () {
+    return FilterChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          color: selected ? Colors.white : const Color(0xFF475569),
+          fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+          fontSize: 13,
+        ),
+      ),
+      selected: selected,
+      onSelected: (_) {
         setState(() {
           _selectedFilter = filter;
         });
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF1A2F64) : const Color(0xFFECEDEA),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : const Color(0xFF6B7280),
-            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            fontSize: 13,
-          ),
-        ),
+      selectedColor: const Color(0xFF1A2F64),
+      backgroundColor: Colors.white,
+      side: const BorderSide(color: Color(0xFFD1D5DB)),
+      showCheckmark: false,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(999),
       ),
     );
   }
@@ -1498,13 +1475,13 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: const Color(0xFFD8DEE8)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 5,
-                offset: const Offset(0, 2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -1709,13 +1686,36 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   int _countByStatus(String key) {
-    return _dashboardAppointments()
-        .where((a) => normalizeAppointmentStatus(a['status']) == key)
-        .length;
+    return _dashboardAppointments().where((a) {
+      final status = normalizeAppointmentStatus(a['status']);
+      if (key == 'cancelled') {
+        return status == 'cancelled' ||
+            status == 'cancelled_by_doctor' ||
+            status == 'reschedule_required';
+      }
+
+      return status == key;
+    }).length;
   }
 
   List<Map<String, dynamic>> _dashboardAppointments() {
     return [..._appointments, ..._cancelledAppointments];
+  }
+
+  String _resolveApiErrorMessage(ApiException exception) {
+    final errors = exception.errors;
+    if (errors != null && errors.isNotEmpty) {
+      for (final value in errors.values) {
+        if (value is List && value.isNotEmpty) {
+          return value.first.toString();
+        }
+        if (value != null) {
+          return value.toString();
+        }
+      }
+    }
+
+    return exception.message;
   }
 
   List<Map<String, dynamic>> _computeVisibleAppointments() {
@@ -2008,24 +2008,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '$year-$month-$day';
-  }
-
-  DateTime _startOfDay(DateTime date) {
-    return DateTime(date.year, date.month, date.day);
-  }
-
-  DateTime? _parseApiDate(dynamic value) {
-    final raw = value?.toString().trim() ?? '';
-    if (raw.isEmpty) {
-      return null;
-    }
-
-    final parsed = DateTime.tryParse(raw);
-    if (parsed == null) {
-      return null;
-    }
-
-    return _startOfDay(parsed);
   }
 
   String _formatLongDate(DateTime date) {

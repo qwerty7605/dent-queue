@@ -389,11 +389,13 @@ class DoctorAvailabilityService
     ): void
     {
         foreach ($appointments as $appointment) {
+            $notificationMeta = $this->buildAffectedAppointmentNotificationMeta($appointment);
+
             PatientNotification::create([
                 'patient_id' => (int) $appointment->patient_id,
                 'appointment_id' => (int) $appointment->id,
-                'type' => 'doctor_unavailable',
-                'title' => 'Appointment affected by doctor unavailability',
+                'type' => $notificationMeta['type'],
+                'title' => $notificationMeta['title'],
                 'message' => $this->buildAffectedAppointmentMessage($appointment, $schedule),
             ]);
         }
@@ -419,6 +421,27 @@ class DoctorAvailabilityService
         }
 
         return $message . ' Please contact the clinic to reschedule.';
+    }
+
+    /**
+     * @return array{type: string, title: string}
+     */
+    private function buildAffectedAppointmentNotificationMeta(Appointment $appointment): array
+    {
+        return match ((string) $appointment->status) {
+            'cancelled_by_doctor' => [
+                'type' => 'appointment_cancelled_by_doctor',
+                'title' => 'Appointment Cancelled by Doctor',
+            ],
+            'reschedule_required' => [
+                'type' => 'appointment_reschedule_required',
+                'title' => 'Appointment Needs Reschedule',
+            ],
+            default => [
+                'type' => 'doctor_unavailable',
+                'title' => 'Appointment affected by doctor unavailability',
+            ],
+        };
     }
 
     private function updateAffectedAppointmentStatuses(DoctorUnavailability $schedule): Collection

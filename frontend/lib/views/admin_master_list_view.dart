@@ -259,7 +259,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                     children: [
                       AdminDataTable(
                               enableVerticalScroll: false,
-                              minWidth: 860,
+                              minWidth: 920,
                               columnSpacing: 18,
                               horizontalMargin: 14,
                               contentPadding: const EdgeInsets.fromLTRB(
@@ -269,6 +269,13 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                                 12,
                               ),
                               columns: <DataColumn>[
+                                DataColumn(
+                                  label: AdminDataTable.headerLabel(
+                                    '#',
+                                    width: 52,
+                                    alignment: Alignment.center,
+                                  ),
+                                ),
                                 DataColumn(
                                   label: AdminDataTable.headerLabel(
                                     'Patient',
@@ -315,6 +322,14 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                                   index: index,
                                   color: AdminDataTable.rowColor(index),
                                   cells: <DataCell>[
+                                    DataCell(
+                                      AdminDataTable.cellText(
+                                        '${index + 1}',
+                                        width: 52,
+                                        alignment: Alignment.center,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                     DataCell(
                                       AdminDataTable.cellText(
                                         _displayText(

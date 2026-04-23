@@ -410,9 +410,15 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       }
 
       final String formatLabel = format.label;
-      final message = savedPath == null
+      final String baseMessage = savedPath == null
           ? '$formatLabel export started.'
           : '$formatLabel exported to $savedPath';
+      final String message =
+          exportFile.wasLimited &&
+              exportFile.exportedRecordCount != null &&
+              exportFile.totalRecordCount != null
+          ? '$baseMessage PDF includes the first ${exportFile.exportedRecordCount} of ${exportFile.totalRecordCount} matching records.'
+          : baseMessage;
 
       ScaffoldMessenger.of(
         context,

@@ -19,6 +19,8 @@ class ReportController extends Controller
 
     private const EXPORT_FORMAT_PDF = 'pdf';
 
+    private const PDF_EXPORT_MAX_RECORDS = 1000;
+
     protected $reportService;
 
     public function __construct(ReportService $reportService)
@@ -46,20 +48,33 @@ class ReportController extends Controller
     {
         $filters = $this->validateReportFilters($request);
         $format = $this->normalizeExportFormat($request->query('format'));
-        $records = $this->reportService->getDetailedRecordsForExport(
-            $filters,
-            $request->boolean('force_refresh'),
-        );
         $headers = $this->exportHeaders();
 
         return match ($format) {
-            self::EXPORT_FORMAT_EXCEL => $this->downloadExcel($headers, $records),
-            self::EXPORT_FORMAT_PDF => $this->downloadPdf($headers, $records, $filters),
-            default => $this->downloadCsv($headers, $records),
+            self::EXPORT_FORMAT_EXCEL => $this->downloadExcel(
+                $headers,
+                $this->reportService->streamDetailedRecordsForExport($filters),
+            ),
+            self::EXPORT_FORMAT_PDF => $this->downloadPdf(
+                $headers,
+                $this->reportService->getDetailedRecordsForPdfExport(
+                    $filters,
+                    self::PDF_EXPORT_MAX_RECORDS,
+                ),
+                $filters,
+                $this->reportService->getReportSummary(
+                    $filters,
+                    $request->boolean('force_refresh'),
+                )['total_appointments'] ?? 0,
+            ),
+            default => $this->downloadCsv(
+                $headers,
+                $this->reportService->streamDetailedRecordsForExport($filters),
+            ),
         };
     }
 
-    private function downloadCsv(array $headers, array $records): StreamedResponse
+    private function downloadCsv(array $headers, iterable $records): StreamedResponse
     {
         $filename = 'report-records-'.now()->format('Ymd-His').'.csv';
 
@@ -83,27 +98,45 @@ class ReportController extends Controller
         ]);
     }
 
-    private function downloadExcel(array $headers, array $records): Response
+    private function downloadExcel(array $headers, iterable $records): StreamedResponse
     {
         $filename = 'report-records-'.now()->format('Ymd-His').'.xls';
-        $xml = $this->buildExcelDocument($headers, $records);
+        return response()->streamDownload(function () use ($headers, $records): void {
+            echo '<html><head><meta charset="UTF-8"></head><body><table border="1"><tr>';
+            foreach ($headers as $header) {
+                echo '<th>'.htmlspecialchars($this->sanitizeExportValue($header), ENT_QUOTES, 'UTF-8').'</th>';
+            }
+            echo '</tr>';
 
-        return response($xml, 200, [
+            foreach ($records as $record) {
+                echo '<tr>';
+                foreach ($this->exportRow($record) as $value) {
+                    echo '<td>'.htmlspecialchars($this->sanitizeExportValue($value), ENT_QUOTES, 'UTF-8').'</td>';
+                }
+                echo '</tr>';
+            }
+
+            echo '</table></body></html>';
+        }, $filename, [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
-            'Content-Disposition' => sprintf('attachment; filename="%s"', $filename),
             'Access-Control-Expose-Headers' => 'Content-Disposition, Content-Type',
         ]);
     }
 
-    private function downloadPdf(array $headers, array $records, array $filters): Response
+    private function downloadPdf(array $headers, array $records, array $filters, int $totalMatchingRecords): Response
     {
         $filename = 'report-records-'.now()->format('Ymd-His').'.pdf';
-        $pdf = $this->buildPdfDocument($headers, $records, $filters);
+        $pdf = $this->buildPdfDocument($headers, $records, $filters, $totalMatchingRecords);
+        $exportedCount = count($records);
+        $limited = $totalMatchingRecords > $exportedCount;
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => sprintf('attachment; filename="%s"', $filename),
-            'Access-Control-Expose-Headers' => 'Content-Disposition, Content-Type',
+            'Access-Control-Expose-Headers' => 'Content-Disposition, Content-Type, X-Export-Limited, X-Export-Record-Count, X-Export-Total-Count',
+            'X-Export-Limited' => $limited ? 'true' : 'false',
+            'X-Export-Record-Count' => (string) $exportedCount,
+            'X-Export-Total-Count' => (string) $totalMatchingRecords,
         ]);
     }
 
@@ -205,45 +238,11 @@ class ReportController extends Controller
         return $time;
     }
 
-    private function buildExcelDocument(array $headers, array $records): string
-    {
-        $rows = [];
-        $rows[] = $this->buildExcelRow($headers);
-
-        foreach ($records as $record) {
-            $rows[] = $this->buildExcelRow($this->exportRow($record));
-        }
-
-        return implode('', [
-            '<?xml version="1.0" encoding="UTF-8"?>',
-            '<?mso-application progid="Excel.Sheet"?>',
-            '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
-            ' xmlns:o="urn:schemas-microsoft-com:office:office"',
-            ' xmlns:x="urn:schemas-microsoft-com:office:excel"',
-            ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
-            '<Worksheet ss:Name="Reports"><Table>',
-            implode('', $rows),
-            '</Table></Worksheet></Workbook>',
-        ]);
-    }
-
-    private function buildExcelRow(array $values): string
-    {
-        $cells = array_map(function (mixed $value): string {
-            return sprintf(
-                '<Cell><Data ss:Type="String">%s</Data></Cell>',
-                htmlspecialchars($this->sanitizeExportValue($value), ENT_XML1 | ENT_QUOTES, 'UTF-8'),
-            );
-        }, $values);
-
-        return '<Row>'.implode('', $cells).'</Row>';
-    }
-
-    private function buildPdfDocument(array $headers, array $records, array $filters): string
+    private function buildPdfDocument(array $headers, array $records, array $filters, int $totalMatchingRecords): string
     {
         $tableRows = array_map(fn (array $record): array => $this->exportRow($record), $records);
 
-        return $this->renderTablePdf($headers, $tableRows, $filters);
+        return $this->renderTablePdf($headers, $tableRows, $filters, $totalMatchingRecords);
     }
 
     private function formatPdfFilters(array $filters): string
@@ -260,7 +259,7 @@ class ReportController extends Controller
         return implode(', ', $parts);
     }
 
-    private function renderTablePdf(array $headers, array $rows, array $filters): string
+    private function renderTablePdf(array $headers, array $rows, array $filters, int $totalMatchingRecords): string
     {
         $pageWidth = 792;
         $pageHeight = 612;
@@ -297,6 +296,8 @@ class ReportController extends Controller
                 headers: $headers,
                 rows: $pageRows,
                 filters: $filters,
+                totalMatchingRecords: $totalMatchingRecords,
+                exportedRecordCount: count($rows),
                 pageNumber: $pageIndex + 1,
                 pageCount: count($pages),
                 leftMargin: $leftMargin,
@@ -354,6 +355,8 @@ class ReportController extends Controller
         array $headers,
         array $rows,
         array $filters,
+        int $totalMatchingRecords,
+        int $exportedRecordCount,
         int $pageNumber,
         int $pageCount,
         int $leftMargin,
@@ -368,6 +371,7 @@ class ReportController extends Controller
         $titleY = 580;
         $metaY = 560;
         $filtersY = 545;
+        $scopeY = 530;
         $pageLabelY = 580;
         $tableBottom = $tableTop - $headerHeight - (count($rows) * $rowHeight);
 
@@ -386,6 +390,11 @@ class ReportController extends Controller
         $contentLines[] = sprintf('(%s) Tj', $this->escapePdfText('Generated at: '.now()->format('Y-m-d H:i:s')));
         $contentLines[] = sprintf('1 0 0 1 %d %d Tm', $leftMargin, $filtersY);
         $contentLines[] = sprintf('(%s) Tj', $this->escapePdfText('Filters: '.$this->truncatePdfCell($this->formatPdfFilters($filters), 110)));
+        $contentLines[] = sprintf('1 0 0 1 %d %d Tm', $leftMargin, $scopeY);
+        $contentLines[] = sprintf(
+            '(%s) Tj',
+            $this->escapePdfText($this->formatPdfScopeLabel($exportedRecordCount, $totalMatchingRecords)),
+        );
         $contentLines[] = sprintf('1 0 0 1 %d %d Tm', $leftMargin + $tableWidth - 52, $pageLabelY);
         $contentLines[] = sprintf('(%s) Tj', $this->escapePdfText(sprintf('Page %d/%d', $pageNumber, $pageCount)));
         $contentLines[] = 'ET';
@@ -475,5 +484,18 @@ class ReportController extends Controller
             ['\\\\', '\\(', '\\)'],
             $this->sanitizeExportValue($text),
         );
+    }
+
+    private function formatPdfScopeLabel(int $exportedRecordCount, int $totalMatchingRecords): string
+    {
+        if ($totalMatchingRecords > $exportedRecordCount) {
+            return sprintf(
+                'Showing first %d of %d matching records for PDF export.',
+                $exportedRecordCount,
+                $totalMatchingRecords,
+            );
+        }
+
+        return sprintf('Showing all %d matching records.', $exportedRecordCount);
     }
 }

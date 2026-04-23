@@ -48,7 +48,7 @@ class AdminDashboardController extends Controller
                 ->where('is_active', true)
                 ->count();
 
-            $appointmentsCount = Appointment::count();
+            $appointmentsCount = Appointment::withTrashed()->count();
 
             return [
                 'patients_count' => $patientsCount,

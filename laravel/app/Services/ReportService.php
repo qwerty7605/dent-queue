@@ -239,6 +239,49 @@ class ReportService
         }, $forceRefresh);
     }
 
+    public function streamDetailedRecordsForExport(array $filters = []): \Generator
+    {
+        foreach ($this->detailedRecordsQuery($filters)->cursor() as $appointment) {
+            $record = $this->mapDetailedRecord($appointment);
+
+            yield [
+                'appointment_id' => $record['appointment_id'],
+                'patient_name' => $record['patient_name'],
+                'service_type' => $record['service_type'],
+                'appointment_date' => $record['appointment_date'],
+                'appointment_time' => $record['appointment_time'],
+                'status' => $record['status'],
+                'booking_type' => $record['booking_type'],
+                'queue_number' => $record['queue_number'],
+                'created_at' => $record['created_at'],
+            ];
+        }
+    }
+
+    public function getDetailedRecordsForPdfExport(array $filters = [], int $limit = 1000): array
+    {
+        return $this->detailedRecordsQuery($filters)
+            ->limit($limit)
+            ->get()
+            ->map(function ($appointment): array {
+                $record = $this->mapDetailedRecord($appointment);
+
+                return [
+                    'appointment_id' => $record['appointment_id'],
+                    'patient_name' => $record['patient_name'],
+                    'service_type' => $record['service_type'],
+                    'appointment_date' => $record['appointment_date'],
+                    'appointment_time' => $record['appointment_time'],
+                    'status' => $record['status'],
+                    'booking_type' => $record['booking_type'],
+                    'queue_number' => $record['queue_number'],
+                    'created_at' => $record['created_at'],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
     private function getDetailedRecordRows(array $filters)
     {
         return $this->detailedRecordsQuery($filters)->get();

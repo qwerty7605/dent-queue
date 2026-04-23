@@ -48,9 +48,13 @@ class Endpoints {
   static String updateStaffProfile(int id) => '$_base/staff/profile/$id';
 
   static String adminAppointmentsByDate(String date) =>
-      '$_base/admin/appointments?date=$date';
-  static String adminCalendarAppointments(String date) =>
-      '$_base/admin/calendar/appointments?date=$date';
+      _withQueryParameters('$_base/admin/appointments', <String, String>{
+        'date': date,
+      });
+  static String adminCalendarAppointments(String date) => _withQueryParameters(
+    '$_base/admin/calendar/appointments',
+    <String, String>{'date': date},
+  );
   static String adminCalendarAppointmentDetails(int id) =>
       '$_base/admin/calendar/appointments/$id';
   static String adminDashboardStats([

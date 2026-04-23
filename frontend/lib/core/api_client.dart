@@ -19,6 +19,7 @@ class ApiClient {
   final TokenStorage _tokenStorage;
 
   static const Duration _timeout = Duration(seconds: 10);
+  static const Duration rawDownloadTimeout = Duration(minutes: 3);
   String? _activeBaseUrl;
 
   String _networkHint(String url) {
@@ -85,8 +86,9 @@ class ApiClient {
   Future<http.Response> getRaw(
     String path, {
     Map<String, String> headers = const <String, String>{},
+    Duration? timeout,
   }) async {
-    return _sendRaw('GET', path, headers: headers);
+    return _sendRaw('GET', path, headers: headers, timeout: timeout);
   }
 
   Future<dynamic> post(String path, {Object? body}) async {
@@ -247,6 +249,7 @@ class ApiClient {
     String path, {
     Map<String, String> headers = const <String, String>{},
     Object? body,
+    Duration? timeout,
   }) async {
     final requestHeaders = <String, String>{
       ...await _buildHeaders(),
@@ -266,6 +269,7 @@ class ApiClient {
           uri: uri,
           headers: requestHeaders,
           body: body,
+          timeout: timeout,
         );
 
         debugPrint('API RAW $method $url -> ${response.statusCode}');
@@ -300,24 +304,27 @@ class ApiClient {
     required Uri uri,
     required Map<String, String> headers,
     Object? body,
+    Duration? timeout,
   }) async {
+    final Duration requestTimeout = timeout ?? _timeout;
+
     switch (method) {
       case 'GET':
-        return _client.get(uri, headers: headers).timeout(_timeout);
+        return _client.get(uri, headers: headers).timeout(requestTimeout);
       case 'POST':
         return _client
             .post(uri, headers: headers, body: jsonEncode(body))
-            .timeout(_timeout);
+            .timeout(requestTimeout);
       case 'PUT':
         return _client
             .put(uri, headers: headers, body: jsonEncode(body))
-            .timeout(_timeout);
+            .timeout(requestTimeout);
       case 'PATCH':
         return _client
             .patch(uri, headers: headers, body: jsonEncode(body))
-            .timeout(_timeout);
+            .timeout(requestTimeout);
       case 'DELETE':
-        return _client.delete(uri, headers: headers).timeout(_timeout);
+        return _client.delete(uri, headers: headers).timeout(requestTimeout);
       default:
         throw ApiException(message: 'Unsupported method: $method');
     }
