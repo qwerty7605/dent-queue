@@ -207,7 +207,7 @@ class _RegisterViewState extends State<RegisterView> {
         'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&auto=format&fit=crop';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF356042),
+      backgroundColor: const Color(0xFF1A2F64),
       body: Row(
         children: [
           if (isDesktop)
@@ -218,7 +218,7 @@ class _RegisterViewState extends State<RegisterView> {
                     image: NetworkImage(bgImageUrl),
                     fit: BoxFit.cover,
                     colorFilter: ColorFilter.mode(
-                      Color(0x80356042),
+                      Color(0x801A2F64),
                       BlendMode.srcOver,
                     ),
                   ),
@@ -240,7 +240,7 @@ class _RegisterViewState extends State<RegisterView> {
                           image: NetworkImage(bgImageUrl),
                           fit: BoxFit.cover,
                           colorFilter: ColorFilter.mode(
-                            Color(0x60356042),
+                            Color(0x601A2F64),
                             BlendMode.srcOver,
                           ),
                         ),
@@ -254,7 +254,7 @@ class _RegisterViewState extends State<RegisterView> {
                     height: isDesktop ? double.infinity : size.height * 0.75,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF356042),
+                      color: const Color(0xFF1A2F64),
                       borderRadius: isDesktop
                           ? null
                           : const BorderRadius.only(
@@ -287,8 +287,8 @@ class _RegisterViewState extends State<RegisterView> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Image.network(
-                                    'https://api.builder.io/api/v1/image/assets/TEMP/f92c034757dbd92e4f4b2bb61cf4019eb03b031b?width=384',
+                                  Image.asset(
+                                    'assets/images/logo_blue.png',
                                     height: 86,
                                     errorBuilder: (_, error, stackTrace) =>
                                         const Icon(
@@ -307,7 +307,7 @@ class _RegisterViewState extends State<RegisterView> {
                                         style: TextStyle(
                                           fontSize: isDesktop ? 36 : 32,
                                           fontWeight: FontWeight.w900,
-                                          color: Color(0xFFD4AF37),
+                                          color: Color(0xFF9CB5E8),
                                           height: 1.1,
                                         ),
                                       ),
@@ -392,7 +392,7 @@ class _RegisterViewState extends State<RegisterView> {
                                         child: Text(
                                           'Sign in',
                                           style: TextStyle(
-                                            color: Color(0xFFD4AF37),
+                                            color: Color(0xFF9CB5E8),
                                             fontWeight: FontWeight.w800,
                                             fontSize:
                                                 MobileTypography.bodySmall(
@@ -428,7 +428,7 @@ class _RegisterViewState extends State<RegisterView> {
           style: TextStyle(
             fontSize: MobileTypography.sectionTitle(context),
             fontWeight: FontWeight.w600,
-            color: Color(0xFFD4AF37),
+            color: Color(0xFF9CB5E8),
           ),
         ),
         const SizedBox(height: 16),
@@ -511,7 +511,7 @@ class _RegisterViewState extends State<RegisterView> {
           style: TextStyle(
             fontSize: MobileTypography.sectionTitle(context),
             fontWeight: FontWeight.w600,
-            color: Color(0xFFD4AF37),
+            color: Color(0xFF9CB5E8),
           ),
         ),
         const SizedBox(height: 16),
@@ -819,17 +819,17 @@ class _RegisterViewState extends State<RegisterView> {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(
-        color: Color(0xFF9EAFAA),
+        color: Color(0xFFA5B4D3),
         fontWeight: FontWeight.w700,
         fontSize: 15,
       ),
       filled: true,
-      fillColor: const Color(0xFFFFF0F5),
+      fillColor: const Color(0xFFF0F4FA),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       suffixIcon: suffixIcon,
       helperText: helperText,
       helperStyle: const TextStyle(
-        color: Color(0xFFE5EFE1),
+        color: Color(0xFFE1E9FF),
         fontWeight: FontWeight.w600,
       ),
       border: OutlineInputBorder(
@@ -838,7 +838,7 @@ class _RegisterViewState extends State<RegisterView> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+        borderSide: const BorderSide(color: Color(0xFF9CB5E8), width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),

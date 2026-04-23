@@ -8,13 +8,12 @@ class StartPageView extends StatelessWidget {
 
   final VoidCallback onGetStarted;
 
-  static const _logoImageUrl =
-      'https://api.builder.io/api/v1/image/assets/TEMP/f92c034757dbd92e4f4b2bb61cf4019eb03b031b?width=384';
+  static const _logoImagePath = 'assets/images/logo_blue.png';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF356042),
+      backgroundColor: const Color(0xFF1A2F64),
       body: Stack(
         children: [
           // Top wavy shape (simplified as a curved container or custom paint)
@@ -26,7 +25,7 @@ class StartPageView extends StatelessWidget {
             child: ClipPath(
               clipper: _TopWaveClipper(),
               child: Container(
-                color: const Color(0xFFE5EFE1),
+                color: const Color(0xFFE1E9FF),
               ),
             ),
           ),
@@ -39,7 +38,7 @@ class StartPageView extends StatelessWidget {
             child: ClipPath(
               clipper: _BottomWaveClipper(),
               child: Container(
-                color: const Color(0xFFE5EFE1),
+                color: const Color(0xFFE1E9FF),
               ),
             ),
           ),
@@ -54,8 +53,8 @@ class StartPageView extends StatelessWidget {
                     SizedBox(
                       width: 240,
                       height: 240,
-                      child: Image.network(
-                        _logoImageUrl,
+                      child: Image.asset(
+                        _logoImagePath,
                         fit: BoxFit.contain,
                       ),
                     ),
@@ -70,7 +69,7 @@ class StartPageView extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 34.0,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFFD4AF37), // Gold color
+                              color: Color(0xFF9CB5E8), // Gold color
                             ),
                           ),
                           const Text(

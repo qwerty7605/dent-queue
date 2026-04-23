@@ -174,7 +174,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
                 image: NetworkImage(_bgImageUrl),
                 fit: BoxFit.cover,
                 colorFilter: ColorFilter.mode(
-                  Color(0x80356042),
+                  Color(0x801A2F64),
                   BlendMode.srcOver,
                 ),
               ),
@@ -185,7 +185,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
           flex: 11,
           child: Container(
             decoration: const BoxDecoration(
-              color: Color(0xFF356042),
+              color: Color(0xFF1A2F64),
               borderRadius: BorderRadius.only(
                 topRight: Radius.circular(30),
                 bottomRight: Radius.circular(30),
@@ -210,7 +210,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
               image: NetworkImage(_bgImageUrl),
               fit: BoxFit.cover,
               colorFilter: ColorFilter.mode(
-                Color(0x60356042),
+                Color(0x601A2F64),
                 BlendMode.srcOver,
               ),
             ),
@@ -219,7 +219,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
         Expanded(
           child: Container(
             width: double.infinity,
-            color: const Color(0xFF356042),
+            color: const Color(0xFF1A2F64),
             child: _buildFormShell(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
             ),
@@ -244,7 +244,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
                   width: 58,
                   height: 58,
                   child: Image.asset(
-                    'assets/images/logo.png',
+                    'assets/images/logo_blue.png',
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) =>
                         const Icon(Icons.shield, color: Colors.white, size: 58),
@@ -260,7 +260,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
                       style: TextStyle(
                         fontSize: 29,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFFD4AF37),
+                        color: Color(0xFF9CB5E8),
                         height: 1.0,
                       ),
                     ),
@@ -618,12 +618,12 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFE5EFE1)
+              ? const Color(0xFFE1E9FF)
               : Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFFD4AF37)
+                ? const Color(0xFF9CB5E8)
                 : Colors.white.withValues(alpha: 0.18),
             width: isSelected ? 2 : 1,
           ),
@@ -634,7 +634,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
             Icon(
               icon,
               size: 24,
-              color: isSelected ? const Color(0xFF356042) : Colors.white,
+              color: isSelected ? const Color(0xFF1A2F64) : Colors.white,
             ),
             const SizedBox(height: 12),
             Text(
@@ -704,7 +704,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFE5EFE1),
+          backgroundColor: const Color(0xFFE1E9FF),
           foregroundColor: Colors.black,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           elevation: 0,
@@ -732,7 +732,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
   InputDecoration _inputDecoration({Widget? suffixIcon, String? helperText}) {
     return InputDecoration(
       filled: true,
-      fillColor: const Color(0xFFFFF0F5),
+      fillColor: const Color(0xFFF0F4FA),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       suffixIcon: suffixIcon,
       helperText: helperText,
@@ -746,7 +746,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+        borderSide: const BorderSide(color: Color(0xFF9CB5E8), width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -769,7 +769,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
       style: TextStyle(
         fontSize: MobileTypography.sectionTitle(context),
         fontWeight: FontWeight.w600,
-        color: const Color(0xFFD4AF37),
+        color: const Color(0xFF9CB5E8),
       ),
     );
   }

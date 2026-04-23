@@ -37,6 +37,13 @@ class AdminDashboardView extends StatefulWidget {
 }
 
 class _AdminDashboardViewState extends State<AdminDashboardView> {
+  static const List<Color> _adminCardAccents = <Color>[
+    Color(0xFF1A2F64),
+    Color(0xFF4A769E),
+    Color(0xFF6E9A92),
+    Color(0xFF64748B),
+  ];
+
   String _activeRoute = 'Dashboard';
   late final PatientRecordService _patientRecordService;
   late final AdminDashboardService _adminDashboardService;
@@ -245,8 +252,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             ? '...'
             : (_dashboardStats['patients_count'] ?? 0).toString(),
         'icon': Icons.badge_outlined,
-        'accentColor': const Color(0xFF50786A),
-        'backgroundColor': const Color(0xFFEAF3F0),
       },
       <String, dynamic>{
         'route': 'Staff',
@@ -255,8 +260,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             ? '...'
             : (_dashboardStats['staff_accounts_count'] ?? 0).toString(),
         'icon': Icons.medical_services_outlined,
-        'accentColor': const Color(0xFF6E9A92),
-        'backgroundColor': const Color(0xFFE9F5F3),
       },
       <String, dynamic>{
         'route': 'Master List',
@@ -265,16 +268,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             ? '...'
             : (_dashboardStats['appointments_count'] ?? 0).toString(),
         'icon': Icons.list_alt,
-        'accentColor': const Color(0xFFBCA663),
-        'backgroundColor': const Color(0xFFFBF6E8),
       },
       <String, dynamic>{
         'route': 'Settings',
         'title': 'Settings',
         'value': '',
         'icon': Icons.settings,
-        'accentColor': const Color(0xFFBA6952),
-        'backgroundColor': const Color(0xFFFCEEE9),
       },
     ];
 
@@ -290,14 +289,6 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: _isLoadingStats
-                ? null
-                : () => _loadDashboardStats(forceRefresh: true),
-            icon: const Icon(Icons.refresh),
-            label: Text(_isLoadingStats ? 'Refreshing...' : 'Refresh'),
           ),
           SizedBox(height: MobileTypography.isPhone(context) ? 24 : 48),
           LayoutBuilder(
@@ -325,20 +316,20 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     ),
                     itemBuilder: (BuildContext context, int index) {
                       final Map<String, dynamic> card = cards[index];
-                      final Color accentColor = card['accentColor']! as Color;
+                      final Color accentColor =
+                          _adminCardAccents[index % _adminCardAccents.length];
 
                       return DashboardStatCard(
                         title: card['title']! as String,
                         value: card['value']! as String,
                         icon: card['icon']! as IconData,
                         accentColor: accentColor,
-                        backgroundColor: card['backgroundColor']! as Color,
+                        backgroundColor: Colors.white,
                         contentAlignment: DashboardCardContentAlignment.start,
                         contentColor: const Color(0xFF243746),
                         iconColor: accentColor,
-                        footerLabel: 'More Info',
-                        footerBackgroundColor: accentColor,
-                        footerTextColor: Colors.white,
+                        iconBackgroundColor: accentColor.withValues(alpha: 0.1),
+                        borderColor: accentColor.withValues(alpha: 0.18),
                         onTap: () {
                           setState(() {
                             _activeRoute = card['route']! as String;

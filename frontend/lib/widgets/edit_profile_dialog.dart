@@ -207,7 +207,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Profile updated successfully.'),
-              backgroundColor: Color(0xFF679B6A),
+              backgroundColor: Color(0xFF4A769E),
             ),
           );
           Navigator.of(context).pop(updatedUserInfo);
@@ -346,7 +346,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF679B6A), width: 2),
+        borderSide: const BorderSide(color: Color(0xFF4A769E), width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -386,7 +386,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _saveChanges,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF679B6A),
+                  backgroundColor: const Color(0xFF4A769E),
                   elevation: 0,
                 ),
                 child: _isLoading
@@ -499,7 +499,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                             child: Container(
                               padding: const EdgeInsets.all(5),
                               decoration: const BoxDecoration(
-                                color: Color(0xFF679B6A),
+                                color: Color(0xFF4A769E),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(

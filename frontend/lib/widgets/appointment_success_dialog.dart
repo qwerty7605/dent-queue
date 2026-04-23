@@ -48,7 +48,7 @@ class AppointmentSuccessDialog extends StatelessWidget {
         child: ElevatedButton(
           onPressed: onClose,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF679B6A),
+            backgroundColor: const Color(0xFF4A769E),
             foregroundColor: Colors.white,
             elevation: 0,
           ),
@@ -65,13 +65,13 @@ class AppointmentSuccessDialog extends StatelessWidget {
             width: 70,
             height: 70,
             decoration: BoxDecoration(
-              color: const Color(0xFFDDF5E4),
+              color: const Color(0xFFDEEAF7),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
               Icons.check_circle_rounded,
               size: 38,
-              color: Color(0xFF26A04A),
+              color: Color(0xFF1A75D2),
             ),
           ),
           const SizedBox(height: 22),

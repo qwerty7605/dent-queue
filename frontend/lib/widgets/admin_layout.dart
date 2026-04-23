@@ -158,117 +158,138 @@ class AdminLayout extends StatelessWidget {
           ),
 
           Expanded(
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 18,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppNavigationTheme.primary,
-                    border: const Border(
-                      bottom: BorderSide(
-                        color: AppNavigationTheme.accent,
-                        width: 4,
-                      ),
+            child: SafeArea(
+              right: false,
+              bottom: false,
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 18,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              activeRoute,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Admin module',
-                              style: TextStyle(
-                                color: AppNavigationTheme.accent,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.55,
-                              ),
-                            ),
-                          ],
+                    decoration: BoxDecoration(
+                      color: AppNavigationTheme.primary,
+                      border: const Border(
+                        bottom: BorderSide(
+                          color: AppNavigationTheme.accent,
+                          width: 4,
                         ),
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            onPressed: () => _showNotificationsDialog(context),
-                            icon: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                const Icon(
-                                  Icons.notifications_none,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                activeRoute,
+                                style: const TextStyle(
                                   color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.2,
                                 ),
-                                if (notifications.isNotEmpty)
-                                  Positioned(
-                                    right: -4,
-                                    top: -4,
-                                    child: Container(
-                                      constraints: const BoxConstraints(
-                                        minWidth: 18,
-                                        minHeight: 18,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE8C355),
-                                        borderRadius: BorderRadius.circular(
-                                          999,
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Admin module',
+                                style: TextStyle(
+                                  color: AppNavigationTheme.accent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.55,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              onPressed: () => _showNotificationsDialog(context),
+                              icon: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  const Icon(
+                                    Icons.notifications_none,
+                                    color: Colors.white,
+                                  ),
+                                  if (notifications.isNotEmpty)
+                                    Positioned(
+                                      right: -4,
+                                      top: -4,
+                                      child: Container(
+                                        constraints: const BoxConstraints(
+                                          minWidth: 18,
+                                          minHeight: 18,
                                         ),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          notifications.length.toString(),
-                                          style: const TextStyle(
-                                            color: Color(0xFF1F2A22),
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w900,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF9CB5E8),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            notifications.length.toString(),
+                                            style: const TextStyle(
+                                              color: Color(0xFF1F2A22),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w900,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                              ],
+                                ],
+                              ),
+                              tooltip: 'Notifications',
                             ),
-                            tooltip: 'Notifications',
-                          ),
-                          const SizedBox(width: 12),
-                          AppUserChip(
-                            width: 188,
-                            name: name.toUpperCase(),
-                            roleLabel: 'ADMIN',
-                            profileImage: hasProfilePic
-                                ? NetworkImage(
-                                    '${AppConfig.baseUrl}$profilePic',
-                                  )
-                                : null,
-                            onTap: () => onNavigate('Profile'),
-                          ),
-                        ],
-                      ),
-                    ],
+                            const SizedBox(width: 12),
+                            AppUserChip(
+                              width: 188,
+                              name: name.toUpperCase(),
+                              roleLabel: 'ADMIN',
+                              profileImage: hasProfilePic
+                                  ? NetworkImage(
+                                      '${AppConfig.baseUrl}$profilePic',
+                                    )
+                                  : null,
+                              onTap: () => onNavigate('Profile'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-
-                // Page Content
-                Expanded(child: child),
-              ],
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: <Color>[
+                            AppNavigationTheme.background,
+                            Color(0xFFEFF3FA),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                      child: ClipRect(
+                        child: KeyedSubtree(
+                          key: ValueKey<String>(activeRoute),
+                          child: child,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

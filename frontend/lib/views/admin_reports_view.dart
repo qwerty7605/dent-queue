@@ -47,10 +47,16 @@ class AdminReportsView extends StatefulWidget {
 }
 
 class _AdminReportsViewState extends State<AdminReportsView> {
-  static const Color _reportAccent = Color(0xFF3F6341);
+  static const Color _reportAccent = Color(0xFF1A2F64);
   static const Color _reportAccentSoft = Color(0xFF6A9A8B);
-  static const Color _reportHighlight = Color(0xFFE8C355);
-  static const Color _exportButtonColor = Color(0xFF2E7D32);
+  static const Color _reportHighlight = Color(0xFF9CB5E8);
+  static const Color _exportButtonColor = Color(0xFF1A2F64);
+  static const List<Color> _reportCardPalette = <Color>[
+    Color(0xFF1A2F64),
+    Color(0xFF4A769E),
+    Color(0xFF6E9A92),
+    Color(0xFF64748B),
+  ];
   static const double _reportSectionRadius = 3;
   static const int _detailedRecordsPageSize = 25;
   static const List<String> _reportStatuses = <String>[
@@ -705,8 +711,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               title: 'Total Appointments',
               value: _isLoading ? '...' : _reportStats['total'].toString(),
               icon: Icons.calendar_month,
-              mainColor: const Color(0xFF6A9A8B),
-              darkColor: const Color(0xFF50786A),
+              accentColor: _reportCardPalette[0],
             ),
             _buildReportCard(
               title: 'Linked Reports',
@@ -714,36 +719,31 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   ? '...'
                   : _reportStats['report_records'].toString(),
               icon: Icons.summarize_outlined,
-              mainColor: const Color(0xFF5F8F9F),
-              darkColor: const Color(0xFF456874),
+              accentColor: _reportCardPalette[1],
             ),
             _buildReportCard(
               title: 'Pending',
               value: _isLoading ? '...' : _reportStats['pending'].toString(),
               icon: Icons.hourglass_empty,
-              mainColor: const Color(0xFFE5CC82),
-              darkColor: const Color(0xFFBCA663),
+              accentColor: _reportCardPalette[2],
             ),
             _buildReportCard(
               title: 'Approved',
               value: _isLoading ? '...' : _reportStats['approved'].toString(),
               icon: Icons.check_circle_outline,
-              mainColor: const Color(0xFF86B9B0),
-              darkColor: const Color(0xFF6E9A92),
+              accentColor: _reportCardPalette[0],
             ),
             _buildReportCard(
               title: 'Completed',
               value: _isLoading ? '...' : _reportStats['completed'].toString(),
               icon: Icons.done_all,
-              mainColor: const Color(0xFF4CAF50),
-              darkColor: const Color(0xFF388E3C),
+              accentColor: _reportCardPalette[1],
             ),
             _buildReportCard(
               title: 'Cancelled',
               value: _isLoading ? '...' : _reportStats['cancelled'].toString(),
               icon: Icons.cancel_outlined,
-              mainColor: const Color(0xFFE28B71),
-              darkColor: const Color(0xFFBA6952),
+              accentColor: _reportCardPalette[3],
             ),
             _buildReportCard(
               title: 'Cancelled by Doctor',
@@ -751,8 +751,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   ? '...'
                   : _reportStats['cancelled_by_doctor'].toString(),
               icon: Icons.event_busy_outlined,
-              mainColor: const Color(0xFFF59E9E),
-              darkColor: const Color(0xFFB91C1C),
+              accentColor: _reportCardPalette[2],
             ),
             _buildReportCard(
               title: 'Reschedule Required',
@@ -760,8 +759,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   ? '...'
                   : _reportStats['reschedule_required'].toString(),
               icon: Icons.update_outlined,
-              mainColor: const Color(0xFFF5C56B),
-              darkColor: const Color(0xFFB45309),
+              accentColor: _reportCardPalette[0],
             ),
           ],
         ),
@@ -1683,7 +1681,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         : const Color(0xFF55655B);
 
     return Material(
-      color: isSelected ? _reportAccent : const Color(0xFFF1F5F2),
+      color: isSelected ? _reportAccent : const Color(0xFFEFF3FA),
       borderRadius: BorderRadius.circular(_reportSectionRadius),
       child: InkWell(
         key: Key('appointment-trends-${view.name}'),
@@ -1922,7 +1920,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: const Border(
-          top: BorderSide(color: Color(0xFF679B6A), width: 6.0),
+          top: BorderSide(color: Color(0xFF4A769E), width: 6.0),
         ),
         boxShadow: [
           BoxShadow(
@@ -1966,7 +1964,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
             const Padding(
               padding: EdgeInsets.all(48.0),
               child: Center(
-                child: CircularProgressIndicator(color: Color(0xFF679B6A)),
+                child: CircularProgressIndicator(color: Color(0xFF4A769E)),
               ),
             )
           else if (_detailedRecords.isEmpty)
@@ -2273,57 +2271,59 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     required String title,
     required String value,
     required IconData icon,
-    required Color mainColor,
-    required Color darkColor,
+    required Color accentColor,
   }) {
     return Container(
       width: 320,
-      height: 176,
+      height: 156,
       decoration: BoxDecoration(
-        color: mainColor,
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accentColor.withValues(alpha: 0.16)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 22, color: accentColor),
+            ),
+            const Spacer(),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 42,
+                fontWeight: FontWeight.w900,
+                color: accentColor,
+                height: 1,
               ),
             ),
-            Icon(icon, size: 64, color: Colors.white.withValues(alpha: 0.6)),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF243746),
+                height: 1.2,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),

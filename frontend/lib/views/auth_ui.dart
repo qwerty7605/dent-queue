@@ -4,10 +4,10 @@ class AuthPalette {
   static const Color pageBackground = Color(0xFFF1F6EC);
   static const Color panel = Color(0xFF2F6840);
   static const Color panelDark = Color(0xFF255234);
-  static const Color panelMuted = Color(0xFF5E8E69);
+  static const Color panelMuted = Color(0xFF9CB5E8);
   static const Color surface = Color(0xFFFFFCF7);
   static const Color surfaceMuted = Color(0xFFF4EEE4);
-  static const Color textPrimary = Color(0xFF163321);
+  static const Color textPrimary = Color(0xFF0A1833);
   static const Color textSecondary = Color(0xFF5C6F60);
   static const Color accent = Color(0xFFE0B24C);
   static const Color accentDark = Color(0xFFBE9135);
@@ -185,7 +185,7 @@ class _AuthHeroPanel extends StatelessWidget {
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: Image.asset(
-                    'assets/images/logo.png',
+                    'assets/images/logo_blue.png',
                     fit: BoxFit.contain,
                   ),
                 ),

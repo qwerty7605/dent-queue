@@ -173,7 +173,7 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(
-                                0xFF3F6341,
+                                0xFF1A2F64,
                               ), // Matching design green
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(

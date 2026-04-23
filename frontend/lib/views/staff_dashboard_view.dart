@@ -676,7 +676,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               height: 144,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF356042), width: 3),
+                border: Border.all(color: const Color(0xFF1A2F64), width: 3),
                 color: const Color(0xFFF8FAFC),
                 image: profileImageUrl != null
                     ? DecorationImage(
@@ -812,7 +812,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                           await _openEditProfileDialog();
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF356042),
+                          backgroundColor: const Color(0xFF1A2F64),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -845,7 +845,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF356042), size: 22),
+        Icon(icon, color: const Color(0xFF1A2F64), size: 22),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -890,7 +890,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         return RefreshIndicator(
           key: const Key('staff-dashboard-refresh'),
           onRefresh: _refreshAppointmentsAndQueue,
-          color: const Color(0xFF356042),
+          color: const Color(0xFF1A2F64),
           child: SingleChildScrollView(
             key: const Key('staff-dashboard-scroll'),
             physics: const AlwaysScrollableScrollPhysics(),
@@ -1086,7 +1086,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFF356042), width: 1.3),
+            borderSide: const BorderSide(color: Color(0xFF1A2F64), width: 1.3),
           ),
           isDense: true,
         ),
@@ -1110,7 +1110,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               const Icon(
                 Icons.format_list_numbered,
                 size: 18,
-                color: Color(0xFF356042),
+                color: Color(0xFF1A2F64),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -1126,7 +1126,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               IconButton(
                 onPressed: _pickDate,
                 icon: const Icon(Icons.calendar_month_outlined, size: 18),
-                color: const Color(0xFF356042),
+                color: const Color(0xFF1A2F64),
                 tooltip: 'Select date',
                 visualDensity: VisualDensity.compact,
               ),
@@ -1135,7 +1135,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                     ? null
                     : () => _loadAppointmentsForSelectedDate(),
                 icon: const Icon(Icons.refresh, size: 18),
-                color: const Color(0xFF356042),
+                color: const Color(0xFF1A2F64),
                 tooltip: 'Refresh daily queue',
                 visualDensity: VisualDensity.compact,
               ),
@@ -1211,7 +1211,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                     : const Icon(Icons.campaign_outlined, size: 18),
                 label: Text(_isCallingNext ? 'Calling...' : 'Call Next'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF356042),
+                  backgroundColor: const Color(0xFF1A2F64),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   shape: RoundedRectangleBorder(
@@ -1336,7 +1336,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('Retry'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF356042),
+              backgroundColor: const Color(0xFF1A2F64),
               foregroundColor: Colors.white,
               minimumSize: const Size(116, 36),
             ),
@@ -1383,7 +1383,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF356042),
+                  backgroundColor: const Color(0xFF1A2F64),
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('Back to Appointments'),
@@ -1427,7 +1427,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF356042) : const Color(0xFFECEDEA),
+          color: selected ? const Color(0xFF1A2F64) : const Color(0xFFECEDEA),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Text(
@@ -1624,7 +1624,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                           style: TextStyle(
                             fontSize: MobileTypography.pageTitle(context),
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF356042),
+                            color: Color(0xFF1A2F64),
                             height: 1,
                           ),
                         ),
@@ -1771,7 +1771,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
   Color _serviceAccentColor(String serviceType) {
     const palette = [
-      Color(0xFF2563EB),
+      Color(0xFF1A2F64),
       Color(0xFF0EA5E9),
       Color(0xFF16A34A),
       Color(0xFFF97316),
@@ -1875,7 +1875,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
               padding: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFE8C355),
+                color: const Color(0xFF9CB5E8),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Center(

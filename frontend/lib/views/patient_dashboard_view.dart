@@ -477,7 +477,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     return RefreshIndicator(
       key: const Key('patient-dashboard-refresh'),
       onRefresh: _refreshAppointmentsAndQueue,
-      color: const Color(0xFF356042),
+      color: const Color(0xFF1A2F64),
       child: SingleChildScrollView(
         key: const Key('patient-dashboard-scroll'),
         physics: const AlwaysScrollableScrollPhysics(),
@@ -579,32 +579,32 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                     'title': 'PENDING',
                     'count': pendingCount.toString(),
                     'icon': Icons.access_time_filled,
-                    'color': Colors.orange,
-                    'backgroundColor': const Color(0xFFFFF7EF),
+                    'color': AppNavigationTheme.primary,
+                    'backgroundColor': Colors.white,
                     'filter': _PatientAppointmentFilter.pending,
                   },
                   <String, dynamic>{
                     'title': 'APPROVED',
                     'count': approvedCount.toString(),
                     'icon': Icons.check_circle_outline,
-                    'color': Colors.blue,
-                    'backgroundColor': const Color(0xFFF1F7FF),
+                    'color': AppNavigationTheme.primary,
+                    'backgroundColor': Colors.white,
                     'filter': _PatientAppointmentFilter.approved,
                   },
                   <String, dynamic>{
                     'title': 'COMPLETED',
                     'count': completedCount.toString(),
                     'icon': Icons.medical_services_outlined,
-                    'color': Colors.green,
-                    'backgroundColor': const Color(0xFFF1FFF7),
+                    'color': AppNavigationTheme.primary,
+                    'backgroundColor': Colors.white,
                     'filter': _PatientAppointmentFilter.completed,
                   },
                   <String, dynamic>{
                     'title': 'CANCELLED',
                     'count': cancelledCount.toString(),
                     'icon': Icons.cancel_outlined,
-                    'color': Colors.redAccent,
-                    'backgroundColor': const Color(0xFFFFF1F1),
+                    'color': AppNavigationTheme.primary,
+                    'backgroundColor': Colors.white,
                     'filter': _PatientAppointmentFilter.cancelled,
                   },
                 ];
@@ -619,9 +619,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                         : constraints.maxWidth;
                     final crossAxisCount = contentWidth >= 860
                         ? 4
-                        : contentWidth >= 420
-                        ? 2
-                        : 1;
+                        : 2;
 
                     return Padding(
                       padding: EdgeInsets.symmetric(
@@ -641,7 +639,6 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                       crossAxisCount: crossAxisCount,
                                       mainAxisSpacing: 16,
                                       crossAxisSpacing: 16,
-                                      mainAxisExtent: 148,
                                     ),
                                 itemBuilder: (context, index) {
                                   final card = cards[index];
@@ -654,6 +651,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                     accentColor: color,
                                     backgroundColor:
                                         card['backgroundColor']! as Color,
+                                    borderColor: color,
                                     isSelected:
                                         _selectedFilter ==
                                         card['filter']!
@@ -868,7 +866,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: const Border(
-                      left: BorderSide(color: Color(0xFF356042), width: 6),
+                      left: BorderSide(color: Color(0xFF1A2F64), width: 6),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -897,7 +895,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                           ),
                           const Icon(
                             Icons.check_circle_outline,
-                            color: Color(0xFF356042),
+                            color: Color(0xFF1A2F64),
                             size: 20,
                           ),
                         ],
@@ -976,7 +974,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                 height: 140,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF356042), width: 3),
+                  border: Border.all(color: const Color(0xFF1A2F64), width: 3),
                   color: const Color(0xFFF8FAFC),
                   image: profilePicture != null
                       ? DecorationImage(
@@ -1104,7 +1102,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(
-                          0xFF356042,
+                          0xFF1A2F64,
                         ), // Green brand color
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
@@ -1135,7 +1133,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF356042), size: 24),
+        Icon(icon, color: const Color(0xFF1A2F64), size: 24),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -1210,7 +1208,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
               constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
               padding: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFE8C355),
+                color: const Color(0xFF9CB5E8),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Center(
@@ -1425,7 +1423,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF356042) : Colors.white,
+          color: isSelected ? const Color(0xFF1A2F64) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: isSelected
               ? null
@@ -1653,7 +1651,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF356042),
+                          color: Color(0xFF1A2F64),
                         ),
                       ),
                     ],

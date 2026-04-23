@@ -131,7 +131,7 @@ class _LoginViewState extends State<LoginView> {
         'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?q=80&w=800&auto=format&fit=crop';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF356042),
+      backgroundColor: const Color(0xFF1A2F64),
       body: Row(
         children: [
           if (isDesktop)
@@ -142,7 +142,7 @@ class _LoginViewState extends State<LoginView> {
                     image: NetworkImage(bgImageUrl),
                     fit: BoxFit.cover,
                     colorFilter: ColorFilter.mode(
-                      Color(0x80356042),
+                      Color(0x801A2F64),
                       BlendMode.srcOver,
                     ),
                   ),
@@ -164,7 +164,7 @@ class _LoginViewState extends State<LoginView> {
                           image: NetworkImage(bgImageUrl),
                           fit: BoxFit.cover,
                           colorFilter: ColorFilter.mode(
-                            Color(0x60356042),
+                            Color(0x601A2F64),
                             BlendMode.srcOver,
                           ),
                         ),
@@ -178,7 +178,7 @@ class _LoginViewState extends State<LoginView> {
                     height: isDesktop ? double.infinity : size.height * 0.65,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF356042),
+                      color: const Color(0xFF1A2F64),
                       borderRadius: isDesktop
                           ? null
                           : const BorderRadius.only(
@@ -211,8 +211,8 @@ class _LoginViewState extends State<LoginView> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Image.network(
-                                    'https://api.builder.io/api/v1/image/assets/TEMP/f92c034757dbd92e4f4b2bb61cf4019eb03b031b?width=384',
+                                  Image.asset(
+                                    'assets/images/logo_blue.png',
                                     height: 86,
                                     errorBuilder: (_, error, stackTrace) =>
                                         const Icon(
@@ -231,7 +231,7 @@ class _LoginViewState extends State<LoginView> {
                                         style: TextStyle(
                                           fontSize: isDesktop ? 36 : 32,
                                           fontWeight: FontWeight.w900,
-                                          color: Color(0xFFD4AF37),
+                                          color: Color(0xFF9CB5E8),
                                           height: 1.1,
                                         ),
                                       ),
@@ -293,7 +293,7 @@ class _LoginViewState extends State<LoginView> {
                                   hintText: 'Enter your Username or Email',
                                   suffixIcon: const Icon(
                                     Icons.email,
-                                    color: Color(0xFF5E8E69),
+                                    color: Color(0xFF9CB5E8),
                                   ),
                                 ),
                                 validator: (val) => _mergeFieldError(
@@ -321,7 +321,7 @@ class _LoginViewState extends State<LoginView> {
                                       _showPassword
                                           ? Icons.lock_open
                                           : Icons.lock,
-                                      color: const Color(0xFF5E8E69),
+                                      color: const Color(0xFF9CB5E8),
                                     ),
                                     onPressed: () {
                                       setState(() {
@@ -359,7 +359,7 @@ class _LoginViewState extends State<LoginView> {
                                     child: Text(
                                       'Click here',
                                       style: TextStyle(
-                                        color: Color(0xFFD4AF37),
+                                        color: Color(0xFF9CB5E8),
                                         fontWeight: FontWeight.w800,
                                         fontSize: MobileTypography.bodySmall(
                                           context,
@@ -418,12 +418,12 @@ class _LoginViewState extends State<LoginView> {
     return InputDecoration(
       hintText: hintText,
       hintStyle: const TextStyle(
-        color: Color(0xFF9EAFAA),
+        color: Color(0xFFA5B4D3),
         fontWeight: FontWeight.w700,
         fontSize: 16,
       ),
       filled: true,
-      fillColor: const Color(0xFFFFF0F5),
+      fillColor: const Color(0xFFF0F4FA),
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       suffixIcon: suffixIcon,
       border: OutlineInputBorder(
@@ -432,7 +432,7 @@ class _LoginViewState extends State<LoginView> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 2),
+        borderSide: const BorderSide(color: Color(0xFF9CB5E8), width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),

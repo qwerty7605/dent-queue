@@ -319,11 +319,11 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
         const SizedBox(width: 12),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF679B6A),
+            color: const Color(0xFF4A769E),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF679B6A).withValues(alpha: 0.3),
+                color: const Color(0xFF4A769E).withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -441,7 +441,7 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
                     child: Text(
                       patient.initial,
                       style: const TextStyle(
-                        color: Color(0xFF679B6A),
+                        color: Color(0xFF4A769E),
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
@@ -541,7 +541,7 @@ class _LoadingState extends StatelessWidget {
           height: 28,
           child: CircularProgressIndicator(
             strokeWidth: 2.8,
-            color: Color(0xFF679B6A),
+            color: Color(0xFF4A769E),
           ),
         ),
         const SizedBox(height: 16),
@@ -594,7 +594,7 @@ class _ErrorState extends StatelessWidget {
           ElevatedButton(
             onPressed: onRetry,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF679B6A),
+              backgroundColor: const Color(0xFF4A769E),
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),

@@ -104,6 +104,50 @@ class AdminClinicSettingsApiTest extends TestCase
             );
     }
 
+    public function test_saving_settings_updates_the_latest_clinic_settings_record(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        Sanctum::actingAs($admin);
+
+        $olderSetting = ClinicSetting::query()->create([
+            'opening_time' => '08:00',
+            'closing_time' => '12:00',
+            'working_days' => ['Monday'],
+            'updated_by_user_id' => null,
+        ]);
+        $latestSetting = ClinicSetting::query()->create([
+            'opening_time' => '09:00',
+            'closing_time' => '15:00',
+            'working_days' => ['Tuesday'],
+            'updated_by_user_id' => null,
+        ]);
+
+        $response = $this->putJson('/api/v1/admin/settings/clinic', [
+            'opening_time' => '10:00',
+            'closing_time' => '16:30',
+            'working_days' => ['Wednesday', 'Friday'],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.opening_time', '10:00')
+            ->assertJsonPath('data.closing_time', '16:30')
+            ->assertJsonPath('data.working_days', ['Wednesday', 'Friday']);
+
+        $this->assertDatabaseCount('clinic_settings', 2);
+        $this->assertDatabaseHas('clinic_settings', [
+            'id' => (int) $olderSetting->id,
+            'opening_time' => '08:00',
+            'closing_time' => '12:00',
+        ]);
+        $this->assertDatabaseHas('clinic_settings', [
+            'id' => (int) $latestSetting->id,
+            'opening_time' => '10:00',
+            'closing_time' => '16:30',
+        ]);
+
+        $this->assertSame(['Wednesday', 'Friday'], $latestSetting->fresh()->working_days);
+    }
+
     public function test_staff_cannot_access_clinic_settings_api(): void
     {
         $staff = $this->createUserWithRole('Staff');

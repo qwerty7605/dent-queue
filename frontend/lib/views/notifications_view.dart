@@ -286,7 +286,7 @@ class _NotificationsViewState extends State<NotificationsView> {
       case 'queue':
         return const Color(0xFF16A34A); // Green
       default:
-        return const Color(0xFF679B6A); // Theme Green
+        return const Color(0xFF4A769E); // Theme Green
     }
   }
 
@@ -367,7 +367,7 @@ class _NotificationsViewState extends State<NotificationsView> {
               FilledButton(
                 onPressed: () => _fetchNotifications(forceRefresh: true),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF679B6A),
+                  backgroundColor: const Color(0xFF4A769E),
                 ),
                 child: const Text('Retry'),
               ),
@@ -417,7 +417,7 @@ class _NotificationsViewState extends State<NotificationsView> {
             decoration: BoxDecoration(
               color: isRead
                   ? Colors.white
-                  : const Color(0xFFE8F4EA), // Light green tint for unread
+                  : const Color(0xFFE2ECFA), // Light green tint for unread
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
@@ -429,7 +429,7 @@ class _NotificationsViewState extends State<NotificationsView> {
               border: Border.all(
                 color: isRead
                     ? const Color(0xFFE2E8F0)
-                    : const Color(0xFF679B6A).withValues(alpha: 0.3),
+                    : const Color(0xFF4A769E).withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -500,7 +500,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                                     height: 8,
                                     margin: const EdgeInsets.only(left: 8),
                                     decoration: const BoxDecoration(
-                                      color: Color(0xFF679B6A),
+                                      color: Color(0xFF4A769E),
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -563,12 +563,12 @@ class _NotificationsViewState extends State<NotificationsView> {
             width: 36,
             height: 36,
             decoration: const BoxDecoration(
-              color: Color(0xFFE8F4EA),
+              color: Color(0xFFE2ECFA),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.notifications_active_outlined,
-              color: Color(0xFF679B6A),
+              color: Color(0xFF4A769E),
             ),
           ),
           const SizedBox(width: 12),

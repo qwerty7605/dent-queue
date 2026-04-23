@@ -11,8 +11,8 @@ class AppEmptyState extends StatelessWidget {
     this.actionLabel,
     this.onAction,
     this.actionIcon,
-    this.iconColor = const Color(0xFF356042),
-    this.iconBackgroundColor = const Color(0xFFE8F4EA),
+    this.iconColor = const Color(0xFF1A2F64),
+    this.iconBackgroundColor = const Color(0xFFE2ECFA),
     this.maxWidth = 420,
     this.compact = false,
     this.framed = true,
@@ -75,7 +75,7 @@ class AppEmptyState extends StatelessWidget {
             icon: Icon(actionIcon ?? Icons.arrow_forward_rounded, size: 18),
             label: Text(actionLabel!),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF356042),
+              backgroundColor: const Color(0xFF1A2F64),
               foregroundColor: Colors.white,
               elevation: 0,
               padding: EdgeInsets.symmetric(
