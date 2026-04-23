@@ -21,11 +21,17 @@ class ReportExportFile {
     required this.filename,
     required this.bytes,
     required this.contentType,
+    this.wasLimited = false,
+    this.exportedRecordCount,
+    this.totalRecordCount,
   });
 
   final String filename;
   final Uint8List bytes;
   final String contentType;
+  final bool wasLimited;
+  final int? exportedRecordCount;
+  final int? totalRecordCount;
 }
 
 class AdminDashboardService {
@@ -237,12 +243,22 @@ class AdminDashboardService {
     final response = await _baseService.getRaw(
       Endpoints.adminReportsExport(exportFilters),
       headers: <String, String>{'Accept': format.acceptHeader},
+      timeout: Duration(
+        minutes: format == ReportExportFormat.pdf ? 2 : 3,
+      ),
     );
 
     return ReportExportFile(
       filename: _extractFilename(response.headers['content-disposition']),
       bytes: response.bodyBytes,
       contentType: response.headers['content-type'] ?? format.acceptHeader,
+      wasLimited: response.headers['x-export-limited']?.toLowerCase() == 'true',
+      exportedRecordCount: _parseHeaderInt(
+        response.headers['x-export-record-count'],
+      ),
+      totalRecordCount: _parseHeaderInt(
+        response.headers['x-export-total-count'],
+      ),
     );
   }
 
@@ -279,6 +295,14 @@ class AdminDashboardService {
     }
 
     return 'report-records.csv';
+  }
+
+  int? _parseHeaderInt(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+
+    return int.tryParse(value.trim());
   }
 
   void invalidateDashboardStatsCache() {

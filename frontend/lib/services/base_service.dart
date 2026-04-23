@@ -88,9 +88,10 @@ class BaseService {
   Future<http.Response> getRaw(
     String path, {
     Map<String, String> headers = const <String, String>{},
+    Duration? timeout,
   }) async {
     try {
-      return await _apiClient.getRaw(path, headers: headers);
+      return await _apiClient.getRaw(path, headers: headers, timeout: timeout);
     } on ApiException {
       rethrow;
     }
