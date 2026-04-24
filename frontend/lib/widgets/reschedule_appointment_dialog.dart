@@ -253,7 +253,12 @@ class _RescheduleAppointmentDialogState
             onPressed: _isLoading || !_hasScheduleChanged() ? null : _submit,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1A2F64),
+              foregroundColor: Colors.white,
               elevation: 0,
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
             ),
             child: _isLoading
                 ? const SizedBox(

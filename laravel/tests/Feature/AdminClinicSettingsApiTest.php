@@ -261,7 +261,8 @@ class AdminClinicSettingsApiTest extends TestCase
             ->where('appointment_id', (int) $pendingAppointment->id)
             ->firstOrFail();
         $this->assertStringContainsString('clinic schedule changed', (string) $pendingNotification->message);
-        $this->assertStringContainsString('Please contact the clinic to reschedule.', (string) $pendingNotification->message);
+        $this->assertStringContainsString('needs attention', (string) $pendingNotification->message);
+        $this->assertStringContainsString('Please choose a new appointment time.', (string) $pendingNotification->message);
 
         $confirmedNotification = PatientNotification::query()
             ->where('appointment_id', (int) $confirmedAppointment->id)

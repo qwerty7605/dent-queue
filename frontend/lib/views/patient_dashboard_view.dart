@@ -12,8 +12,8 @@ import '../services/notification_service.dart';
 import '../core/config.dart';
 
 import '../widgets/book_appointment_dialog.dart';
+import '../widgets/app_confirmation_dialog.dart';
 import '../widgets/appointment_details_dialog.dart';
-import '../widgets/app_dialog_scaffold.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/edit_profile_dialog.dart';
 import '../widgets/navigation_chrome.dart';
@@ -564,6 +564,11 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
             const SizedBox(height: 18),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildAppointmentsShortcutCard(),
+            ),
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _buildTodayQueuePanel(),
             ),
             const SizedBox(height: 28),
@@ -627,6 +632,14 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                           _selectedFilter == _PatientAppointmentFilter.completed,
                       onTap: () => setState(
                         () => _selectedFilter = _PatientAppointmentFilter.completed,
+                      ),
+                    ),
+                    _buildAppointmentFilterChip(
+                      label: 'Cancelled',
+                      selected:
+                          _selectedFilter == _PatientAppointmentFilter.cancelled,
+                      onTap: () => setState(
+                        () => _selectedFilter = _PatientAppointmentFilter.cancelled,
                       ),
                     ),
                   ],
@@ -993,6 +1006,74 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAppointmentsShortcutCard() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: () => _selectSection(3),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 20, 18, 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+            border: Border.all(color: const Color(0xFFF0F3F8)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'My Appointments',
+                      style: TextStyle(
+                        color: Color(0xFF1A2F64),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'View and manage your bookings',
+                      style: TextStyle(
+                        color: Color(0xFF9AA3B2),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFE),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFFD2D8E5),
+                  size: 24,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1397,11 +1478,6 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     );
   }
 
-  String _profileValue(dynamic value) {
-    final String text = value?.toString().trim() ?? '';
-    return text.isEmpty ? 'N/A' : text;
-  }
-
   String _formatPatientBirthdate(dynamic value) {
     final String raw = value?.toString().trim() ?? '';
     if (raw.isEmpty) {
@@ -1777,8 +1853,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
       }
     }
     final time = formattedTime;
-    final queue = appt['queue_number']?.toString() ?? '--';
     final status = normalizeAppointmentStatus(appt['status']);
+    final queue = _patientVisibleQueueNumber(appt, status);
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color cardColor = isDark ? const Color(0xFF17243A) : Colors.white;
     final Color headlineColor = isDark ? Colors.white : const Color(0xFF1F3763);
@@ -1795,8 +1871,14 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
       'pending' => const Color(0xFFDAA032),
       'approved' => const Color(0xFF249A5A),
       'completed' => const Color(0xFF3F67C7),
+      'reschedule_required' => const Color(0xFFD97706),
       _ => mutedText,
     };
+    final String statusLabel = appointmentStatusLabel(appt['status']);
+    final String? rescheduleReason =
+        status == 'reschedule_required'
+        ? _normalizeCardReason(appt['reschedule_reason'])
+        : null;
 
     return GestureDetector(
       onTap: () {
@@ -1848,20 +1930,19 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Text(
-                                serviceType,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                  color: headlineColor,
-                                ),
+                            Text(
+                              serviceType,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: headlineColor,
+                                height: 1.2,
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(height: 10),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -1872,11 +1953,12 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
-                                status.toUpperCase(),
+                                statusLabel.toUpperCase(),
                                 style: TextStyle(
                                   color: pillTextColor,
                                   fontWeight: FontWeight.w800,
                                   fontSize: 12,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
                             ),
@@ -1916,6 +1998,52 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                             ),
                           ],
                         ),
+                        if (rescheduleReason != null) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xFF2D2417)
+                                  : const Color(0xFFFFF8EC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark
+                                    ? const Color(0xFF6F5A25)
+                                    : const Color(0xFFF5D18B),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'REASON FOR RESCHEDULE',
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? const Color(0xFFF6D58E)
+                                        : const Color(0xFFC58A12),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.1,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  rescheduleReason,
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? const Color(0xFFF6E7C3)
+                                        : const Color(0xFF8A5A06),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 18),
                         Container(
                           width: double.infinity,
@@ -1925,69 +2053,131 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                               : const Color(0xFFF0F3F8),
                         ),
                         const SizedBox(height: 18),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'QUEUE\nNUMBER',
-                                    style: TextStyle(
-                                      color: mutedText,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.0,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '#${_formatQueueNumber(queue)}',
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w900,
-                                      color: headlineColor,
-                                      height: 1,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (status == 'pending' ||
+                        LayoutBuilder(
+                          builder: (BuildContext context, BoxConstraints constraints) {
+                            final bool showActions =
+                                status == 'pending' ||
                                 status == 'approved' ||
                                 status == 'cancelled_by_doctor' ||
-                                status == 'reschedule_required') ...[
-                              _buildAppointmentAction(
-                                label: 'Reschedule',
-                                color: isDark
-                                    ? const Color(0xFF22314D)
-                                    : const Color(0xFFF8FAFE),
-                                textColor: headlineColor,
-                                onTap: () => _openRescheduleDialog(appt),
-                              ),
-                              const SizedBox(width: 10),
-                              _buildAppointmentAction(
-                                label: status == 'pending' || status == 'approved'
-                                    ? 'Cancel'
-                                    : 'Requires Action',
-                                color: status == 'pending' || status == 'approved'
-                                    ? (isDark
-                                          ? const Color(0xFF3A1E24)
-                                          : const Color(0xFFFFF4F4))
-                                    : (isDark
-                                          ? const Color(0xFF22314D)
-                                          : const Color(0xFFF8FAFC)),
-                                textColor: status == 'pending' || status == 'approved'
-                                    ? const Color(0xFFE26B6B)
-                                    : mutedText,
-                                onTap: status == 'pending' || status == 'approved'
-                                    ? () => _showCancelConfirmationDialog(
-                                          (appt['id'] as num).toInt(),
-                                        )
-                                    : null,
-                              ),
-                            ],
-                          ],
+                                status == 'reschedule_required';
+                            final bool stackActions = constraints.maxWidth < 250;
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'QUEUE\nNUMBER',
+                                            style: TextStyle(
+                                              color: mutedText,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: 1.0,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            '#${_formatQueueNumber(queue)}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.visible,
+                                            style: TextStyle(
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.w900,
+                                              color: headlineColor,
+                                              height: 1,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (showActions && !stackActions) ...[
+                                      const SizedBox(width: 12),
+                                      Flexible(
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            _buildAppointmentAction(
+                                              label: 'Reschedule',
+                                              color: isDark
+                                                  ? const Color(0xFF22314D)
+                                                  : const Color(0xFFF8FAFE),
+                                              textColor: headlineColor,
+                                              onTap: () => _openRescheduleDialog(appt),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            _buildAppointmentAction(
+                                              label: status == 'pending' || status == 'approved'
+                                                  ? 'Cancel'
+                                                  : 'Requires Action',
+                                              color: status == 'pending' || status == 'approved'
+                                                  ? (isDark
+                                                        ? const Color(0xFF3A1E24)
+                                                        : const Color(0xFFFFF4F4))
+                                                  : (isDark
+                                                        ? const Color(0xFF22314D)
+                                                        : const Color(0xFFF8FAFC)),
+                                              textColor: status == 'pending' || status == 'approved'
+                                                  ? const Color(0xFFE26B6B)
+                                                  : mutedText,
+                                              onTap: status == 'pending' || status == 'approved'
+                                                  ? () => _showCancelConfirmationDialog(appt)
+                                                  : null,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                if (showActions && stackActions) ...[
+                                  const SizedBox(height: 14),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildAppointmentAction(
+                                          label: 'Reschedule',
+                                          color: isDark
+                                              ? const Color(0xFF22314D)
+                                              : const Color(0xFFF8FAFE),
+                                          textColor: headlineColor,
+                                          onTap: () => _openRescheduleDialog(appt),
+                                          expand: true,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _buildAppointmentAction(
+                                          label: status == 'pending' || status == 'approved'
+                                              ? 'Cancel'
+                                              : 'Requires Action',
+                                          color: status == 'pending' || status == 'approved'
+                                              ? (isDark
+                                                    ? const Color(0xFF3A1E24)
+                                                    : const Color(0xFFFFF4F4))
+                                              : (isDark
+                                                    ? const Color(0xFF22314D)
+                                                    : const Color(0xFFF8FAFC)),
+                                          textColor: status == 'pending' || status == 'approved'
+                                              ? const Color(0xFFE26B6B)
+                                              : mutedText,
+                                          onTap: status == 'pending' || status == 'approved'
+                                              ? () => _showCancelConfirmationDialog(appt)
+                                              : null,
+                                          expand: true,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -2006,11 +2196,13 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     required Color color,
     required Color textColor,
     required VoidCallback? onTap,
+    bool expand = false,
   }) {
-    return InkWell(
+    final Widget child = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
+        width: expand ? double.infinity : null,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: color,
@@ -2018,6 +2210,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: textColor,
             fontWeight: FontWeight.w700,
@@ -2026,6 +2221,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
         ),
       ),
     );
+
+    return child;
   }
 
   String _formatAppointmentDate(String rawDate) {
@@ -2036,75 +2233,55 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     return DateFormat('MMM d, yyyy').format(parsed);
   }
 
-  void _showCancelConfirmationDialog(int id) {
+  String _patientVisibleQueueNumber(
+    Map<String, dynamic> appointment,
+    String status,
+  ) {
+    if (status != 'approved' && status != 'completed') {
+      return '--';
+    }
+
+    final String queue = appointment['queue_number']?.toString().trim() ?? '';
+    return queue.isEmpty ? '--' : queue;
+  }
+
+  String? _normalizeCardReason(dynamic value) {
+    final String reason = value?.toString().trim() ?? '';
+    if (reason.isEmpty) {
+      return null;
+    }
+
+    return reason;
+  }
+
+  void _showCancelConfirmationDialog(Map<String, dynamic> appointment) {
+    final int id = (appointment['id'] as num).toInt();
+    final String serviceType =
+        appointment['service_type']?.toString().trim().isNotEmpty == true
+        ? appointment['service_type'].toString().trim()
+        : 'this appointment';
+    final String formattedDate = _formatAppointmentDate(
+      appointment['appointment_date']?.toString() ?? '',
+    );
+
     showDialog(
       context: context,
-      builder: (dialogContext) => AppDialogScaffold(
-        maxWidth: 420,
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-        bodyPadding: EdgeInsets.zero,
-        onClose: () => Navigator.of(dialogContext).pop(),
-        footer: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Keep Appointment'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFD32F2F),
-                ),
-                onPressed: () async {
-                  Navigator.of(dialogContext).pop();
-                  await _cancelAppointment(id);
-                },
-                child: const Text('Cancel Appointment'),
-              ),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFF1F1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.close,
-                color: Color(0xFFD32F2F),
-                size: 40,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Cancel Appointment?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Are you sure you want to cancel this appointment? This action cannot be undone.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF64748B),
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
+      builder: (BuildContext dialogContext) => AppConfirmationDialog(
+        icon: Icons.close_rounded,
+        iconBackgroundColor: const Color(0xFFFFECEC),
+        iconColor: const Color(0xFFFF4747),
+        title: 'Cancel Appointment?',
+        message:
+            'Are you sure you want to cancel your appointment for '
+            '$serviceType on $formattedDate?',
+        secondaryLabel: 'No, Keep it',
+        primaryLabel: 'Yes, Cancel',
+        primaryColor: const Color(0xFFFF4B4B),
+        onSecondaryPressed: () => Navigator.of(dialogContext).pop(),
+        onPrimaryPressed: () async {
+          Navigator.of(dialogContext).pop();
+          await _cancelAppointment(id);
+        },
       ),
     );
   }

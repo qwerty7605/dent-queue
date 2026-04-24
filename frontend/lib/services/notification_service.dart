@@ -94,6 +94,8 @@ class NotificationService {
                   'is_read': notification.isRead,
                   'type': notification.type,
                   'related_appointment_id': notification.relatedAppointmentId,
+                  'action_type': notification.actionType,
+                  'action_label': notification.actionLabel,
                 },
               )
               .toList(),

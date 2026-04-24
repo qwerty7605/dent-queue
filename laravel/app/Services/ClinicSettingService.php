@@ -382,19 +382,17 @@ class ClinicSettingService
         Appointment $appointment,
     ): string {
         $serviceName = trim((string) ($appointment->service?->name ?? 'your appointment'));
-        $status = AppointmentService::humanStatusLabel((string) $appointment->status);
         $message = sprintf(
-            'Your appointment for %s on %s at %s is affected because the clinic schedule changed. Status updated to %s.',
+            'Your appointment for %s on %s at %s needs attention because the clinic schedule changed and your original slot is no longer available.',
             $serviceName !== '' ? $serviceName : 'your appointment',
             (string) $appointment->appointment_date,
             (string) $appointment->time_slot,
-            $status,
         );
 
         if ((string) $appointment->status === 'cancelled_by_doctor') {
             return $message . ' The clinic will contact you for follow-up on the cancellation.';
         }
 
-        return $message . ' Please contact the clinic to reschedule.';
+        return $message . ' Please choose a new appointment time.';
     }
 }

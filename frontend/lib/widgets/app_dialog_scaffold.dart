@@ -23,6 +23,7 @@ class AppDialogScaffold extends StatelessWidget {
     this.footerPadding = const EdgeInsets.only(top: 20),
     this.showFooterDivider = false,
     this.backgroundColor,
+    this.alignment,
   });
 
   final String? title;
@@ -42,6 +43,7 @@ class AppDialogScaffold extends StatelessWidget {
   final EdgeInsets footerPadding;
   final bool showFooterDivider;
   final Color? backgroundColor;
+  final AlignmentGeometry? alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +54,7 @@ class AppDialogScaffold extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
 
     return Dialog(
+      alignment: alignment,
       insetPadding: insetPadding,
       backgroundColor: backgroundColor ?? theme.colorScheme.surface,
       surfaceTintColor: backgroundColor ?? theme.colorScheme.surface,

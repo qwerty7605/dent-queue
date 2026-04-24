@@ -398,7 +398,17 @@ class AppointmentController extends Controller
 
         /** @var Appointment $appointment */
         $appointment = Appointment::withTrashed()
-            ->with(['patient', 'queue', 'service'])
+            ->with([
+                'patient',
+                'queue',
+                'service',
+                'patientNotifications' => function ($query) {
+                    $query->whereIn('type', [
+                        'appointment_reschedule_required',
+                        'appointment_cancelled_by_doctor',
+                    ])->latest('id');
+                },
+            ])
             ->findOrFail($id);
 
         if ((int) $appointment->patient_id !== (int) $patientRecord->id) {
@@ -493,8 +503,50 @@ class AppointmentController extends Controller
             'is_called' => (bool) ($appointment->queue?->is_called ?? false),
             'timestamp_created' => optional($appointment->created_at)?->toIso8601String(),
             'notes' => (string) $appointment->notes,
+            'reschedule_reason' => $this->resolveRescheduleReason($appointment),
             'recycle_bin' => $this->appointmentService->buildRecycleBinState($appointment),
         ];
+    }
+
+    private function resolveRescheduleReason(Appointment $appointment): ?string
+    {
+        if ((string) $appointment->status !== 'reschedule_required') {
+            return null;
+        }
+
+        $notification = $appointment->patientNotifications
+            ->firstWhere('type', 'appointment_reschedule_required');
+
+        if ($notification === null) {
+            return 'Your original appointment slot is no longer available.';
+        }
+
+        $message = trim((string) $notification->message);
+        if ($message === '') {
+            return 'Your original appointment slot is no longer available.';
+        }
+
+        $reasonMarker = 'Reason: ';
+        $reasonStart = strpos($message, $reasonMarker);
+        if ($reasonStart !== false) {
+            $reasonText = substr($message, $reasonStart + strlen($reasonMarker));
+            $reasonText = trim((string) preg_replace('/\s*Please choose a new appointment time\.?$/', '', $reasonText));
+            $reasonText = trim($reasonText, " .\t\n\r\0\x0B");
+
+            if ($reasonText !== '') {
+                return $reasonText . '.';
+            }
+        }
+
+        if (str_contains($message, 'clinic schedule changed')) {
+            return 'The clinic schedule changed and your original slot is no longer available.';
+        }
+
+        if (str_contains($message, 'doctor is unavailable')) {
+            return 'The doctor is unavailable at your original appointment time.';
+        }
+
+        return 'Your original appointment slot is no longer available.';
     }
 
     private function resolveAuthenticatedPatientRecord(Request $request): PatientRecord

@@ -73,7 +73,7 @@ AppointmentStatusVisual appointmentStatusVisual(dynamic value) {
     ),
     'reschedule_required' => const AppointmentStatusVisual(
       key: 'reschedule_required',
-      label: 'Reschedule Required',
+      label: 'Needs Reschedule',
       icon: Icons.update_rounded,
       foregroundColor: Color(0xFF92400E),
       backgroundColor: Color(0xFFFFF7ED),

@@ -5,10 +5,12 @@ import '../core/api_exception.dart';
 import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../models/app_notification.dart';
+import '../services/appointment_service.dart';
 import '../services/base_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/navigation_chrome.dart';
+import '../widgets/reschedule_appointment_dialog.dart';
 
 class NotificationsView extends StatefulWidget {
   const NotificationsView({
@@ -27,6 +29,7 @@ class NotificationsView extends StatefulWidget {
 class _NotificationsViewState extends State<NotificationsView> {
   late final TokenStorage _tokenStorage;
   late final NotificationService _notificationService;
+  late final AppointmentService _appointmentService;
 
   List<AppNotification> _notifications = <AppNotification>[];
   bool _isLoading = true;
@@ -46,6 +49,9 @@ class _NotificationsViewState extends State<NotificationsView> {
           BaseService(ApiClient(tokenStorage: _tokenStorage)),
           tokenStorage: _tokenStorage,
         );
+    _appointmentService = AppointmentService(
+      BaseService(ApiClient(tokenStorage: _tokenStorage)),
+    );
     _fetchNotifications();
   }
 
@@ -231,6 +237,54 @@ class _NotificationsViewState extends State<NotificationsView> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _openRescheduleFromNotification(
+    AppNotification notification,
+  ) async {
+    final int? appointmentId = notification.relatedAppointmentId;
+    if (appointmentId == null) {
+      _showMessage('Unable to open this appointment right now.');
+      return;
+    }
+
+    try {
+      if (!notification.isRead) {
+        await _markAsRead(notification.id);
+      }
+
+      final Map<String, dynamic> appointment = await _appointmentService
+          .getPatientAppointment(appointmentId);
+      if (!mounted) {
+        return;
+      }
+
+      final bool? rescheduled = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return RescheduleAppointmentDialog(
+            appointment: appointment,
+            appointmentService: _appointmentService,
+          );
+        },
+      );
+
+      if (rescheduled == true && mounted) {
+        await _refreshNotifications();
+      }
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(error.message);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage('Unable to open the reschedule form right now.');
+    }
+  }
+
   String _formatDate(DateTime? date) {
     if (date == null) {
       return 'Unknown date';
@@ -262,6 +316,10 @@ class _NotificationsViewState extends State<NotificationsView> {
         return Icons.check_circle_outline;
       case 'cancelled':
         return Icons.cancel_outlined;
+      case 'appointment_cancelled_by_doctor':
+        return Icons.event_busy_outlined;
+      case 'appointment_reschedule_required':
+        return Icons.update_rounded;
       case 'doctor_unavailable':
         return Icons.event_busy_outlined;
       case 'reminder':
@@ -279,6 +337,10 @@ class _NotificationsViewState extends State<NotificationsView> {
         return const Color(0xFF1D4ED8); // Blue
       case 'cancelled':
         return const Color(0xFFDC2626); // Red
+      case 'appointment_cancelled_by_doctor':
+        return const Color(0xFFB91C1C);
+      case 'appointment_reschedule_required':
+        return const Color(0xFFD97706);
       case 'doctor_unavailable':
         return const Color(0xFFB45309); // Amber brown
       case 'reminder':
@@ -453,6 +515,10 @@ class _NotificationsViewState extends State<NotificationsView> {
           final bool isRead = notification.isRead;
           final String type = notification.type;
           final iconColor = _getColorForType(type);
+          final bool canReschedule =
+              _role == 'patient' &&
+              notification.actionType == 'reschedule' &&
+              notification.relatedAppointmentId != null;
 
           return Container(
             key: Key('notification-tile-${notification.id}'),
@@ -556,6 +622,38 @@ class _NotificationsViewState extends State<NotificationsView> {
                                     : FontWeight.w600,
                               ),
                             ),
+                            if (canReschedule) ...[
+                              const SizedBox(height: 14),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: SizedBox(
+                                  height: 38,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () =>
+                                        _openRescheduleFromNotification(notification),
+                                    style: ElevatedButton.styleFrom(
+                                      elevation: 0,
+                                      backgroundColor: const Color(0xFFEEF4FF),
+                                      foregroundColor: const Color(0xFF1F4AA8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.schedule_rounded, size: 16),
+                                    label: Text(
+                                      notification.actionLabel ?? 'Reschedule',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
