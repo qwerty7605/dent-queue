@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Appointment;
+use App\Models\ClinicSetting;
 use App\Models\DoctorUnavailability;
 use App\Models\PatientNotification;
 use App\Models\PatientRecord;
@@ -52,8 +53,18 @@ class DoctorAvailabilityApiTest extends TestCase
     public function test_slot_availability_api_marks_doctor_unavailable_and_available_ranges(): void
     {
         $patient = $this->createUserWithRole('Patient');
-        $date = now()->addDays(30)->format('Y-m-d');
+        $targetDate = now()->addDays(30);
+        $date = $targetDate->format('Y-m-d');
         Sanctum::actingAs($patient);
+
+        ClinicSetting::query()->create([
+            'opening_time' => '08:00',
+            'closing_time' => '17:00',
+            'working_days' => [$targetDate->format('l')],
+            'daily_operating_hours' => [
+                $targetDate->format('l') => ['opening_time' => '08:00', 'closing_time' => '17:00'],
+            ],
+        ]);
 
         DoctorUnavailability::create([
             'unavailable_date' => $date,
@@ -77,7 +88,16 @@ class DoctorAvailabilityApiTest extends TestCase
     public function test_slot_availability_api_can_ignore_current_appointment(): void
     {
         $patient = $this->createUserWithRole('Patient');
-        $date = now()->addDays(30)->format('Y-m-d');
+        $targetDate = now()->addDays(30);
+        $date = $targetDate->format('Y-m-d');
+        ClinicSetting::query()->create([
+            'opening_time' => '07:30',
+            'closing_time' => '18:00',
+            'working_days' => [$targetDate->format('l')],
+            'daily_operating_hours' => [
+                $targetDate->format('l') => ['opening_time' => '07:30', 'closing_time' => '18:00'],
+            ],
+        ]);
         $appointment = $this->createAppointment(
             PatientRecord::resolveForUser($patient)->id,
             $this->createService()->id,
@@ -108,7 +128,17 @@ class DoctorAvailabilityApiTest extends TestCase
         $affectedPatientTwo = $this->createUserWithRole('Patient');
         $unaffectedPatient = $this->createUserWithRole('Patient');
         $otherDatePatient = $this->createUserWithRole('Patient');
-        $date = now()->addDays(21)->format('Y-m-d');
+        $targetDate = now()->addDays(21);
+        $date = $targetDate->format('Y-m-d');
+
+        ClinicSetting::query()->create([
+            'opening_time' => '08:00',
+            'closing_time' => '17:00',
+            'working_days' => [$targetDate->format('l')],
+            'daily_operating_hours' => [
+                $targetDate->format('l') => ['opening_time' => '08:00', 'closing_time' => '17:00'],
+            ],
+        ]);
 
         $affectedAppointmentOne = $this->createAppointment(
             PatientRecord::resolveForUser($affectedPatientOne)->id,
@@ -149,14 +179,14 @@ class DoctorAvailabilityApiTest extends TestCase
         $this->assertDatabaseHas('patient_notifications', [
             'patient_id' => (int) $affectedAppointmentOne->patient_id,
             'appointment_id' => (int) $affectedAppointmentOne->id,
-            'type' => 'doctor_unavailable',
-            'title' => 'Appointment affected by doctor unavailability',
+            'type' => 'appointment_reschedule_required',
+            'title' => 'Appointment Needs Reschedule',
         ]);
         $this->assertDatabaseHas('patient_notifications', [
             'patient_id' => (int) $affectedAppointmentTwo->patient_id,
             'appointment_id' => (int) $affectedAppointmentTwo->id,
-            'type' => 'doctor_unavailable',
-            'title' => 'Appointment affected by doctor unavailability',
+            'type' => 'appointment_cancelled_by_doctor',
+            'title' => 'Appointment Cancelled by Doctor',
         ]);
         $this->assertDatabaseMissing('patient_notifications', [
             'appointment_id' => (int) $unaffectedAppointment->id,
@@ -186,14 +216,23 @@ class DoctorAvailabilityApiTest extends TestCase
         $this->assertStringContainsString('Emergency leave', (string) $notification->message);
         $this->assertStringContainsString($date, (string) $notification->message);
         $this->assertStringContainsString('10:00', (string) $notification->message);
+        $this->assertStringContainsString('Please contact the clinic to reschedule.', (string) $notification->message);
+
+        $cancelledNotification = PatientNotification::query()
+            ->where('appointment_id', (int) $affectedAppointmentTwo->id)
+            ->firstOrFail();
+
+        $this->assertStringContainsString('Cancelled By Doctor', (string) $cancelledNotification->message);
+        $this->assertStringContainsString('follow-up on the cancellation', (string) $cancelledNotification->message);
+        $this->assertStringNotContainsString('Please contact the clinic to reschedule.', (string) $cancelledNotification->message);
 
         Sanctum::actingAs($affectedPatientOne);
 
         $this->getJson('/api/v1/patient/notifications')
             ->assertOk()
-            ->assertJsonPath('notifications.0.type', 'doctor_unavailable')
+            ->assertJsonPath('notifications.0.type', 'appointment_reschedule_required')
             ->assertJsonPath('notifications.0.related_appointment_id', (int) $affectedAppointmentOne->id)
-            ->assertJsonPath('notifications.0.title', 'Appointment affected by doctor unavailability');
+            ->assertJsonPath('notifications.0.title', 'Appointment Needs Reschedule');
     }
 
     private function createAppointment(

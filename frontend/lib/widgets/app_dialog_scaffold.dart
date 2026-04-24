@@ -22,6 +22,7 @@ class AppDialogScaffold extends StatelessWidget {
     this.bodyPadding = const EdgeInsets.only(top: 20),
     this.footerPadding = const EdgeInsets.only(top: 20),
     this.showFooterDivider = false,
+    this.backgroundColor,
   });
 
   final String? title;
@@ -40,6 +41,7 @@ class AppDialogScaffold extends StatelessWidget {
   final EdgeInsets bodyPadding;
   final EdgeInsets footerPadding;
   final bool showFooterDivider;
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -47,11 +49,12 @@ class AppDialogScaffold extends StatelessWidget {
         MediaQuery.sizeOf(context).height * maxHeightFactor;
     final bool hasHeader =
         headerContent != null || title != null || onClose != null;
+    final ThemeData theme = Theme.of(context);
 
     return Dialog(
       insetPadding: insetPadding,
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
+      backgroundColor: backgroundColor ?? theme.colorScheme.surface,
+      surfaceTintColor: backgroundColor ?? theme.colorScheme.surface,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       child: ConstrainedBox(
@@ -77,7 +80,7 @@ class AppDialogScaffold extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       if (showFooterDivider) ...<Widget>[
-                        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                        Divider(height: 1, color: theme.colorScheme.outline),
                         const SizedBox(height: 16),
                       ],
                       footer!,
@@ -92,6 +95,8 @@ class AppDialogScaffold extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
     final Widget resolvedHeader =
         headerContent ??
         Column(
@@ -104,7 +109,7 @@ class AppDialogScaffold extends StatelessWidget {
                     titleTextStyle ??
                     Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w900,
-                      color: const Color(0xFF1E293B),
+                      color: theme.colorScheme.onSurface,
                     ),
               ),
             if (subtitle != null) ...<Widget>[
@@ -114,7 +119,7 @@ class AppDialogScaffold extends StatelessWidget {
                 style:
                     subtitleTextStyle ??
                     Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF64748B),
+                      color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                     ),
               ),
@@ -140,8 +145,10 @@ class AppDialogScaffold extends StatelessWidget {
             tooltip: 'Close',
             visualDensity: VisualDensity.compact,
             style: IconButton.styleFrom(
-              backgroundColor: const Color(0xFFF8FAFC),
-              foregroundColor: const Color(0xFF64748B),
+              backgroundColor: isDark
+                  ? const Color(0xFF1A253A)
+                  : const Color(0xFFF8FAFC),
+              foregroundColor: theme.colorScheme.onSurfaceVariant,
             ),
             icon: const Icon(Icons.close_rounded, size: 20),
           ),

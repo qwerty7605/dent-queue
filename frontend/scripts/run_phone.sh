@@ -11,6 +11,7 @@ fi
 
 API_PORT="${API_PORT:-8080}"
 API_HOST="${API_HOST:-}"
+USE_ADB_REVERSE="${USE_ADB_REVERSE:-0}"
 
 find_adb() {
   if command -v adb >/dev/null 2>&1; then
@@ -38,16 +39,65 @@ find_adb() {
   return 1
 }
 
-if [[ -z "$API_HOST" ]] && command -v ip >/dev/null 2>&1; then
-  API_HOST="$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')"
-fi
+detect_host_ip() {
+  if command -v ip >/dev/null 2>&1; then
+    local routed_ip
+    routed_ip="$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')"
+    if [[ -n "$routed_ip" ]]; then
+      printf '%s\n' "$routed_ip"
+      return 0
+    fi
+  fi
+
+  if command -v hostname >/dev/null 2>&1; then
+    local first_ip
+    first_ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+    if [[ -n "$first_ip" ]]; then
+      printf '%s\n' "$first_ip"
+      return 0
+    fi
+  fi
+
+  if command -v ipconfig >/dev/null 2>&1; then
+    local mac_ip
+    mac_ip="$(ipconfig getifaddr en0 2>/dev/null || true)"
+    if [[ -n "$mac_ip" ]]; then
+      printf '%s\n' "$mac_ip"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+check_http() {
+  local url="$1"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl --silent --show-error --fail --max-time 2 -o /dev/null "$url"
+    return $?
+  fi
+
+  return 2
+}
+
+print_backend_start_hint() {
+  local repo_root
+  repo_root="$(cd "$SCRIPT_DIR/.." && pwd)"
+  local docker_compose_file="$repo_root/laravel/docker-compose.yml"
+
+  if [[ -f "$docker_compose_file" ]]; then
+    echo "Start the backend containers before launching the phone app:"
+    echo "  cd /home/aldridge/app-dev/laravel"
+    echo "  docker compose up -d"
+    return
+  fi
+
+  echo "Start the backend before launching the phone app."
+}
 
 if [[ -z "$API_HOST" ]]; then
-  API_HOST="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
-fi
-
-if [[ -z "$API_HOST" ]] && command -v ipconfig >/dev/null 2>&1; then
-  API_HOST="$(ipconfig getifaddr en0 2>/dev/null || true)"
+  API_HOST="$(detect_host_ip || true)"
 fi
 
 if [[ -z "$API_HOST" ]]; then
@@ -65,32 +115,41 @@ if [[ "${1:-}" != "" ]] && [[ "${1:-}" != --* ]]; then
 fi
 
 ADB_BIN="${ADB_BIN:-}"
-if [[ -z "$ADB_BIN" ]]; then
-  ADB_BIN="$(find_adb || true)"
-fi
-
-USE_LOCALHOST=0
-if [[ -n "$ADB_BIN" ]]; then
-  if [[ -z "$DEVICE_ID" ]]; then
-    DEVICE_ID="$("$ADB_BIN" devices | awk '$2=="device"{print $1; exit}')"
+if [[ "$USE_ADB_REVERSE" == "1" ]]; then
+  if [[ -z "$ADB_BIN" ]]; then
+    ADB_BIN="$(find_adb || true)"
   fi
 
-  if [[ -n "$DEVICE_ID" ]]; then
-    if "$ADB_BIN" -s "$DEVICE_ID" reverse "tcp:${API_PORT}" "tcp:${API_PORT}" >/dev/null 2>&1; then
-      echo "adb reverse enabled: ${DEVICE_ID} tcp:${API_PORT} -> host tcp:${API_PORT}"
-      USE_LOCALHOST=1
-    else
-      echo "Warning: could not enable adb reverse for ${DEVICE_ID}"
+  if [[ -n "$ADB_BIN" ]]; then
+    if [[ -z "$DEVICE_ID" ]]; then
+      DEVICE_ID="$("$ADB_BIN" devices | awk '$2=="device"{print $1; exit}')"
     fi
+
+    if [[ -n "$DEVICE_ID" ]]; then
+      if "$ADB_BIN" -s "$DEVICE_ID" reverse "tcp:${API_PORT}" "tcp:${API_PORT}" >/dev/null 2>&1; then
+        echo "adb reverse enabled for ${DEVICE_ID}, but LAN host remains the default."
+      else
+        echo "Warning: could not enable adb reverse for ${DEVICE_ID}"
+      fi
+    fi
+  else
+    echo "Warning: adb not found; continuing with detected LAN host ${API_HOST}"
   fi
-else
-  echo "Warning: adb not found; falling back to LAN host ${API_HOST}"
 fi
 
-if [[ "$USE_LOCALHOST" -eq 1 ]]; then
-  BASE_URL="http://localhost:${API_PORT}"
+BASE_URL="http://${API_HOST}:${API_PORT}"
+
+LOCAL_URL="http://127.0.0.1:${API_PORT}"
+if check_http "$BASE_URL"; then
+  echo "Backend reachable at ${BASE_URL}"
+elif check_http "$LOCAL_URL"; then
+  echo "Backend is running on ${LOCAL_URL}, but not reachable on ${BASE_URL}."
+  print_backend_start_hint
+  exit 1
 else
-  BASE_URL="http://${API_HOST}:${API_PORT}"
+  echo "Backend is not reachable at ${BASE_URL} or ${LOCAL_URL}."
+  print_backend_start_hint
+  exit 1
 fi
 
 echo "Running with API_BASE_URL=${BASE_URL}"

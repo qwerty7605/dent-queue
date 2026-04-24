@@ -84,9 +84,23 @@ class DoctorAvailabilityService
     public function getSlotAvailability(string $date, ?int $ignoreAppointmentId = null): array
     {
         $timezone = (string) config('app.timezone', 'UTC');
-        $schedule = $this->resolveClinicSchedule($timezone);
+        $schedule = $this->resolveClinicSchedule($date, $timezone);
         $day = Carbon::createFromFormat('Y-m-d', $date, $timezone)->startOfDay();
         $unavailabilities = $this->unavailabilitiesForDate($date);
+
+        if ($schedule === null) {
+            return [
+                'date' => $date,
+                'opening_time' => null,
+                'closing_time' => null,
+                'slot_duration_minutes' => self::SLOT_DURATION_MINUTES,
+                'slots' => [],
+                'unavailable_ranges' => $unavailabilities
+                    ->map(fn (DoctorUnavailability $item): array => $this->serializeSchedule($item))
+                    ->all(),
+            ];
+        }
+
         $bookedAppointmentsQuery = Appointment::query()
             ->whereDate('appointment_date', $date)
             ->whereNull('deleted_at')
@@ -178,6 +192,12 @@ class DoctorAvailabilityService
         ?int $ignoreAppointmentId = null,
     ): void {
         $timezone = (string) config('app.timezone', 'UTC');
+        if ($this->resolveClinicSchedule($date, $timezone) === null) {
+            throw ValidationException::withMessages([
+                'time_slot' => ['Clinic is closed for the selected date.'],
+            ]);
+        }
+
         $normalizedTime = $this->normalizeTimeString($timeSlot, $timezone) ?? $timeSlot;
         $slotStart = $this->combineDateAndTime($date, $normalizedTime, $timezone);
         $slotEnd = $slotStart->copy()->addMinutes(self::SLOT_DURATION_MINUTES);
@@ -243,11 +263,31 @@ class DoctorAvailabilityService
     }
 
     /**
-     * @return array{opening_time: string, closing_time: string}
+     * @return array{opening_time: string, closing_time: string}|null
      */
-    private function resolveClinicSchedule(string $timezone): array
+    private function resolveClinicSchedule(string $date, string $timezone): ?array
     {
         $settings = $this->clinicSettingService->getCurrentSettings();
+        $dayName = Carbon::createFromFormat('Y-m-d', $date, $timezone)->format('l');
+        $dailyOperatingHours = $settings['daily_operating_hours'] ?? [];
+
+        if (is_array($dailyOperatingHours) && isset($dailyOperatingHours[$dayName]) && is_array($dailyOperatingHours[$dayName])) {
+            $openingTime = $this->normalizeTimeString((string) ($dailyOperatingHours[$dayName]['opening_time'] ?? ''), $timezone);
+            $closingTime = $this->normalizeTimeString((string) ($dailyOperatingHours[$dayName]['closing_time'] ?? ''), $timezone);
+
+            if ($openingTime !== null && $closingTime !== null) {
+                return [
+                    'opening_time' => $openingTime,
+                    'closing_time' => $closingTime,
+                ];
+            }
+        }
+
+        $workingDays = $settings['working_days'] ?? [];
+        if (is_array($workingDays) && ! in_array($dayName, $workingDays, true)) {
+            return null;
+        }
+
         $openingTime = $this->normalizeTimeString((string) ($settings['opening_time'] ?? ''), $timezone) ?? self::DEFAULT_OPEN_TIME;
         $closingTime = $this->normalizeTimeString((string) ($settings['closing_time'] ?? ''), $timezone) ?? self::DEFAULT_CLOSE_TIME;
 
@@ -418,6 +458,10 @@ class DoctorAvailabilityService
 
         if ($reason !== '') {
             $message .= ' Reason: ' . $reason . '.';
+        }
+
+        if ((string) $appointment->status === 'cancelled_by_doctor') {
+            return $message . ' The clinic will contact you for follow-up on the cancellation.';
         }
 
         return $message . ' Please contact the clinic to reschedule.';

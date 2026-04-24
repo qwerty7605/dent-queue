@@ -293,31 +293,15 @@ class _NotificationsViewState extends State<NotificationsView> {
   @override
   Widget build(BuildContext context) {
     final bool hasUnread = _unreadCount > 0;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: AppNavigationTheme.background,
       appBar: AppHeaderBar(
-        title: 'Notifications',
-        actions: <Widget>[
-          if (hasUnread)
-            TextButton(
-              key: const Key('notification-mark-all-button'),
-              onPressed: _isMarkingAllAsRead
-                  ? null
-                  : () {
-                      _markAllAsRead();
-                    },
-              child: Text(
-                _isMarkingAllAsRead ? 'Marking...' : 'Mark all as read',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: MobileTypography.caption(context),
-                ),
-              ),
-            ),
-          const SizedBox(width: 8),
-        ],
+        titleWidget: const AppBrandLockup(logoSize: 40, spacing: 4),
+        titleSpacing: -8,
+        showBottomAccent: false,
+        actions: const <Widget>[SizedBox(width: 8)],
       ),
       body: RefreshIndicator(
         key: const Key('notifications-refresh'),
@@ -335,7 +319,72 @@ class _NotificationsViewState extends State<NotificationsView> {
             ? _buildErrorState()
             : _notifications.isEmpty
             ? _buildEmptyState()
-            : _buildNotificationList(),
+            : ListView(
+                key: const Key('notifications-list'),
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 96),
+                children: [
+                  Row(
+                    children: [
+                      _buildBackButton(isDark),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'Notifications',
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF1F3763),
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      if (hasUnread)
+                        TextButton(
+                          key: const Key('notification-mark-all-button'),
+                          onPressed: _isMarkingAllAsRead ? null : _markAllAsRead,
+                          child: Text(
+                            _isMarkingAllAsRead ? 'MARKING...' : 'MARK ALL AS READ',
+                            style: TextStyle(
+                              color: const Color(0xFFC8D5F2),
+                              fontWeight: FontWeight.bold,
+                              fontSize: MobileTypography.caption(context),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  ..._buildNotificationTiles(),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildBackButton(bool isDark) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.of(context).maybePop(),
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF17243A) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.chevron_left_rounded,
+          color: isDark ? Colors.white : const Color(0xFF1F3763),
+        ),
       ),
     );
   }
@@ -399,37 +448,29 @@ class _NotificationsViewState extends State<NotificationsView> {
     );
   }
 
-  Widget _buildNotificationList() {
-    return ListView(
-      key: const Key('notifications-list'),
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-      children: [
-        _buildUnreadSummary(),
-        ..._notifications.map((AppNotification notification) {
+  List<Widget> _buildNotificationTiles() {
+    return _notifications.map((AppNotification notification) {
           final bool isRead = notification.isRead;
           final String type = notification.type;
           final iconColor = _getColorForType(type);
 
           return Container(
             key: Key('notification-tile-${notification.id}'),
-            margin: const EdgeInsets.only(bottom: 12),
+            margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: isRead
-                  ? Colors.white
-                  : const Color(0xFFE2ECFA), // Light green tint for unread
-              borderRadius: BorderRadius.circular(12),
+              color: isRead ? const Color(0xFFFDFDFE) : Colors.white,
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                  color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
                 ),
               ],
               border: Border.all(
                 color: isRead
-                    ? const Color(0xFFE2E8F0)
-                    : const Color(0xFF4A769E).withValues(alpha: 0.3),
+                    ? const Color(0xFFF3F4F8)
+                    : const Color(0xFFE7ECF8),
                 width: 1,
               ),
             ),
@@ -443,7 +484,7 @@ class _NotificationsViewState extends State<NotificationsView> {
                   }
                 },
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(18.0),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -453,13 +494,13 @@ class _NotificationsViewState extends State<NotificationsView> {
                         height: 44,
                         decoration: BoxDecoration(
                           color: isRead
-                              ? const Color(0xFFF8FAFC)
-                              : Colors.white,
-                          shape: BoxShape.circle,
+                              ? const Color(0xFFF8F9FD)
+                              : iconColor.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isRead
-                                ? const Color(0xFFE2E8F0)
-                                : iconColor.withValues(alpha: 0.2),
+                                ? const Color(0xFFF0F2F7)
+                                : iconColor.withValues(alpha: 0.18),
                           ),
                         ),
                         child: Icon(
@@ -486,24 +527,19 @@ class _NotificationsViewState extends State<NotificationsView> {
                                           ? FontWeight.w700
                                           : FontWeight.w900,
                                       color: isRead
-                                          ? const Color(0xFF334155)
-                                          : const Color(0xFF0F172A),
+                                          ? const Color(0xFF67748A)
+                                          : const Color(0xFF243B6B),
                                     ),
                                   ),
                                 ),
-                                if (!isRead)
-                                  Container(
-                                    key: Key(
-                                      'notification-unread-dot-${notification.id}',
-                                    ),
-                                    width: 8,
-                                    height: 8,
-                                    margin: const EdgeInsets.only(left: 8),
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF4A769E),
-                                      shape: BoxShape.circle,
-                                    ),
+                                Text(
+                                  _formatDate(notification.createdAt),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFFB0B8C9),
+                                    fontWeight: FontWeight.w600,
                                   ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 6),
@@ -512,21 +548,12 @@ class _NotificationsViewState extends State<NotificationsView> {
                               style: TextStyle(
                                 fontSize: MobileTypography.bodySmall(context),
                                 color: isRead
-                                    ? const Color(0xFF64748B)
-                                    : const Color(0xFF334155),
+                                    ? const Color(0xFFBCC4D1)
+                                    : const Color(0xFF4E596F),
                                 height: 1.4,
                                 fontWeight: isRead
                                     ? FontWeight.w500
                                     : FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              _formatDate(notification.createdAt),
-                              style: TextStyle(
-                                fontSize: MobileTypography.caption(context),
-                                color: Color(0xFF94A3B8),
-                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -538,52 +565,7 @@ class _NotificationsViewState extends State<NotificationsView> {
               ),
             ),
           );
-        }),
-      ],
-    );
+        }).toList();
   }
 
-  Widget _buildUnreadSummary() {
-    final String summary = _unreadCount == 0
-        ? 'All caught up'
-        : '$_unreadCount unread notification${_unreadCount == 1 ? '' : 's'}';
-
-    return Container(
-      key: const Key('notifications-unread-summary'),
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE2ECFA),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.notifications_active_outlined,
-              color: Color(0xFF4A769E),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              summary,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

@@ -23,11 +23,21 @@ class AppAlertDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color surfaceColor = isDark
+        ? const Color(0xFF141C2E)
+        : Colors.white;
+    final Color titleColor = isDark
+        ? const Color(0xFFE5ECF8)
+        : const Color(0xFF1E293B);
+    final Color contentColor = isDark
+        ? const Color(0xFFA9B6CF)
+        : const Color(0xFF64748B);
 
     return AlertDialog(
       scrollable: scrollable,
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
+      backgroundColor: surfaceColor,
+      surfaceTintColor: surfaceColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       titlePadding: titlePadding,
       contentPadding: contentPadding,
@@ -35,10 +45,10 @@ class AppAlertDialog extends StatelessWidget {
       titleTextStyle: textTheme.titleLarge?.copyWith(
         fontSize: 22,
         fontWeight: FontWeight.w900,
-        color: const Color(0xFF1E293B),
+        color: titleColor,
       ),
       contentTextStyle: textTheme.bodyMedium?.copyWith(
-        color: const Color(0xFF64748B),
+        color: contentColor,
         fontWeight: FontWeight.w600,
         height: 1.5,
       ),

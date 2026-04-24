@@ -27,6 +27,10 @@ class AppConfig {
     'API_PORT',
     defaultValue: '8080',
   );
+  static const String _physicalHostFallback = String.fromEnvironment(
+    'API_PHYSICAL_HOST',
+    defaultValue: '192.168.1.20',
+  );
   static const String _envOverride = String.fromEnvironment(
     'API_ENV',
     defaultValue: '',
@@ -41,9 +45,8 @@ class AppConfig {
   static String get localhostBaseUrl => 'http://localhost:$port';
   // Android emulator maps host machine localhost through 10.0.2.2.
   static String get androidEmulatorBaseUrl => 'http://10.0.2.2:$port';
-  // Physical-device fallback prefers localhost, which works with adb reverse.
-  // For Wi-Fi device testing, pass API_BASE_URL/API_HOST at runtime.
-  static String get physicalDeviceBaseUrl => localhostBaseUrl;
+  // Physical-device fallback should use the host machine LAN IP, not localhost.
+  static String get physicalDeviceBaseUrl => 'http://$_physicalHostFallback:$port';
   static const productionBaseUrl = 'https://example.com'; // TODO
 
   static int get port => int.tryParse(_portOverride) ?? defaultPort;

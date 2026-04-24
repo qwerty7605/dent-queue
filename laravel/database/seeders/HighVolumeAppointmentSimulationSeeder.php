@@ -13,6 +13,7 @@ class HighVolumeAppointmentSimulationSeeder extends Seeder
         config()->set('bulk_seed.patients', (int) env('BULK_SEED_PATIENT_COUNT', 220));
         config()->set('bulk_seed.walk_in_patients', (int) env('BULK_SEED_WALK_IN_PATIENT_COUNT', 40));
         config()->set('bulk_seed.appointments', (int) env('BULK_SEED_APPOINTMENT_COUNT', 200000));
+        config()->set('bulk_seed.appointments_per_day', (int) env('BULK_SEED_APPOINTMENTS_PER_DAY', 40));
         config()->set('bulk_seed.patient_notifications', (int) env('BULK_SEED_PATIENT_NOTIFICATION_COUNT', 0));
         config()->set('bulk_seed.staff_notifications', (int) env('BULK_SEED_STAFF_NOTIFICATION_COUNT', 0));
         config()->set('bulk_seed.reports', (int) env('BULK_SEED_REPORT_COUNT', 0));
