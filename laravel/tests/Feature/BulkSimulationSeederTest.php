@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Appointment;
 use App\Models\PatientNotification;
+use App\Models\PatientRecord;
 use App\Models\Report;
 use App\Models\StaffNotification;
 use App\Models\User;
@@ -22,6 +23,7 @@ class BulkSimulationSeederTest extends TestCase
         config()->set('bulk_seed.patients', 14);
         config()->set('bulk_seed.walk_in_patients', 4);
         config()->set('bulk_seed.appointments', 36);
+        config()->set('bulk_seed.appointments_per_day', 10);
         config()->set('bulk_seed.patient_notifications', 30);
         config()->set('bulk_seed.staff_notifications', 18);
         config()->set('bulk_seed.reports', 24);
@@ -43,6 +45,22 @@ class BulkSimulationSeederTest extends TestCase
         $this->assertCount(36, $bulkAppointments);
         $this->assertTrue($bulkAppointments->every(fn (Appointment $appointment): bool => $appointment->patient !== null));
         $this->assertTrue($bulkAppointments->every(fn (Appointment $appointment): bool => $appointment->service !== null));
+        $this->assertSame([6, 10, 10, 10], $bulkAppointments
+            ->groupBy('appointment_date')
+            ->map(fn ($appointments): int => $appointments->count())
+            ->sort()
+            ->values()
+            ->all());
+
+        $walkInRecords = PatientRecord::query()
+            ->whereNull('user_id')
+            ->where('patient_id', 'like', 'BULK-WALK-%')
+            ->get();
+
+        $this->assertCount(4, $walkInRecords);
+        $this->assertTrue($walkInRecords->every(
+            fn (PatientRecord $record): bool => ! str_starts_with($record->first_name, 'WalkIn') && $record->last_name !== 'Guest',
+        ));
 
         $queueBackedAppointments = $bulkAppointments
             ->whereNull('deleted_at')

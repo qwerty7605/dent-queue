@@ -18,6 +18,74 @@ class BulkAppointmentSeeder extends Seeder
     /**
      * @var array<int, string>
      */
+    private array $walkInFirstNames = [
+        'Amelia',
+        'Benjamin',
+        'Camila',
+        'Daniel',
+        'Elena',
+        'Francis',
+        'Gabriela',
+        'Harold',
+        'Iris',
+        'Julian',
+        'Katrina',
+        'Leonardo',
+        'Marielle',
+        'Nathaniel',
+        'Ophelia',
+        'Patrick',
+        'Rosalie',
+        'Samuel',
+        'Therese',
+        'Vincent',
+    ];
+
+    /**
+     * @var array<int, string>
+     */
+    private array $walkInMiddleNames = [
+        'Abad',
+        'Belle',
+        'Claire',
+        'Domingo',
+        'Elaine',
+        'Flores',
+        'Grace',
+        'Herrera',
+        'Isabel',
+        'Juliet',
+    ];
+
+    /**
+     * @var array<int, string>
+     */
+    private array $walkInLastNames = [
+        'Alonzo',
+        'Bernardo',
+        'Castillo',
+        'Dominguez',
+        'Espinosa',
+        'Fernandez',
+        'Gutierrez',
+        'Herrera',
+        'Ibarra',
+        'Lorenzo',
+        'Marquez',
+        'Natividad',
+        'Ocampo',
+        'Peralta',
+        'Ramos',
+        'Salazar',
+        'Tan',
+        'Villanueva',
+        'Yap',
+        'Zamora',
+    ];
+
+    /**
+     * @var array<int, string>
+     */
     private array $noteFragments = [
         'Routine oral health review.',
         'Follow-up for recent discomfort.',
@@ -53,57 +121,42 @@ class BulkAppointmentSeeder extends Seeder
         $today = Carbon::today((string) config('app.timezone', 'UTC'));
         $pastDays = max(1, (int) $this->bulkSeedConfig('past_days', 180));
         $futureDays = max(1, (int) $this->bulkSeedConfig('future_days', 90));
-        $requestedCount = max(1, (int) $this->bulkSeedConfig('appointments', 900));
-        $appointments = [];
-        $usedKeys = [];
-        $attempts = 0;
-        $maxAttempts = $requestedCount * 20;
+        $requestedCount = max(1, (int) $this->bulkSeedConfig('appointments', 50000));
+        $appointmentsPerDay = max(1, (int) $this->bulkSeedConfig('appointments_per_day', 40));
+        $maxDailyCapacity = $patients->count() * count($slotOptions);
 
-        while (count($appointments) < $requestedCount && $attempts < $maxAttempts) {
-            $attempts++;
+        if ($appointmentsPerDay > $maxDailyCapacity) {
+            throw new \RuntimeException(sprintf(
+                'Bulk seed appointments_per_day [%d] exceeds daily capacity [%d] for the available patients and time slots.',
+                $appointmentsPerDay,
+                $maxDailyCapacity,
+            ));
+        }
 
-            /** @var PatientRecord $patient */
-            $patient = $patients->random();
-            $service = $services->random();
+        $remainingAppointments = $requestedCount;
 
-            $date = $today->copy()
-                ->subDays(random_int(0, $pastDays))
-                ->addDays(random_int(0, $futureDays))
-                ->toDateString();
-
-            $timeSlot = $slotOptions[array_rand($slotOptions)];
-            $key = implode('|', [(string) $patient->id, $date, $timeSlot]);
-
-            if (isset($usedKeys[$key])) {
-                continue;
+        foreach ($this->appointmentDates($today, $requestedCount, $appointmentsPerDay, $pastDays, $futureDays) as $date) {
+            if ($remainingAppointments <= 0) {
+                break;
             }
 
-            $status = $this->determineStatus($date, $today);
-            $createdAt = $this->determineCreatedAt($date, $timeSlot, $today);
-            $isWalkIn = $patient->user_id === null;
+            $createdCount = $this->seedAppointmentsForDate(
+                patients: $patients,
+                services: $services,
+                slotOptions: $slotOptions,
+                today: $today,
+                date: $date,
+                targetCount: min($appointmentsPerDay, $remainingAppointments),
+            );
 
-            $appointment = Appointment::query()->create([
-                'patient_id' => (int) $patient->id,
-                'service_id' => (int) $service->id,
-                'appointment_date' => $date,
-                'time_slot' => $timeSlot,
-                'status' => $status,
-                'notes' => sprintf(
-                    '%s [%s] %s',
-                    $this->bulkSeedMarker(),
-                    $isWalkIn ? 'walk-in' : 'online',
-                    $this->noteFragments[array_rand($this->noteFragments)],
-                ),
-                'created_at' => $createdAt,
-                'updated_at' => $createdAt,
-            ]);
+            $remainingAppointments -= $createdCount;
+        }
 
-            if ($status === 'cancelled' && random_int(1, 100) <= 65) {
-                $appointment->delete();
-            }
-
-            $usedKeys[$key] = true;
-            $appointments[] = $appointment->id;
+        if ($remainingAppointments > 0) {
+            throw new \RuntimeException(sprintf(
+                'Bulk appointment seeding stopped early with %d appointments remaining.',
+                $remainingAppointments,
+            ));
         }
 
         $this->syncQueuesForBulkAppointments();
@@ -137,16 +190,20 @@ class BulkAppointmentSeeder extends Seeder
         $records = [];
 
         for ($index = 1; $index <= $count; $index++) {
-            $firstName = sprintf('WalkIn%03d', $index);
+            $firstName = $this->walkInFirstNames[($index - 1) % count($this->walkInFirstNames)];
+            $middleName = $index % 3 === 0
+                ? null
+                : $this->walkInMiddleNames[($index + 1) % count($this->walkInMiddleNames)];
+            $lastName = $this->walkInLastNames[($index + 2) % count($this->walkInLastNames)];
             $record = PatientRecord::query()->create([
                 'id' => $this->bulkWalkInRecordId($index),
                 'patient_id' => $this->bulkWalkInIdentifier($index),
                 'user_id' => null,
                 'first_name' => $firstName,
-                'middle_name' => $index % 2 === 0 ? 'Bulk' : null,
-                'last_name' => 'Guest',
+                'middle_name' => $middleName,
+                'last_name' => $lastName,
                 'gender' => ['male', 'female', 'other'][$index % 3],
-                'address' => 'Walk-in Registration Desk',
+                'address' => sprintf('%d Dental Avenue, %s', 100 + $index, $this->walkInLastNames[($index + 6) % count($this->walkInLastNames)] . ' City'),
                 'contact_number' => sprintf('0944%07d', $index),
                 'birthdate' => Carbon::now()->subYears(20 + ($index % 35))->toDateString(),
             ]);
@@ -155,6 +212,104 @@ class BulkAppointmentSeeder extends Seeder
         }
 
         return new Collection($records);
+    }
+
+    /**
+     * @param  Collection<int, PatientRecord>  $patients
+     * @param  Collection<int, Service>  $services
+     * @param  array<int, string>  $slotOptions
+     */
+    private function seedAppointmentsForDate(
+        Collection $patients,
+        Collection $services,
+        array $slotOptions,
+        Carbon $today,
+        string $date,
+        int $targetCount,
+    ): int {
+        $createdCount = 0;
+        $usedKeys = [];
+        $attempts = 0;
+        $maxAttempts = $targetCount * 20;
+
+        while ($createdCount < $targetCount && $attempts < $maxAttempts) {
+            $attempts++;
+
+            /** @var PatientRecord $patient */
+            $patient = $patients->random();
+            /** @var Service $service */
+            $service = $services->random();
+            $timeSlot = $slotOptions[array_rand($slotOptions)];
+            $key = implode('|', [(string) $patient->id, $date, $timeSlot]);
+
+            if (isset($usedKeys[$key])) {
+                continue;
+            }
+
+            $status = $this->determineStatus($date, $today);
+            $createdAt = $this->determineCreatedAt($date, $timeSlot, $today);
+            $isWalkIn = $patient->user_id === null;
+
+            $appointment = Appointment::query()->create([
+                'patient_id' => (int) $patient->id,
+                'service_id' => (int) $service->id,
+                'appointment_date' => $date,
+                'time_slot' => $timeSlot,
+                'status' => $status,
+                'notes' => sprintf(
+                    '%s [%s] %s',
+                    $this->bulkSeedMarker(),
+                    $isWalkIn ? 'walk-in' : 'online',
+                    $this->noteFragments[array_rand($this->noteFragments)],
+                ),
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ]);
+
+            if ($status === 'cancelled' && random_int(1, 100) <= 65) {
+                $appointment->delete();
+            }
+
+            $usedKeys[$key] = true;
+            $createdCount++;
+        }
+
+        if ($createdCount < $targetCount) {
+            throw new \RuntimeException(sprintf(
+                'Unable to seed %d appointments for [%s]; created %d after %d attempts.',
+                $targetCount,
+                $date,
+                $createdCount,
+                $attempts,
+            ));
+        }
+
+        return $createdCount;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function appointmentDates(
+        Carbon $today,
+        int $requestedCount,
+        int $appointmentsPerDay,
+        int $pastDays,
+        int $futureDays,
+    ): array {
+        $requiredDays = (int) ceil($requestedCount / $appointmentsPerDay);
+        $windowWeight = max(0, $pastDays) + max(0, $futureDays);
+        $pastCoverage = $requiredDays > 1 && $windowWeight > 0
+            ? (int) floor(($requiredDays - 1) * (max(0, $pastDays) / $windowWeight))
+            : 0;
+        $startDate = $today->copy()->subDays($pastCoverage);
+        $dates = [];
+
+        for ($offset = 0; $offset < $requiredDays; $offset++) {
+            $dates[] = $startDate->copy()->addDays($offset)->toDateString();
+        }
+
+        return $dates;
     }
 
     private function determineStatus(string $date, Carbon $today): string

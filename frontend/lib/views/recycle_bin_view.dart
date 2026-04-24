@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../core/api_exception.dart';
-import '../core/mobile_typography.dart';
 import '../models/recycle_bin_entry.dart';
 import '../services/appointment_service.dart';
 import '../widgets/app_alert_dialog.dart';
 import '../widgets/app_empty_state.dart';
-import '../widgets/appointment_status_badge.dart';
 import '../widgets/navigation_chrome.dart';
 
 enum RecycleBinRole { patient, staff }
@@ -226,7 +224,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
               children: [
                 ListView(
                   key: const Key('recycle-bin-list'),
-                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
                   children: [
                     _buildHeroCard(
                       recoverableCount: recoverableCount,
@@ -252,7 +250,11 @@ class _RecycleBinViewState extends State<RecycleBinView> {
   }
 
   PreferredSizeWidget _buildAppBar() {
-    return const AppHeaderBar(title: 'Recycle Bin');
+    return const AppHeaderBar(
+      titleWidget: AppBrandLockup(logoSize: 40, spacing: 4),
+      titleSpacing: -8,
+      showBottomAccent: false,
+    );
   }
 
   Widget _buildHeroCard({
@@ -260,128 +262,97 @@ class _RecycleBinViewState extends State<RecycleBinView> {
     required int expiredCount,
     required bool usingPreviewData,
   }) {
-    return Container(
-      key: const Key('recycle-bin-hero'),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2ECFA),
-                  borderRadius: BorderRadius.circular(14),
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _buildBackButton(isDark),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                'Recycle Bin',
+                style: TextStyle(
+                  color: isDark ? Colors.white : const Color(0xFF1F3763),
+                  fontSize: 21,
+                  fontWeight: FontWeight.w900,
                 ),
-                child: const Icon(
-                  Icons.restore_from_trash_outlined,
-                  color: Color(0xFF497A52),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.role == RecycleBinRole.patient
-                          ? 'Patient Recycle Bin'
-                          : 'Staff Recycle Bin',
-                      style: const TextStyle(
-                        color: Color(0xFF0F172A),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 20,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      widget.role == RecycleBinRole.patient
-                          ? 'Review cancelled appointments and check whether each one is still eligible for restore.'
-                          : 'Review cancelled appointments, confirm what can still be restored, and flag what has already expired.',
-                      style: const TextStyle(
-                        color: Color(0xFF475569),
-                        fontSize: 14,
-                        height: 1.45,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (usingPreviewData) ...[
-            const SizedBox(height: 14),
-            Container(
-              key: const Key('recycle-bin-preview-banner'),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF6DB),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF9CB5E8)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.visibility_outlined,
-                    size: 18,
-                    color: Color(0xFF9A6700),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Preview data is showing the recycle bin layout until the backend retrieval API is connected.',
-                      style: TextStyle(
-                        color: Color(0xFF7C5A00),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSummaryChip(
-                  key: const Key('recycle-bin-summary-recoverable'),
-                  label: 'Recoverable',
-                  value: recoverableCount.toString(),
-                  tint: const Color(0xFFE2ECFA),
-                  textColor: const Color(0xFF497A52),
-                ),
+        ),
+        if (usingPreviewData && widget.role == RecycleBinRole.staff) ...[
+          const SizedBox(height: 12),
+          Container(
+            key: const Key('recycle-bin-preview-banner'),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF352A14) : const Color(0xFFFFF6DB),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFD0B36A)),
+            ),
+            child: Text(
+              'Preview data is showing the recycle bin layout until the backend retrieval API is connected.',
+              style: TextStyle(
+                color: isDark ? const Color(0xFFF9E2A6) : const Color(0xFF7C5A00),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildSummaryChip(
-                  key: const Key('recycle-bin-summary-expired'),
-                  label: 'Expired',
-                  value: expiredCount.toString(),
-                  tint: const Color(0xFFF8E5E5),
-                  textColor: const Color(0xFF9F3030),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildSummaryChip(
+                key: const Key('recycle-bin-summary-recoverable'),
+                label: 'RECOVERABLE',
+                value: recoverableCount.toString(),
+                tint: isDark ? const Color(0xFF17243A) : Colors.white,
+                textColor: isDark ? Colors.white : const Color(0xFF1F3763),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildSummaryChip(
+                key: const Key('recycle-bin-summary-expired'),
+                label: 'EXPIRED',
+                value: expiredCount.toString(),
+                tint: isDark ? const Color(0xFF17243A) : Colors.white,
+                textColor: isDark ? const Color(0xFFB9C4D8) : const Color(0xFFBFC7D4),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBackButton(bool isDark) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.of(context).maybePop(),
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF17243A) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.chevron_left_rounded,
+          color: isDark ? Colors.white : const Color(0xFF1F3763),
+        ),
       ),
     );
   }
@@ -395,29 +366,42 @@ class _RecycleBinViewState extends State<RecycleBinView> {
   }) {
     return Container(
       key: key,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       decoration: BoxDecoration(
         color: tint,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF2A3A55)
+              : const Color(0xFFE8ECF4),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
+            label,
+            style: TextStyle(
+              color: textColor.withValues(alpha: 0.7),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
             value,
             style: TextStyle(
               color: textColor,
-              fontSize: 24,
+              fontSize: 28,
               fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -428,18 +412,22 @@ class _RecycleBinViewState extends State<RecycleBinView> {
   Widget _buildEntryCard(RecycleBinEntry entry) {
     final DateFormat dateFormatter = DateFormat('MMM d, yyyy');
     final DateFormat timeFormatter = DateFormat('h:mm a');
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color cardColor = isDark ? const Color(0xFF17243A) : Colors.white;
+    final Color headlineColor = isDark ? Colors.white : const Color(0xFF1F3763);
+    final Color mutedText = isDark
+        ? const Color(0xFFAAB7CD)
+        : const Color(0xFF8E99AB);
 
     return Container(
       key: Key('recycle-bin-entry-${entry.id}'),
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(30),
         border: Border.all(
-          color: entry.isRestorable
-              ? const Color(0xFFD7E8D8)
-              : const Color(0xFFE8D5D5),
+          color: isDark ? const Color(0xFF2A3A55) : const Color(0xFFE8ECF4),
         ),
         boxShadow: [
           BoxShadow(
@@ -455,6 +443,20 @@ class _RecycleBinViewState extends State<RecycleBinView> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2D2330) : const Color(0xFFFFF4F4),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Color(0xFFE26868),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -462,225 +464,127 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                     Text(
                       entry.service,
                       style: TextStyle(
-                        color: Color(0xFF0F172A),
-                        fontSize: MobileTypography.cardTitle(context),
+                        color: headlineColor,
+                        fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        AppointmentStatusBadge(
-                          status: entry.statusLabel,
-                          compact: true,
-                        ),
-                        _buildTag(
-                          key: Key(
-                            entry.isRestorable
-                                ? 'recycle-bin-chip-available-${entry.id}'
-                                : 'recycle-bin-chip-expired-${entry.id}',
-                          ),
-                          label: entry.isRestorable
-                              ? 'Restore Available'
-                              : 'Expired',
-                          backgroundColor: entry.isRestorable
-                              ? const Color(0xFFE2ECFA)
-                              : const Color(0xFFF1F5F9),
-                          textColor: entry.isRestorable
-                              ? const Color(0xFF497A52)
-                              : const Color(0xFF64748B),
-                        ),
-                      ],
+                    Text(
+                      '${dateFormatter.format(entry.appointmentAt)}, ${timeFormatter.format(entry.appointmentAt)}',
+                      style: TextStyle(
+                        color: mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
               ),
               Container(
-                width: 46,
-                height: 46,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: entry.isRestorable
-                      ? const Color(0xFFE2ECFA)
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(14),
+                      ? (isDark
+                            ? const Color(0xFF3A3220)
+                            : const Color(0xFFFCEFD8))
+                      : (isDark
+                            ? const Color(0xFF22314D)
+                            : const Color(0xFFF4F6FB)),
+                  borderRadius: BorderRadius.circular(18),
                 ),
-                child: Icon(
-                  entry.isRestorable
-                      ? Icons.restore_outlined
-                      : Icons.lock_clock_outlined,
-                  color: entry.isRestorable
-                      ? const Color(0xFF497A52)
-                      : const Color(0xFF64748B),
+                child: Text(
+                  entry.isRestorable ? 'RESTORE\nAVAILABLE' : 'EXPIRED',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: entry.isRestorable
+                        ? const Color(0xFFDAA032)
+                        : mutedText,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                  ),
                 ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: mutedText.withValues(alpha: 0.8),
+                size: 18,
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 14,
-            runSpacing: 12,
-            children: [
-              _buildDetailBlock(
-                label: 'Date',
-                value: dateFormatter.format(entry.appointmentAt),
-              ),
-              _buildDetailBlock(
-                label: 'Time',
-                value: timeFormatter.format(entry.appointmentAt),
-              ),
-              _buildDetailBlock(
-                label: 'Moved To Bin',
-                value: dateFormatter.format(entry.deletedAt),
-              ),
-              if (widget.role == RecycleBinRole.staff &&
-                  entry.patientName != null)
-                _buildDetailBlock(label: 'Patient', value: entry.patientName!),
-            ],
-          ),
-          if (entry.notes != null && entry.notes!.trim().isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Text(
-                entry.notes!,
-                style: const TextStyle(
-                  color: Color(0xFF475569),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: 16),
           Container(
-            key: Key('recycle-bin-restore-area-${entry.id}'),
             width: double.infinity,
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             decoration: BoxDecoration(
-              color: entry.isRestorable
-                  ? const Color(0xFFF7FBF7)
-                  : const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: entry.isRestorable
-                    ? const Color(0xFFD7E8D8)
-                    : const Color(0xFFE2E8F0),
-              ),
+              color: isDark ? const Color(0xFF1C2A43) : const Color(0xFFF6F8FC),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                const Text(
-                  'Restore Area',
-                  style: TextStyle(
-                    color: Color(0xFF0F172A),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                Icon(Icons.info_outline_rounded, color: mutedText, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    entry.isRestorable
+                        ? 'Moved to bin on recently'
+                        : 'Restore window ended on ${dateFormatter.format(entry.expiresAt ?? entry.deletedAt)}',
+                    style: TextStyle(
+                      color: mutedText,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  entry.isRestorable
-                      ? _restoreWindowCopy(entry.expiresAt, dateFormatter)
-                      : 'This cancelled appointment is no longer restorable, but it stays visible here for history and recovery validation.',
-                  style: TextStyle(
-                    color: Color(0xFF475569),
-                    fontSize: MobileTypography.bodySmall(context),
-                    fontWeight: FontWeight.w600,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: entry.isRestorable
-                      ? OutlinedButton.icon(
-                          onPressed: () => _confirmRestoreAppointment(entry),
-                          icon: const Icon(Icons.restore_outlined),
-                          label: const Text('Restore Appointment'),
-                        )
-                      : Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE2E8F0),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Text(
-                            'Restore expired',
-                            style: TextStyle(
-                              color: Color(0xFF475569),
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTag({
-    Key? key,
-    required String label,
-    required Color backgroundColor,
-    required Color textColor,
-  }) {
-    return Container(
-      key: key,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 13,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailBlock({required String label, required String value}) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 110),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Color(0xFF94A3B8),
-              fontSize: MobileTypography.caption(context),
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
+          if (widget.role == RecycleBinRole.staff && entry.patientName != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Patient: ${entry.patientName!}',
+              style: TextStyle(
+                color: mutedText,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              color: Color(0xFF0F172A),
-              fontSize: MobileTypography.bodySmall(context),
-              fontWeight: FontWeight.w800,
-            ),
+          ],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: entry.isRestorable
+                ? ElevatedButton(
+                    onPressed: () => _confirmRestoreAppointment(entry),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF233D78),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 17),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: const Text(
+                      'Restore Appointment',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
+                  )
+                : OutlinedButton(
+                    onPressed: null,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: const Text('Restore Unavailable'),
+                  ),
           ),
         ],
       ),
@@ -708,14 +612,6 @@ class _RecycleBinViewState extends State<RecycleBinView> {
         ),
       ],
     );
-  }
-
-  String _restoreWindowCopy(DateTime? expiresAt, DateFormat dateFormatter) {
-    if (expiresAt == null) {
-      return 'This appointment is still eligible for restore. Click below to recover it.';
-    }
-
-    return 'This appointment stays restorable until ${dateFormatter.format(expiresAt)}. Click below to restore it.';
   }
 
   List<RecycleBinEntry> _previewEntriesForRole(RecycleBinRole role) {
@@ -749,25 +645,13 @@ class _RecycleBinViewState extends State<RecycleBinView> {
     return [
       RecycleBinEntry(
         id: 601,
-        service: 'Dental Check-up',
-        appointmentAt: DateTime(2026, 4, 15, 11, 0),
+        service: 'Root Canal',
+        appointmentAt: DateTime(2026, 4, 10, 11, 0),
         deletedAt: DateTime(2026, 3, 30, 9, 10),
         statusLabel: 'Cancelled',
         isRestorable: true,
         expiresAt: DateTime(2026, 4, 4),
-        notes:
-            'Restore availability is prepared while the backend flow is pending.',
-      ),
-      RecycleBinEntry(
-        id: 602,
-        service: 'Tooth Extraction',
-        appointmentAt: DateTime(2026, 3, 21, 16, 30),
-        deletedAt: DateTime(2026, 3, 14, 13, 20),
-        statusLabel: 'Cancelled',
-        isRestorable: false,
-        expiresAt: DateTime(2026, 3, 20),
-        notes:
-            'This item is no longer restorable but remains visible in the bin history.',
+        notes: 'Moved to bin on recently',
       ),
     ];
   }

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class AppNavigationTheme {
   static const Color primary = Color(0xFF1A2F64);
   static const Color accent = Color(0xFF9CB5E8);
-  static const Color background = Color(0xFFF5F7FB);
+  static const Color background = Color(0xFFF7F8FC);
   static const Color surface = Colors.white;
   static const Color muted = Color(0xFF64748B);
   static const Color activeSurface = Color(0xFFEBF0FF);
@@ -16,9 +16,9 @@ class AppBrandLockup extends StatelessWidget {
   const AppBrandLockup({
     super.key,
     this.logoSize = 40,
-    this.smartFontSize = 14,
-    this.dentQueueFontSize = 14,
-    this.spacing = 6,
+    this.smartFontSize = 0,
+    this.dentQueueFontSize = 16,
+    this.spacing = 8,
   });
 
   final double logoSize;
@@ -37,31 +37,15 @@ class AppBrandLockup extends StatelessWidget {
           height: logoSize,
         ),
         SizedBox(width: spacing),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'SMART',
-              style: TextStyle(
-                color: AppNavigationTheme.accent,
-                fontWeight: FontWeight.w900,
-                fontSize: smartFontSize,
-                letterSpacing: -0.5,
-                height: 1.05,
-              ),
-            ),
-            Text(
-              'DentQueue',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: dentQueueFontSize,
-                letterSpacing: -0.5,
-                height: 1.05,
-              ),
-            ),
-          ],
+        Text(
+          'SmartDentQueue',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: dentQueueFontSize,
+            letterSpacing: -0.4,
+            height: 1.05,
+          ),
         ),
       ],
     );
@@ -112,15 +96,7 @@ class AppHeaderBar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
       actions: actions,
-      bottom: showBottomAccent
-          ? const PreferredSize(
-              preferredSize: Size.fromHeight(4),
-              child: ColoredBox(
-                color: AppNavigationTheme.accent,
-                child: SizedBox(height: 4),
-              ),
-            )
-          : null,
+      bottom: showBottomAccent ? const PreferredSize(preferredSize: Size.fromHeight(0), child: SizedBox.shrink()) : null,
     );
   }
 }
@@ -229,12 +205,12 @@ class AppNavigationDrawerHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: AppNavigationTheme.primary,
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
       child: Row(
         children: [
           CircleAvatar(
-            radius: 24,
-            backgroundColor: Colors.white.withValues(alpha: 0.18),
+            radius: 28,
+            backgroundColor: Colors.white.withValues(alpha: 0.14),
             backgroundImage: profileImage,
             child: profileImage == null
                 ? Text(
@@ -254,24 +230,25 @@ class AppNavigationDrawerHeader extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 15,
+                    fontSize: 17,
                     color: Colors.white,
+                    height: 1.1,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 6),
                 Text(
                   roleLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: AppNavigationTheme.accent,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 11,
-                    letterSpacing: 0.55,
+                    color: Color(0xFFBBC7E8),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                    letterSpacing: 1.1,
                   ),
                 ),
               ],
@@ -301,43 +278,39 @@ class AppNavigationDrawerItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color color = selected
         ? AppNavigationTheme.activeText
-        : AppNavigationTheme.muted;
+        : const Color(0xFF8D97A6);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       child: Material(
-        color: selected ? AppNavigationTheme.activeSurface : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
             child: Row(
               children: [
-                Container(
-                  width: 4,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppNavigationTheme.accent
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 4),
                 Icon(icon, color: color, size: 22),
-                const SizedBox(width: 14),
+                const SizedBox(width: 18),
                 Expanded(
                   child: Text(
                     label,
                     style: TextStyle(
                       color: color,
-                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                      fontSize: 15,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 16,
                     ),
                   ),
                 ),
+                if (selected)
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFFBDC6D8),
+                    size: 20,
+                  ),
               ],
             ),
           ),
@@ -374,7 +347,7 @@ class AppBottomNavItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 6),
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           decoration: BoxDecoration(
             color: selected
                 ? AppNavigationTheme.activeSurface

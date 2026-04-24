@@ -172,7 +172,7 @@ class BulkUserSeeder extends Seeder
             : $this->middleNames[($index + 1) % count($this->middleNames)];
 
         return [
-            'first_name' => $group === 'admin' ? 'Admin' . $firstName : $firstName,
+            'first_name' => $firstName,
             'middle_name' => $middleName,
             'last_name' => $lastName,
             'location' => $this->locations[($index + 2) % count($this->locations)],

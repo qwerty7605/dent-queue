@@ -4,9 +4,11 @@ class StartPageView extends StatelessWidget {
   const StartPageView({
     super.key,
     required this.onGetStarted,
+    this.message,
   });
 
   final VoidCallback onGetStarted;
+  final String? message;
 
   static const _logoImagePath = 'assets/images/logo_blue.png';
 
@@ -95,6 +97,30 @@ class StartPageView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 40),
+                    if (message != null && message!.trim().isNotEmpty) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.18),
+                          ),
+                        ),
+                        child: Text(
+                          message!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
                     SizedBox(
                       width: 240,
                       height: 56,

@@ -62,9 +62,10 @@ class ApiClient {
 
     // In Android auto mode, prefer localhost first (works with adb reverse).
     if (shouldPreferAndroidLocalhost) {
+      add(AppConfig.androidEmulatorBaseUrl);
+      add(AppConfig.physicalDeviceBaseUrl);
       add(AppConfig.localhostBaseUrl);
       add('http://127.0.0.1:${AppConfig.port}');
-      add(AppConfig.androidEmulatorBaseUrl);
       add(AppConfig.baseUrl);
       return ordered;
     }
@@ -170,6 +171,10 @@ class ApiClient {
         lastNetworkError = ApiException(
           message: 'Cannot reach server: $url (${_networkHint(url)})',
         );
+      } on http.ClientException {
+        lastNetworkError = ApiException(
+          message: 'Connection failed: $url (${_networkHint(url)})',
+        );
       } on FormatException {
         throw ApiException(message: 'Invalid server response');
       } on ApiException {
@@ -230,6 +235,10 @@ class ApiClient {
         lastNetworkError = ApiException(
           message: 'Cannot reach server: $url (${_networkHint(url)})',
         );
+      } on http.ClientException {
+        lastNetworkError = ApiException(
+          message: 'Connection failed: $url (${_networkHint(url)})',
+        );
       } on FormatException {
         throw ApiException(message: 'Invalid server response');
       } on ApiException {
@@ -284,6 +293,10 @@ class ApiClient {
       } on SocketException {
         lastNetworkError = ApiException(
           message: 'Cannot reach server: $url (${_networkHint(url)})',
+        );
+      } on http.ClientException {
+        lastNetworkError = ApiException(
+          message: 'Connection failed: $url (${_networkHint(url)})',
         );
       } on FormatException {
         throw ApiException(message: 'Invalid server response');

@@ -32,6 +32,20 @@ class AppEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color titleColor = isDark
+        ? const Color(0xFFE8EEF9)
+        : const Color(0xFF0F172A);
+    final Color messageColor = isDark
+        ? const Color(0xFFA8B4CA)
+        : const Color(0xFF64748B);
+    final Color frameColor = isDark
+        ? const Color(0xFF141C2E)
+        : Colors.white;
+    final Color frameBorder = isDark
+        ? const Color(0xFF2B3956)
+        : const Color(0xFFE2E8F0);
+
     final Widget content = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -50,7 +64,7 @@ class AppEmptyState extends StatelessWidget {
           title,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: const Color(0xFF0F172A),
+            color: titleColor,
             fontSize: compact
                 ? MobileTypography.cardTitle(context)
                 : MobileTypography.sectionTitle(context),
@@ -62,7 +76,7 @@ class AppEmptyState extends StatelessWidget {
           message,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: const Color(0xFF64748B),
+            color: messageColor,
             fontSize: MobileTypography.bodySmall(context),
             fontWeight: FontWeight.w600,
             height: 1.45,
@@ -103,9 +117,9 @@ class AppEmptyState extends StatelessWidget {
               vertical: compact ? 22 : 28,
             ),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: frameColor,
               borderRadius: BorderRadius.circular(compact ? 18 : 24),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: frameBorder),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.04),

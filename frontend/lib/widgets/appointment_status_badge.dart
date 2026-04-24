@@ -15,6 +15,7 @@ class AppointmentStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visual = appointmentStatusVisual(status);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -22,9 +23,11 @@ class AppointmentStatusBadge extends StatelessWidget {
         vertical: compact ? 5 : 6,
       ),
       decoration: BoxDecoration(
-        color: visual.backgroundColor,
+        color: isDark ? const Color(0xFF1A253A) : visual.backgroundColor,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: visual.borderColor),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2B3956) : visual.borderColor,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -32,7 +35,7 @@ class AppointmentStatusBadge extends StatelessWidget {
           Icon(
             visual.icon,
             size: compact ? 14 : 16,
-            color: visual.foregroundColor,
+            color: isDark ? const Color(0xFFD7E4FF) : visual.foregroundColor,
           ),
           SizedBox(width: compact ? 6 : 8),
           Text(
@@ -40,7 +43,9 @@ class AppointmentStatusBadge extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: visual.foregroundColor,
+              color: isDark
+                  ? const Color(0xFFD7E4FF)
+                  : visual.foregroundColor,
               fontSize: compact ? 12 : 13,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.2,
