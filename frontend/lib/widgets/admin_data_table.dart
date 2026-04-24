@@ -33,21 +33,28 @@ class AdminDataTable extends StatefulWidget {
   static const Color _bodyTextColor = Color(0xFF334155);
   static const Color _borderColor = Color(0xFFE1E7F5);
   static const Color _stripedRowColor = Color(0xFFFAFBFF);
+  static const Color _darkHeadingBackgroundColor = Color(0xFF1A253A);
+  static const Color _darkHeadingTextColor = Color(0xFFE6EDF9);
+  static const Color _darkBodyTextColor = Color(0xFFD4DEEF);
+  static const Color _darkBorderColor = Color(0xFF2B3956);
+  static const Color _darkStripedRowColor = Color(0xFF182132);
 
   static Widget headerLabel(
+    BuildContext context,
     String label, {
     double? width,
     Alignment alignment = Alignment.centerLeft,
   }) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Widget text = Text(
       label.toUpperCase(),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w800,
         letterSpacing: 0.65,
-        color: _headingTextColor,
+        color: isDark ? _darkHeadingTextColor : _headingTextColor,
       ),
     );
 
@@ -55,13 +62,15 @@ class AdminDataTable extends StatefulWidget {
   }
 
   static Widget cellText(
+    BuildContext context,
     String text, {
     double? width,
     Alignment alignment = Alignment.centerLeft,
     int maxLines = 1,
     FontWeight fontWeight = FontWeight.w600,
-    Color color = _bodyTextColor,
+    Color? color,
   }) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Widget label = Text(
       text,
       maxLines: maxLines,
@@ -70,17 +79,22 @@ class AdminDataTable extends StatefulWidget {
         fontSize: 14,
         height: 1.35,
         fontWeight: fontWeight,
-        color: color,
+        color: color ?? (isDark ? _darkBodyTextColor : _bodyTextColor),
       ),
     );
 
     return _wrapCell(label, width: width, alignment: alignment);
   }
 
-  static WidgetStateProperty<Color?> rowColor(int index) {
+  static WidgetStateProperty<Color?> rowColor(BuildContext context, int index) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
       if (states.contains(WidgetState.selected)) {
-        return const Color(0xFFEBF0FF);
+        return isDark ? const Color(0xFF23314B) : const Color(0xFFEBF0FF);
+      }
+
+      if (isDark) {
+        return index.isEven ? const Color(0xFF141C2E) : _darkStripedRowColor;
       }
 
       return index.isEven ? Colors.white : _stripedRowColor;
@@ -164,26 +178,34 @@ class _AdminDataTableState extends State<AdminDataTable> {
   }
 
   Widget _buildTable() {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: widget.contentPadding,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: DataTableTheme(
-          data: const DataTableThemeData(
+          data: DataTableThemeData(
             headingRowColor: WidgetStatePropertyAll<Color>(
-              AdminDataTable._headingBackgroundColor,
+              isDark
+                  ? AdminDataTable._darkHeadingBackgroundColor
+                  : AdminDataTable._headingBackgroundColor,
             ),
             headingTextStyle: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.65,
-              color: AdminDataTable._headingTextColor,
+              color: isDark
+                  ? AdminDataTable._darkHeadingTextColor
+                  : AdminDataTable._headingTextColor,
             ),
             dataTextStyle: TextStyle(
               fontSize: 14,
               height: 1.35,
               fontWeight: FontWeight.w600,
-              color: AdminDataTable._bodyTextColor,
+              color: isDark
+                  ? AdminDataTable._darkBodyTextColor
+                  : AdminDataTable._bodyTextColor,
             ),
             dividerThickness: 0.75,
           ),
@@ -194,7 +216,9 @@ class _AdminDataTableState extends State<AdminDataTable> {
             horizontalMargin: widget.horizontalMargin,
             columnSpacing: widget.columnSpacing,
             border: TableBorder.all(
-              color: AdminDataTable._borderColor,
+              color: isDark
+                  ? AdminDataTable._darkBorderColor
+                  : AdminDataTable._borderColor,
               width: 0.75,
               borderRadius: BorderRadius.circular(16),
             ),

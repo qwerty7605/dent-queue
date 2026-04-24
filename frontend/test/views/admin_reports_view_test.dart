@@ -126,6 +126,7 @@ class _FakeBaseService extends Fake implements BaseService {
   Future<http.Response> getRaw(
     String path, {
     Map<String, String> headers = const <String, String>{},
+    Duration? timeout,
   }) async {
     rawRequestedPaths.add(path);
     lastRawHeaders = headers;
@@ -242,6 +243,17 @@ class _FakeBaseService extends Fake implements BaseService {
   }
 }
 
+class _FailingTrendBaseService extends _FakeBaseService {
+  @override
+  Future<T> getJson<T>(String path, T Function(dynamic json) mapper) async {
+    if (path.contains('reports/trends')) {
+      throw Exception('trend failure');
+    }
+
+    return super.getJson(path, mapper);
+  }
+}
+
 void main() {
   setUp(() {
     ShortTermCache.clear();
@@ -279,10 +291,10 @@ void main() {
         find.byKey(const Key('report-filter-booking-type')),
         findsOneWidget,
       );
-      expect(find.text('Filters Live'), findsOneWidget);
+      expect(find.text('REPORT CONFIGURATION'), findsOneWidget);
       expect(find.text('Prepared For API'), findsNothing);
-      expect(find.text('Apply Filters'), findsOneWidget);
-      expect(find.text('Reset'), findsOneWidget);
+      expect(find.text('APPLY FILTERS'), findsOneWidget);
+      expect(find.text('RESET'), findsOneWidget);
       expect(find.textContaining('stored locally for now'), findsNothing);
 
       final Finder statusField = find.byKey(
@@ -309,11 +321,15 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('report-filter-status-option-cancelled-by-doctor')),
+        find.byKey(
+          const Key('report-filter-status-option-cancelled-by-doctor'),
+        ),
         findsOneWidget,
       );
       expect(
-        find.byKey(const Key('report-filter-status-option-reschedule-required')),
+        find.byKey(
+          const Key('report-filter-status-option-reschedule-required'),
+        ),
         findsOneWidget,
       );
 
@@ -466,7 +482,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Appointment Trends'), findsOneWidget);
+      expect(find.text('Appointment Volume Trends'), findsOneWidget);
       expect(find.byKey(const Key('appointment-trends-chart')), findsOneWidget);
       expect(find.text('Daily view'), findsOneWidget);
       expect(find.text('2026-04-01'), findsWidgets);
@@ -615,6 +631,37 @@ void main() {
     expect(find.text('No data'), findsOneWidget);
     expect(find.byKey(const Key('appointment-trends-chart')), findsOneWidget);
   });
+
+  testWidgets(
+    'shows the trend error state without drawing placeholder labels underneath',
+    (WidgetTester tester) async {
+      final BaseService baseService = _FailingTrendBaseService();
+      final AdminDashboardService adminDashboardService = AdminDashboardService(
+        baseService,
+      );
+      final AppointmentService appointmentService = AppointmentService(
+        baseService,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AdminReportsView(
+              adminDashboardService: adminDashboardService,
+              appointmentService: appointmentService,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Unable to load appointment trends.'), findsOneWidget);
+      expect(find.text('Unavailable'), findsOneWidget);
+      expect(find.text('Mon'), findsNothing);
+      expect(find.text('Tue'), findsNothing);
+    },
+  );
 
   testWidgets(
     'skips detailed records requests when the detailed table is hidden',
