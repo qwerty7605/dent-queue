@@ -98,29 +98,56 @@ class ReportController extends Controller
         ]);
     }
 
-    private function downloadExcel(array $headers, iterable $records): StreamedResponse
+    private function downloadExcel(array $headers, iterable $records): Response
     {
         $filename = 'report-records-'.now()->format('Ymd-His').'.xls';
-        return response()->streamDownload(function () use ($headers, $records): void {
-            echo '<html><head><meta charset="UTF-8"></head><body><table border="1"><tr>';
-            foreach ($headers as $header) {
-                echo '<th>'.htmlspecialchars($this->sanitizeExportValue($header), ENT_QUOTES, 'UTF-8').'</th>';
-            }
-            echo '</tr>';
+        $content = $this->buildExcelDocument($headers, $records);
 
-            foreach ($records as $record) {
-                echo '<tr>';
-                foreach ($this->exportRow($record) as $value) {
-                    echo '<td>'.htmlspecialchars($this->sanitizeExportValue($value), ENT_QUOTES, 'UTF-8').'</td>';
-                }
-                echo '</tr>';
-            }
-
-            echo '</table></body></html>';
-        }, $filename, [
+        return response($content, 200, [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => sprintf('attachment; filename="%s"', $filename),
             'Access-Control-Expose-Headers' => 'Content-Disposition, Content-Type',
         ]);
+    }
+
+    private function buildExcelDocument(array $headers, iterable $records): string
+    {
+        $xml = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<?mso-application progid="Excel.Sheet"?>',
+            '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
+            '<Worksheet ss:Name="Reports">',
+            '<Table>',
+            '<Row>',
+        ];
+
+        foreach ($headers as $header) {
+            $xml[] = sprintf(
+                '<Cell><Data ss:Type="String">%s</Data></Cell>',
+                htmlspecialchars($this->sanitizeExportValue($header), ENT_QUOTES, 'UTF-8'),
+            );
+        }
+
+        $xml[] = '</Row>';
+
+        foreach ($records as $record) {
+            $xml[] = '<Row>';
+
+            foreach ($this->exportRow($record) as $value) {
+                $xml[] = sprintf(
+                    '<Cell><Data ss:Type="String">%s</Data></Cell>',
+                    htmlspecialchars($this->sanitizeExportValue($value), ENT_QUOTES, 'UTF-8'),
+                );
+            }
+
+            $xml[] = '</Row>';
+        }
+
+        $xml[] = '</Table>';
+        $xml[] = '</Worksheet>';
+        $xml[] = '</Workbook>';
+
+        return implode('', $xml);
     }
 
     private function downloadPdf(array $headers, array $records, array $filters, int $totalMatchingRecords): Response

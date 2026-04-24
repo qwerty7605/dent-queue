@@ -123,6 +123,7 @@ class NotificationService
         $recipientId = $notification instanceof PatientNotification
             ? (int) ($notification->patient_id ?? 0)
             : (int) ($notification->user_id ?? 0);
+        $action = $this->resolveNotificationAction($notification);
 
         return [
             'notification_id' => (int) $notification->id,
@@ -140,8 +141,31 @@ class NotificationService
                 ? (int) $notification->appointment_id
                 : null,
             'type' => (string) $notification->type,
+            'action_type' => $action['type'],
+            'action_label' => $action['label'],
             'read_at' => $readAt,
             'timestamp_created' => $createdAt,
+        ];
+    }
+
+    /**
+     * @return array{type: ?string, label: ?string}
+     */
+    private function resolveNotificationAction(Model $notification): array
+    {
+        if (
+            (string) $notification->type === 'appointment_reschedule_required'
+            && $notification->appointment_id !== null
+        ) {
+            return [
+                'type' => 'reschedule',
+                'label' => 'Reschedule',
+            ];
+        }
+
+        return [
+            'type' => null,
+            'label' => null,
         ];
     }
 

@@ -212,19 +212,19 @@ class DoctorAvailabilityApiTest extends TestCase
             ->firstOrFail();
 
         $this->assertStringContainsString('doctor is unavailable', (string) $notification->message);
-        $this->assertStringContainsString('Reschedule Required', (string) $notification->message);
+        $this->assertStringContainsString('needs attention', (string) $notification->message);
         $this->assertStringContainsString('Emergency leave', (string) $notification->message);
         $this->assertStringContainsString($date, (string) $notification->message);
         $this->assertStringContainsString('10:00', (string) $notification->message);
-        $this->assertStringContainsString('Please contact the clinic to reschedule.', (string) $notification->message);
+        $this->assertStringContainsString('Please choose a new appointment time.', (string) $notification->message);
 
         $cancelledNotification = PatientNotification::query()
             ->where('appointment_id', (int) $affectedAppointmentTwo->id)
             ->firstOrFail();
 
-        $this->assertStringContainsString('Cancelled By Doctor', (string) $cancelledNotification->message);
+        $this->assertStringContainsString('doctor is unavailable', (string) $cancelledNotification->message);
         $this->assertStringContainsString('follow-up on the cancellation', (string) $cancelledNotification->message);
-        $this->assertStringNotContainsString('Please contact the clinic to reschedule.', (string) $cancelledNotification->message);
+        $this->assertStringNotContainsString('Please choose a new appointment time.', (string) $cancelledNotification->message);
 
         Sanctum::actingAs($affectedPatientOne);
 

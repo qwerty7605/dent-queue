@@ -35,7 +35,7 @@ class AppointmentActionCacheInvalidationTest extends TestCase
         $patient = $this->createUserWithRole('Patient');
         $patientRecord = PatientRecord::resolveForUser($patient);
         $service = $this->createService('AGD-127 Create Cache');
-        $date = '2026-04-21';
+        $date = now()->next('Monday')->format('Y-m-d');
 
         Sanctum::actingAs($admin);
 
@@ -93,7 +93,7 @@ class AppointmentActionCacheInvalidationTest extends TestCase
         $patient = $this->createUserWithRole('Patient');
         $patientRecord = PatientRecord::resolveForUser($patient);
         $service = $this->createService('AGD-127 Update Cache');
-        $date = '2026-04-22';
+        $date = now()->next('Tuesday')->format('Y-m-d');
 
         $appointment = app(AppointmentService::class)->createAppointment([
             'patient_id' => (int) $patientRecord->id,
@@ -154,7 +154,7 @@ class AppointmentActionCacheInvalidationTest extends TestCase
         $patient = $this->createUserWithRole('Patient');
         $patientRecord = PatientRecord::resolveForUser($patient);
         $service = $this->createService('AGD-127 Cancel Cache');
-        $date = '2026-04-23';
+        $date = now()->next('Wednesday')->format('Y-m-d');
 
         $appointment = app(AppointmentService::class)->createAppointment([
             'patient_id' => (int) $patientRecord->id,

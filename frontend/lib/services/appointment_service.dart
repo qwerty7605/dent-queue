@@ -301,6 +301,19 @@ class AppointmentService {
     );
   }
 
+  Future<Map<String, dynamic>> getPatientAppointment(int id) async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.patientAppointment(id),
+      (data) => data,
+    );
+
+    if (response is Map<String, dynamic> && response['appointment'] is Map) {
+      return Map<String, dynamic>.from(response['appointment'] as Map);
+    }
+
+    throw StateError('Appointment details response is missing appointment data.');
+  }
+
   Future<List<Map<String, dynamic>>> getMedicalHistory() async {
     final dynamic cached = ShortTermCache.read<dynamic>(
       _medicalHistoryCache,

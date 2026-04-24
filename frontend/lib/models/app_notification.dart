@@ -7,6 +7,8 @@ class AppNotification {
     required this.isRead,
     required this.type,
     this.relatedAppointmentId,
+    this.actionType,
+    this.actionLabel,
   });
 
   final int id;
@@ -16,6 +18,8 @@ class AppNotification {
   final bool isRead;
   final String type;
   final int? relatedAppointmentId;
+  final String? actionType;
+  final String? actionLabel;
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     DateTime? parseDate(dynamic value) {
@@ -56,6 +60,8 @@ class AppNotification {
       relatedAppointmentId: parseNullableInt(
         json['related_appointment_id'] ?? json['appointment_id'],
       ),
+      actionType: json['action_type']?.toString(),
+      actionLabel: json['action_label']?.toString(),
     );
   }
 
@@ -67,6 +73,8 @@ class AppNotification {
     bool? isRead,
     String? type,
     int? relatedAppointmentId,
+    String? actionType,
+    String? actionLabel,
   }) {
     return AppNotification(
       id: id ?? this.id,
@@ -76,6 +84,8 @@ class AppNotification {
       isRead: isRead ?? this.isRead,
       type: type ?? this.type,
       relatedAppointmentId: relatedAppointmentId ?? this.relatedAppointmentId,
+      actionType: actionType ?? this.actionType,
+      actionLabel: actionLabel ?? this.actionLabel,
     );
   }
 }

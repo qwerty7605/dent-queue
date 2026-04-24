@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api_exception.dart';
 import '../core/token_storage.dart';
 import '../services/auth_service.dart';
+import '../widgets/app_confirmation_dialog.dart';
 import 'patient_dashboard_view.dart';
 import 'staff_dashboard_view.dart';
 import 'admin_dashboard_view.dart';
@@ -52,6 +53,31 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Future<void> _logout() async {
+    if (_loggingOut) {
+      return;
+    }
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AppConfirmationDialog(
+          icon: Icons.logout_rounded,
+          iconBackgroundColor: const Color(0xFFF2F4FB),
+          iconColor: const Color(0xFF223C7A),
+          title: 'Logout?',
+          message: 'Are you sure you want to exit the app?',
+          secondaryLabel: 'Cancel',
+          primaryLabel: 'Logout',
+          onSecondaryPressed: () => Navigator.of(dialogContext).pop(false),
+          onPrimaryPressed: () => Navigator.of(dialogContext).pop(true),
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
     setState(() {
       _loggingOut = true;
     });

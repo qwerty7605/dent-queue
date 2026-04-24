@@ -284,7 +284,7 @@ class DoctorAvailabilityService
         }
 
         $workingDays = $settings['working_days'] ?? [];
-        if (is_array($workingDays) && ! in_array($dayName, $workingDays, true)) {
+        if (is_array($workingDays) && $workingDays !== [] && ! in_array($dayName, $workingDays, true)) {
             return null;
         }
 
@@ -449,11 +449,10 @@ class DoctorAvailabilityService
         $reason = trim((string) ($schedule->reason ?? ''));
 
         $message = sprintf(
-            'Your appointment for %s on %s at %s is no longer available because the doctor is unavailable. Status updated to %s.',
+            'Your appointment for %s on %s at %s needs attention because the doctor is unavailable at that time.',
             $serviceName !== '' ? $serviceName : 'your appointment',
             (string) $appointment->appointment_date,
             (string) $appointment->time_slot,
-            AppointmentService::humanStatusLabel((string) $appointment->status),
         );
 
         if ($reason !== '') {
@@ -464,7 +463,7 @@ class DoctorAvailabilityService
             return $message . ' The clinic will contact you for follow-up on the cancellation.';
         }
 
-        return $message . ' Please contact the clinic to reschedule.';
+        return $message . ' Please choose a new appointment time.';
     }
 
     /**

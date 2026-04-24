@@ -11,6 +11,7 @@ class Endpoints {
 
   static const services = '$_base/patient/services';
   static const appointments = '$_base/patient/appointments';
+  static String patientAppointment(int id) => '$_base/patient/appointments/$id';
   static const medicalHistory = '$_base/patient/appointments/history';
   static String availabilitySlots(String date, {int? ignoreAppointmentId}) =>
       _withQueryParameters('$_base/availability/slots', <String, String>{

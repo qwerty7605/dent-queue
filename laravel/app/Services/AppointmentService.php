@@ -526,22 +526,32 @@ class AppointmentService
                 ]);
             }
 
-            DB::transaction(function () use ($appointment, $validatedBooking, $originalDate, $targetDate, $currentStatus): void {
-                $appointment->forceFill([
-                    'appointment_date' => $validatedBooking['appointment_date'],
-                    'time_slot' => $validatedBooking['time_slot'],
-                    'status' => in_array($currentStatus, [self::STATUS_CANCELLED_BY_DOCTOR, self::STATUS_RESCHEDULE_REQUIRED], true)
-                        ? self::STATUS_PENDING
-                        : $appointment->status,
-                    'notes' => $validatedBooking['notes'] ?? $appointment->notes,
-                ])->save();
+            try {
+                DB::transaction(function () use ($appointment, $validatedBooking, $originalDate, $targetDate, $currentStatus): void {
+                    $appointment->forceFill([
+                        'appointment_date' => $validatedBooking['appointment_date'],
+                        'time_slot' => $validatedBooking['time_slot'],
+                        'status' => in_array($currentStatus, [self::STATUS_CANCELLED_BY_DOCTOR, self::STATUS_RESCHEDULE_REQUIRED], true)
+                            ? self::STATUS_PENDING
+                            : $appointment->status,
+                        'notes' => $validatedBooking['notes'] ?? $appointment->notes,
+                    ])->save();
 
-                if ($originalDate !== $targetDate) {
-                    $this->queueService->syncQueueNumbersForDate($originalDate);
+                    if ($originalDate !== $targetDate) {
+                        $this->queueService->syncQueueNumbersForDate($originalDate);
+                    }
+
+                    $this->queueService->generateQueueNumber((int) $appointment->id);
+                });
+            } catch (QueryException $exception) {
+                if ($this->isUniqueConstraintViolation($exception)) {
+                    throw ValidationException::withMessages([
+                        'time_slot' => ['You already have an appointment for the selected date and time. Please choose another slot.'],
+                    ]);
                 }
 
-                $this->queueService->generateQueueNumber((int) $appointment->id);
-            });
+                throw $exception;
+            }
 
             Log::info('appointment.rescheduled.by_patient', [
                 'appointment_id' => (int) $appointment->id,
@@ -554,7 +564,10 @@ class AppointmentService
                 'occurred_at' => now()->toISOString(),
             ]);
 
-            return $this->loadAppointmentForResponse((int) $appointment->id);
+            $updatedAppointment = $this->loadAppointmentForResponse((int) $appointment->id);
+            $this->createRescheduleSuccessNotification($updatedAppointment);
+
+            return $updatedAppointment;
         };
 
         if ($originalDate === $targetDate) {
@@ -706,7 +719,17 @@ class AppointmentService
 
     public function getPatientAppointments(int $patientId)
     {
-        return Appointment::with(['patient', 'queue', 'service'])
+        return Appointment::with([
+            'patient',
+            'queue',
+            'service',
+            'patientNotifications' => function ($query) {
+                $query->whereIn('type', [
+                    'appointment_reschedule_required',
+                    'appointment_cancelled_by_doctor',
+                ])->latest('id');
+            },
+        ])
             ->where('patient_id', $patientId)
             ->whereIn('status', self::ACTIVE_BOOKING_STATUSES)
             ->orderBy('appointment_date')
@@ -840,6 +863,27 @@ class AppointmentService
                 'Your appointment for %s on %s has been approved.',
                 $this->resolveServiceType($appointment->service?->name, (int) $appointment->service_id),
                 (string) $appointment->appointment_date,
+            ),
+        ]);
+    }
+
+    private function createRescheduleSuccessNotification(Appointment $appointment): void
+    {
+        $appointment->loadMissing(['patient', 'service']);
+        if ((int) ($appointment->patient?->user_id ?? 0) === 0) {
+            return;
+        }
+
+        PatientNotification::create([
+            'patient_id' => (int) $appointment->patient_id,
+            'appointment_id' => (int) $appointment->id,
+            'type' => 'appointment_rescheduled',
+            'title' => 'Appointment Rescheduled',
+            'message' => sprintf(
+                'Your appointment for %s has been rescheduled to %s at %s.',
+                $this->resolveServiceType($appointment->service?->name, (int) $appointment->service_id),
+                (string) $appointment->appointment_date,
+                (string) $appointment->time_slot,
             ),
         ]);
     }

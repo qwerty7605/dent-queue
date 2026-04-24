@@ -47,6 +47,7 @@ class AppointmentSuccessDialog extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(28, 34, 28, 26),
       bodyPadding: EdgeInsets.zero,
       footerPadding: const EdgeInsets.only(top: 28),
+      maxHeightFactor: 0.84,
       footer: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
@@ -62,6 +63,7 @@ class AppointmentSuccessDialog extends StatelessWidget {
           ),
           child: Text(
             buttonLabel,
+            textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
         ),
@@ -125,7 +127,10 @@ class AppointmentSuccessDialog extends StatelessWidget {
               color: isDark ? const Color(0xFF17243A) : const Color(0xFFF8F9FE),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: Row(
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
                   'QUEUE STATUS',
@@ -138,7 +143,6 @@ class AppointmentSuccessDialog extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
