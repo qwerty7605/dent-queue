@@ -48,8 +48,6 @@ class AdminReportsView extends StatefulWidget {
 
 class _AdminReportsViewState extends State<AdminReportsView> {
   static const Color _reportAccent = Color(0xFF1A2F64);
-  static const Color _reportAccentSoft = Color(0xFF6A9A8B);
-  static const Color _reportHighlight = Color(0xFF9CB5E8);
   static const Color _exportButtonColor = Color(0xFF1A2F64);
   static const List<Color> _reportCardPalette = <Color>[
     Color(0xFF1A2F64),
@@ -57,7 +55,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     Color(0xFF6E9A92),
     Color(0xFF64748B),
   ];
-  static const double _reportSectionRadius = 3;
+  static const double _reportSectionRadius = 20;
   static const int _detailedRecordsPageSize = 25;
   static const List<String> _reportStatuses = <String>[
     'Pending',
@@ -110,6 +108,19 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     'cancelled_by_doctor': 0,
     'reschedule_required': 0,
   };
+  bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
+  Color get _surfaceColor =>
+      _isDarkMode ? const Color(0xFF162033) : Colors.white;
+  Color get _surfaceAltColor =>
+      _isDarkMode ? const Color(0xFF1B2740) : const Color(0xFFFBFCFF);
+  Color get _fieldFillColor =>
+      _isDarkMode ? const Color(0xFF1E2B45) : const Color(0xFFF8FAFF);
+  Color get _borderColor =>
+      _isDarkMode ? const Color(0xFF30415F) : const Color(0xFFE7EDF8);
+  Color get _textColor =>
+      _isDarkMode ? const Color(0xFFEAF1FF) : Colors.black87;
+  Color get _mutedTextColor =>
+      _isDarkMode ? const Color(0xFFAAB8D4) : const Color(0xFF97A6C3);
 
   @override
   void initState() {
@@ -326,24 +337,6 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     return filters;
   }
 
-  int get _activeFilterCount => _activeReportFilters.length;
-
-  String get _reportFilterStateTitle {
-    if (_hasAppliedReportFilters) {
-      return '$_activeFilterCount active filter${_activeFilterCount == 1 ? '' : 's'}';
-    }
-
-    return 'Showing all report data';
-  }
-
-  String get _reportFilterStateBody {
-    if (_hasAppliedReportFilters) {
-      return 'Cards, appointment trends, status distribution, and detailed records are showing the current filtered results.';
-    }
-
-    return 'No filters are active. Apply a date range, status, or booking type to narrow the report results.';
-  }
-
   String get _reportExportScopeTitle {
     if (_hasAppliedReportFilters) {
       return 'Current report filters will be exported';
@@ -371,7 +364,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   _AppointmentTrendPoint _mapTrendPoint(Map<String, dynamic> row) {
     return _AppointmentTrendPoint(
       label: row['label']?.toString() ?? '-',
-      count: _toInt(row['count']),
+      count: math.max(0, _toInt(row['count'])),
     );
   }
 
@@ -384,7 +377,12 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       return value.toInt();
     }
 
-    return int.tryParse(value?.toString() ?? '') ?? 0;
+    final String sanitized = (value?.toString() ?? '').replaceAll(
+      RegExp(r'[^0-9-]'),
+      '',
+    );
+
+    return int.tryParse(sanitized) ?? 0;
   }
 
   Future<void> _exportReport(ReportExportFormat format) async {
@@ -532,11 +530,11 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF8FBF8),
+                          color: _surfaceAltColor,
                           borderRadius: BorderRadius.circular(
                             _reportSectionRadius,
                           ),
-                          border: Border.all(color: const Color(0xFFDCE7DE)),
+                          border: Border.all(color: _borderColor),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -552,10 +550,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                                 Expanded(
                                   child: Text(
                                     _reportExportScopeTitle,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w800,
-                                      color: Colors.black87,
+                                      color: _textColor,
                                     ),
                                   ),
                                 ),
@@ -564,10 +562,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                             const SizedBox(height: 10),
                             Text(
                               _reportExportScopeBody,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF5E6C63),
+                                color: _mutedTextColor,
                                 height: 1.4,
                               ),
                             ),
@@ -587,20 +585,18 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                                   vertical: 12,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: _surfaceColor,
                                   borderRadius: BorderRadius.circular(
                                     _reportSectionRadius,
                                   ),
-                                  border: Border.all(
-                                    color: const Color(0xFFDCE7DE),
-                                  ),
+                                  border: Border.all(color: _borderColor),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'All dates, statuses, and booking types are included in this export.',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF5E6C63),
+                                    color: _mutedTextColor,
                                   ),
                                 ),
                               ),
@@ -638,9 +634,43 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return _buildEmbeddedContent(context);
+    }
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        MobileTypography.isPhone(context) ? 14 : 20,
+        16,
+        MobileTypography.isPhone(context) ? 14 : 20,
+        20,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1540),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildReportFilterSection(),
+              const SizedBox(height: 28),
+              _buildAppointmentTrendsSection(),
+              const SizedBox(height: 28),
+              _buildDistributionChart(),
+              if (widget.showDetailedRecords) ...[
+                const SizedBox(height: 28),
+                _buildDetailedReportTable(),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmbeddedContent(BuildContext context) {
     final bool isPhone = MobileTypography.isPhone(context);
 
-    final content = Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (isPhone)
@@ -648,14 +678,14 @@ class _AdminReportsViewState extends State<AdminReportsView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                widget.embedded ? 'Detailed Report' : 'Reports',
+                'Detailed Report',
                 style: TextStyle(
-                  fontSize: MobileTypography.pageTitle(context),
+                  fontSize: MobileTypography.pageTitle(context) - 4,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: _isDarkMode ? const Color(0xFFEAF1FF) : Colors.black,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -680,11 +710,11 @@ class _AdminReportsViewState extends State<AdminReportsView> {
             children: [
               Expanded(
                 child: Text(
-                  widget.embedded ? 'Detailed Report' : 'Reports',
+                  'Detailed Report',
                   style: TextStyle(
-                    fontSize: MobileTypography.pageTitle(context),
+                    fontSize: MobileTypography.pageTitle(context) - 4,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    color: _isDarkMode ? const Color(0xFFEAF1FF) : Colors.black,
                   ),
                 ),
               ),
@@ -707,10 +737,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               ),
             ],
           ),
-        SizedBox(height: MobileTypography.isPhone(context) ? 24 : 48),
+        SizedBox(height: MobileTypography.isPhone(context) ? 18 : 28),
         Wrap(
-          spacing: 32,
-          runSpacing: 32,
+          spacing: 18,
+          runSpacing: 18,
           alignment: WrapAlignment.start,
           children: [
             _buildReportCard(
@@ -769,26 +799,17 @@ class _AdminReportsViewState extends State<AdminReportsView> {
             ),
           ],
         ),
-        const SizedBox(height: 56),
+        const SizedBox(height: 28),
         _buildReportFilterSection(),
-        const SizedBox(height: 56),
+        const SizedBox(height: 28),
         _buildAppointmentTrendsSection(),
-        const SizedBox(height: 56),
+        const SizedBox(height: 28),
         _buildDistributionChart(),
         if (widget.showDetailedRecords) ...[
-          const SizedBox(height: 56),
+          const SizedBox(height: 28),
           _buildDetailedReportTable(),
         ],
       ],
-    );
-
-    if (widget.embedded) {
-      return content;
-    }
-
-    return SingleChildScrollView(
-      padding: MobileTypography.screenPadding(context),
-      child: content,
     );
   }
 
@@ -797,305 +818,255 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       key: const Key('report-filters-section'),
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(_reportSectionRadius),
-        border: const Border(
-          top: BorderSide(color: _reportHighlight, width: 6),
-        ),
+        color: _surfaceColor,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: _borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+            color: (_isDarkMode ? Colors.black : const Color(0xFF17305F))
+                .withValues(alpha: _isDarkMode ? 0.24 : 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            final bool compactHeader = constraints.maxWidth < 900;
-            final double fieldWidth = _reportFilterFieldWidth(
-              constraints.maxWidth,
-            );
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints outerConstraints) {
+          final EdgeInsets sectionPadding = _reportSectionPadding(
+            outerConstraints.maxWidth,
+          );
 
-            final Widget header = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7E0),
-                    borderRadius: BorderRadius.circular(_reportSectionRadius),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.filter_alt_outlined,
-                        size: 16,
-                        color: Color(0xFF8A6B10),
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Filters Live',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF8A6B10),
+          return Padding(
+            padding: sectionPadding,
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final bool compactHeader = constraints.maxWidth < 980;
+                final double fieldWidth = _reportFilterHorizontalFieldWidth(
+                  constraints.maxWidth,
+                );
+
+                final Widget header = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        _SectionIconBadge(
+                          icon: Icons.filter_alt_outlined,
+                          iconColor: _reportAccent,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Report Filters',
-                  style: TextStyle(
-                    fontSize: MobileTypography.sectionTitle(context),
-                    fontWeight: FontWeight.w900,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Filter report cards, appointment trends, status distribution, and detailed records by date range, status, and booking type.',
-                  style: TextStyle(
-                    fontSize: MobileTypography.bodySmall(context),
-                    height: 1.5,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF5E6C63),
-                  ),
-                ),
-              ],
-            );
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'REPORT CONFIGURATION',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: _reportAccent,
+                              letterSpacing: 1.6,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: false,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
 
-            final Widget actions = Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                OutlinedButton.icon(
-                  key: const Key('report-filter-reset'),
-                  onPressed: () async {
-                    await _resetReportFilters();
-                  },
-                  icon: const Icon(Icons.restart_alt),
-                  label: const Text(
-                    'Reset',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF55655B),
-                    side: const BorderSide(color: Color(0xFFD2DCD4)),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(_reportSectionRadius),
-                    ),
-                  ),
-                ),
-                FilledButton.icon(
-                  key: const Key('report-filter-apply'),
-                  onPressed: () async {
-                    await _applyReportFilters();
-                  },
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text(
-                    'Apply Filters',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _reportAccent,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(_reportSectionRadius),
-                    ),
-                  ),
-                ),
-              ],
-            );
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (compactHeader)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [header, const SizedBox(height: 20), actions],
-                  )
-                else
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: header),
-                      const SizedBox(width: 24),
-                      actions,
-                    ],
-                  ),
-                const SizedBox(height: 24),
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
+                final Widget primaryActions = Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
                   children: [
                     SizedBox(
-                      width: fieldWidth,
-                      child: _buildDateFilterField(
-                        fieldKey: const Key('report-filter-start-date'),
-                        label: 'Start Date',
-                        placeholder: 'Select start date',
-                        value: _draftStartDate,
-                        onTap: () => _pickReportFilterDate(isStartDate: true),
-                      ),
-                    ),
-                    SizedBox(
-                      width: fieldWidth,
-                      child: _buildDateFilterField(
-                        fieldKey: const Key('report-filter-end-date'),
-                        label: 'End Date',
-                        placeholder: 'Select end date',
-                        value: _draftEndDate,
-                        onTap: () => _pickReportFilterDate(isStartDate: false),
-                      ),
-                    ),
-                    SizedBox(
-                      width: fieldWidth,
-                      child: _buildDropdownFilterField(
-                        fieldKey: const Key('report-filter-status-field'),
-                        containerKey: const Key('report-filter-status'),
-                        optionPrefix: 'report-filter-status',
-                        label: 'Status',
-                        hint: 'Select status',
-                        icon: Icons.flag_outlined,
-                        value: _draftStatus,
-                        options: _reportStatuses,
-                        onChanged: (String? value) {
-                          setState(() {
-                            _draftStatus = value;
-                          });
+                      height: 40,
+                      child: TextButton(
+                        key: const Key('report-filter-reset'),
+                        onPressed: () async {
+                          await _resetReportFilters();
                         },
+                        style: TextButton.styleFrom(
+                          foregroundColor: _mutedTextColor,
+                          backgroundColor: _fieldFillColor,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'RESET',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            letterSpacing: 1.4,
+                          ),
+                        ),
                       ),
                     ),
                     SizedBox(
-                      width: fieldWidth,
-                      child: _buildDropdownFilterField(
-                        fieldKey: const Key('report-filter-booking-type-field'),
-                        containerKey: const Key('report-filter-booking-type'),
-                        optionPrefix: 'report-filter-booking-type',
-                        label: 'Booking Type',
-                        hint: 'Select booking type',
-                        icon: Icons.meeting_room_outlined,
-                        value: _draftBookingType,
-                        options: _reportBookingTypes,
-                        onChanged: (String? value) {
-                          setState(() {
-                            _draftBookingType = value;
-                          });
+                      height: 40,
+                      child: FilledButton(
+                        key: const Key('report-filter-apply'),
+                        onPressed: () async {
+                          await _applyReportFilters();
                         },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _reportAccent,
+                          foregroundColor: Colors.white,
+                          elevation: 8,
+                          shadowColor: _reportAccent.withValues(alpha: 0.22),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'APPLY FILTERS',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FBF8),
-                    borderRadius: BorderRadius.circular(_reportSectionRadius),
-                    border: Border.all(color: const Color(0xFFDCE7DE)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                );
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (compactHeader)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [header, const SizedBox(height: 18)],
+                      )
+                    else
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [Expanded(child: header)],
+                      ),
+                    const SizedBox(height: 22),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.integration_instructions_outlined,
-                            size: 18,
-                            color: _reportAccent,
+                          SizedBox(
+                            width: fieldWidth,
+                            child: _buildDateFilterField(
+                              fieldKey: const Key('report-filter-start-date'),
+                              label: 'START DATE',
+                              placeholder: 'dd/mm/yyyy',
+                              value: _draftStartDate,
+                              onTap: () =>
+                                  _pickReportFilterDate(isStartDate: true),
+                            ),
                           ),
-                          const SizedBox(width: 10),
-                          Text(
-                            _reportFilterStateTitle,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.black87,
+                          const SizedBox(width: 18),
+                          SizedBox(
+                            width: fieldWidth,
+                            child: _buildDateFilterField(
+                              fieldKey: const Key('report-filter-end-date'),
+                              label: 'END DATE',
+                              placeholder: 'dd/mm/yyyy',
+                              value: _draftEndDate,
+                              onTap: () =>
+                                  _pickReportFilterDate(isStartDate: false),
+                            ),
+                          ),
+                          const SizedBox(width: 18),
+                          SizedBox(
+                            width: fieldWidth,
+                            child: _buildDropdownFilterField(
+                              fieldKey: const Key('report-filter-status-field'),
+                              containerKey: const Key('report-filter-status'),
+                              optionPrefix: 'report-filter-status',
+                              label: 'STATUS',
+                              hint: 'All Statuses',
+                              value: _draftStatus,
+                              options: _reportStatuses,
+                              onChanged: (String? value) {
+                                setState(() {
+                                  _draftStatus = value;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 18),
+                          SizedBox(
+                            width: fieldWidth,
+                            child: _buildDropdownFilterField(
+                              fieldKey: const Key(
+                                'report-filter-booking-type-field',
+                              ),
+                              containerKey: const Key(
+                                'report-filter-booking-type',
+                              ),
+                              optionPrefix: 'report-filter-booking-type',
+                              label: 'BOOKING TYPE',
+                              hint: 'All Bookings',
+                              value: _draftBookingType,
+                              options: _reportBookingTypes,
+                              onChanged: (String? value) {
+                                setState(() {
+                                  _draftBookingType = value;
+                                });
+                              },
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        _reportFilterStateBody,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.45,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF647167),
-                        ),
+                    ),
+                    const SizedBox(height: 20),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          primaryActions,
+                          const SizedBox(width: 18),
+                          _buildReportExportAction(),
+                        ],
                       ),
-                      const SizedBox(height: 14),
-                      if (_hasAppliedReportFilters)
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: _appliedFilterChips.map((chip) {
-                            return _buildAppliedFilterChip(chip);
-                          }).toList(),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(
-                              _reportSectionRadius,
-                            ),
-                            border: Border.all(color: const Color(0xFFDCE7DE)),
-                          ),
-                          child: const Text(
-                            'All appointments are included in the current report view.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF5E6C63),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
 
-  double _reportFilterFieldWidth(double maxWidth) {
+  double _reportFilterHorizontalFieldWidth(double maxWidth) {
+    if (maxWidth >= 1440) {
+      return 260;
+    }
+
     if (maxWidth >= 1200) {
-      return (maxWidth - 48) / 4;
+      return 236;
     }
 
-    if (maxWidth >= 720) {
-      return (maxWidth - 16) / 2;
+    return 220;
+  }
+
+  EdgeInsets _reportSectionPadding(double maxWidth) {
+    if (maxWidth < 360) {
+      return const EdgeInsets.fromLTRB(16, 18, 16, 18);
     }
 
-    return maxWidth;
+    if (maxWidth < 520) {
+      return const EdgeInsets.fromLTRB(18, 20, 18, 20);
+    }
+
+    return const EdgeInsets.fromLTRB(24, 22, 24, 24);
   }
 
   Widget _buildDateFilterField({
@@ -1112,13 +1083,14 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 13,
+          style: TextStyle(
+            fontSize: 10,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF5E6C63),
+            color: _mutedTextColor,
+            letterSpacing: 1.4,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         InkWell(
           key: fieldKey,
           onTap: onTap,
@@ -1126,18 +1098,23 @@ class _AdminReportsViewState extends State<AdminReportsView> {
           child: InputDecorator(
             decoration: _reportFilterInputDecoration(
               hintText: placeholder,
-              suffixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.calendar_today_outlined,
-                size: 18,
-                color: Color(0xFF55655B),
+                size: 16,
+                color: _mutedTextColor,
+              ),
+              suffixIcon: Icon(
+                Icons.calendar_today_outlined,
+                size: 16,
+                color: _textColor,
               ),
             ),
             child: Text(
               hasValue ? _formatReportFilterDate(value) : placeholder,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: hasValue ? Colors.black87 : const Color(0xFF8A948D),
+                color: hasValue ? _textColor : _mutedTextColor,
               ),
             ),
           ),
@@ -1152,7 +1129,6 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     required String optionPrefix,
     required String label,
     required String hint,
-    required IconData icon,
     required String? value,
     required List<String> options,
     required ValueChanged<String?> onChanged,
@@ -1164,31 +1140,31 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 13,
+            style: TextStyle(
+              fontSize: 10,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF5E6C63),
+              color: _mutedTextColor,
+              letterSpacing: 1.4,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             key: fieldKey,
             initialValue: value,
+            isExpanded: true,
             onChanged: onChanged,
-            icon: const Icon(
+            icon: Icon(
               Icons.keyboard_arrow_down_rounded,
-              color: Color(0xFF55655B),
+              color: _mutedTextColor,
             ),
-            decoration: _reportFilterInputDecoration(
-              hintText: hint,
-              prefixIcon: Icon(icon, size: 18, color: const Color(0xFF55655B)),
-            ),
+            decoration: _reportFilterInputDecoration(hintText: hint),
             items: options.map((String option) {
               return DropdownMenuItem<String>(
                 value: option,
                 child: Text(
                   option,
                   key: Key('$optionPrefix-option-${_slugFilterKey(option)}'),
+                  overflow: TextOverflow.ellipsis,
                 ),
               );
             }).toList(),
@@ -1205,55 +1181,104 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   }) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: const TextStyle(
-        color: Color(0xFF8A948D),
+      hintStyle: TextStyle(
+        color: _mutedTextColor,
         fontWeight: FontWeight.w600,
+        fontSize: 13,
       ),
       prefixIcon: prefixIcon,
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: const Color(0xFFF6F8F4),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      fillColor: _fieldFillColor,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(_reportSectionRadius),
-        borderSide: const BorderSide(color: Color(0xFFD6DED8)),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: _borderColor),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(_reportSectionRadius),
-        borderSide: const BorderSide(color: Color(0xFFD6DED8)),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: _borderColor),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(_reportSectionRadius),
+        borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: _reportAccent, width: 1.5),
+      ),
+    );
+  }
+
+  Widget _buildReportExportAction() {
+    return OutlinedButton(
+      key: const Key('report-export-button'),
+      onPressed: _isExporting
+          ? null
+          : () async {
+              final ReportExportFormat? selectedFormat =
+                  await _showExportDialog();
+              if (selectedFormat == null) {
+                return;
+              }
+              await _exportReport(selectedFormat);
+            },
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _reportAccent,
+        backgroundColor: _surfaceColor,
+        side: BorderSide(color: _borderColor),
+        minimumSize: const Size(220, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_isExporting)
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            const Icon(Icons.download_outlined, size: 16),
+          const SizedBox(width: 8),
+          const Text(
+            'EXPORT REPORT',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.keyboard_arrow_down_rounded, size: 16),
+        ],
       ),
     );
   }
 
   Widget _buildAppliedFilterChip(_ReportFilterChipData chip) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _surfaceColor,
         borderRadius: BorderRadius.circular(_reportSectionRadius),
-        border: Border.all(color: const Color(0xFFD6DED8)),
+        border: Border.all(color: _borderColor),
       ),
       child: RichText(
         text: TextSpan(
           children: [
             TextSpan(
               text: '${chip.label}: ',
-              style: const TextStyle(
-                fontSize: 13,
+              style: TextStyle(
+                fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF5E6C63),
+                color: _mutedTextColor,
               ),
             ),
             TextSpan(
               text: chip.value,
-              style: const TextStyle(
-                fontSize: 13,
+              style: TextStyle(
+                fontSize: 11,
                 fontWeight: FontWeight.w900,
-                color: Colors.black87,
+                color: _textColor,
               ),
             ),
           ],
@@ -1385,310 +1410,380 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
   Widget _buildAppointmentTrendsSection() {
     final List<_AppointmentTrendPoint> points = _currentTrendPoints;
+    final List<_AppointmentTrendPoint> displayPoints = _trendLoadError != null
+        ? const <_AppointmentTrendPoint>[]
+        : points;
     final bool hasLoadedSelectedTrend = _loadedTrendViews.contains(
       _selectedTrendView,
     );
     final bool hasRealData = _hasTrendDataFor(_selectedTrendView);
-    final int totalAppointments = points.fold<int>(
-      0,
-      (int sum, _AppointmentTrendPoint point) => sum + point.count,
-    );
-    final int peakVolume = points.fold<int>(
-      0,
-      (int maxCount, _AppointmentTrendPoint point) =>
-          math.max(maxCount, point.count),
-    );
-    final double averageVolume = points.isEmpty
-        ? 0
-        : totalAppointments / points.length;
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(_reportSectionRadius),
-        border: const Border(top: BorderSide(color: _reportAccent, width: 6)),
+        color: _surfaceColor,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: _borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+            color: (_isDarkMode ? Colors.black : const Color(0xFF17305F))
+                .withValues(alpha: _isDarkMode ? 0.22 : 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                final bool compact = constraints.maxWidth < 900;
-                final Widget header = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Appointment Trends',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _trendNarrative(_selectedTrendView),
-                      style: const TextStyle(
-                        fontSize: 15,
-                        height: 1.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF5E6C63),
-                      ),
-                    ),
-                  ],
-                );
-
-                final Widget controls = _buildTrendViewToggle();
-
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [header, const SizedBox(height: 20), controls],
-                  );
-                }
-
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: header),
-                    const SizedBox(width: 24),
-                    controls,
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints outerConstraints) {
+          return Padding(
+            padding: _reportSectionPadding(outerConstraints.maxWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildTrendSummaryChip(
-                  label: '${_trendLabel(_selectedTrendView)} view',
-                  value: '${points.length} buckets',
-                  icon: Icons.tune,
+                LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    final bool compact = constraints.maxWidth < 900;
+                    final Widget header = Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            _SectionIconBadge(
+                              icon: Icons.trending_up_rounded,
+                              iconColor: Color(0xFF39B98A),
+                              backgroundColor: Color(0xFFEAF9F3),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Appointment Volume Trends',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: _reportAccent,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: false,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'ANALYZED THROUGH TEMPORAL THROUGHPUT PROTOCOLS',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: _mutedTextColor,
+                            letterSpacing: 1.8,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${_trendLabel(_selectedTrendView)} view',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _mutedTextColor,
+                          ),
+                        ),
+                      ],
+                    );
+
+                    final Widget controls = _buildTrendViewToggle();
+
+                    if (compact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          header,
+                          const SizedBox(height: 12),
+                          controls,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: header),
+                        const SizedBox(width: 16),
+                        controls,
+                      ],
+                    );
+                  },
                 ),
-                _buildTrendSummaryChip(
-                  label: 'Peak volume',
-                  value: peakVolume.toString(),
-                  icon: Icons.north_east,
-                ),
-                _buildTrendSummaryChip(
-                  label: 'Average',
-                  value: averageVolume.toStringAsFixed(1),
-                  icon: Icons.show_chart,
-                ),
-                _buildTrendSummaryChip(
-                  label: 'Data source',
-                  value: _trendDataSourceLabel(
-                    hasLoadedSelectedTrend: hasLoadedSelectedTrend,
-                    hasRealData: hasRealData,
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    color: _surfaceAltColor,
+                    border: Border.all(color: _borderColor),
                   ),
-                  icon: _trendDataSourceIcon(
-                    hasLoadedSelectedTrend: hasLoadedSelectedTrend,
-                    hasRealData: hasRealData,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        key: const Key('appointment-trends-chart'),
+                        child: LayoutBuilder(
+                          builder: (BuildContext context, BoxConstraints constraints) {
+                            final double pointWidth =
+                                switch (_selectedTrendView) {
+                                  _TrendView.daily => 56,
+                                  _TrendView.weekly => 74,
+                                  _TrendView.monthly => 82,
+                                };
+                            final double chartWidth = math.max(
+                              constraints.maxWidth,
+                              math.max(
+                                constraints.maxWidth,
+                                64 + (displayPoints.length * pointWidth),
+                              ),
+                            );
+
+                            return SingleChildScrollView(
+                              key: const Key('appointment-trends-scroll'),
+                              scrollDirection: Axis.horizontal,
+                              child: SizedBox(
+                                width: chartWidth,
+                                child: Column(
+                                  children: [
+                                    SizedBox(
+                                      height: 250,
+                                      child: Stack(
+                                        children: [
+                                          Positioned.fill(
+                                            child: DecoratedBox(
+                                              decoration: BoxDecoration(
+                                                color: _surfaceColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(26),
+                                              ),
+                                              child: CustomPaint(
+                                                painter:
+                                                    _AppointmentTrendChartPainter(
+                                                      points: displayPoints,
+                                                      lineColor: _reportAccent,
+                                                      fillColor: const Color(
+                                                        0xFFCAD7F3,
+                                                      ),
+                                                      highlightColor:
+                                                          const Color(
+                                                            0xFFEEF3FF,
+                                                          ),
+                                                    ),
+                                              ),
+                                            ),
+                                          ),
+                                          if (_isTrendLoading)
+                                            const Center(
+                                              child: SizedBox(
+                                                width: 24,
+                                                height: 24,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: _reportAccent,
+                                                      strokeWidth: 2.5,
+                                                    ),
+                                              ),
+                                            )
+                                          else if (_trendLoadError != null)
+                                            Center(
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 18,
+                                                      vertical: 12,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: _surfaceColor
+                                                      .withValues(alpha: 0.95),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        _reportSectionRadius,
+                                                      ),
+                                                  border: Border.all(
+                                                    color: _borderColor,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  _trendLoadError!,
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: _mutedTextColor,
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                          else if (hasLoadedSelectedTrend &&
+                                              !hasRealData)
+                                            const Center(
+                                              child: AppEmptyState(
+                                                key: Key(
+                                                  'appointment-trends-empty-state',
+                                                ),
+                                                icon: Icons.show_chart_rounded,
+                                                title: 'No trend data yet',
+                                                message:
+                                                    'No appointment trend data available yet.',
+                                                compact: true,
+                                                framed: false,
+                                                maxWidth: 320,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (displayPoints.isNotEmpty) ...[
+                                      const SizedBox(height: 10),
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: 34,
+                                          right: 8,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            for (final _AppointmentTrendPoint
+                                                point
+                                                in displayPoints)
+                                              SizedBox(
+                                                width: pointWidth,
+                                                child: Text(
+                                                  point.label,
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: _mutedTextColor,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      LayoutBuilder(
+                        builder:
+                            (BuildContext context, BoxConstraints constraints) {
+                              if (constraints.maxWidth < 420) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _trendDataSourceLabel(
+                                        hasLoadedSelectedTrend:
+                                            hasLoadedSelectedTrend,
+                                        hasRealData: hasRealData,
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color:
+                                            _trendLoadError != null ||
+                                                !hasRealData
+                                            ? _mutedTextColor
+                                            : const Color(0xFF39B98A),
+                                        letterSpacing: 1.0,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      _trendAxisCaption(_selectedTrendView),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: _mutedTextColor,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }
+
+                              return Row(
+                                children: [
+                                  Text(
+                                    _trendDataSourceLabel(
+                                      hasLoadedSelectedTrend:
+                                          hasLoadedSelectedTrend,
+                                      hasRealData: hasRealData,
+                                    ),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color:
+                                          _trendLoadError != null ||
+                                              !hasRealData
+                                          ? _mutedTextColor
+                                          : const Color(0xFF39B98A),
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    _trendAxisCaption(_selectedTrendView),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: _mutedTextColor,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                      ),
+                    ],
                   ),
-                  emphasize: _trendLoadError != null || !hasRealData,
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(_reportSectionRadius),
-                gradient: const LinearGradient(
-                  colors: <Color>[Color(0xFFF7FBF8), Color(0xFFFCFAF1)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: const Color(0xFFDCE7DE)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _reportAccent.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(
-                            _reportSectionRadius,
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.timeline,
-                              size: 16,
-                              color: _reportAccent,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Trend Chart',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                color: _reportAccent,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        _trendAxisCaption(_selectedTrendView),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF69786F),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    key: const Key('appointment-trends-chart'),
-                    height: 260,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.74),
-                              borderRadius: BorderRadius.circular(
-                                _reportSectionRadius,
-                              ),
-                            ),
-                            child: CustomPaint(
-                              painter: _AppointmentTrendChartPainter(
-                                points: points,
-                                lineColor: _reportAccent,
-                                fillColor: _reportAccentSoft,
-                                highlightColor: _reportHighlight,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (_isTrendLoading)
-                          const Center(
-                            child: SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: CircularProgressIndicator(
-                                color: _reportAccent,
-                                strokeWidth: 3,
-                              ),
-                            ),
-                          )
-                        else if (_trendLoadError != null)
-                          Center(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.92),
-                                borderRadius: BorderRadius.circular(
-                                  _reportSectionRadius,
-                                ),
-                                border: Border.all(
-                                  color: const Color(0xFFD7E2D8),
-                                ),
-                              ),
-                              child: Text(
-                                _trendLoadError!,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF5A685E),
-                                ),
-                              ),
-                            ),
-                          )
-                        else if (hasLoadedSelectedTrend && !hasRealData)
-                          const Center(
-                            child: AppEmptyState(
-                              key: Key('appointment-trends-empty-state'),
-                              icon: Icons.show_chart_rounded,
-                              title: 'No trend data yet',
-                              message:
-                                  'No appointment trend data available yet.',
-                              compact: true,
-                              maxWidth: 320,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(width: 48),
-                      Expanded(
-                        child: Row(
-                          children: [
-                            for (final _AppointmentTrendPoint point in points)
-                              Expanded(
-                                child: Text(
-                                  point.label,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF5E6C63),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildTrendViewToggle() {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: _TrendView.values.map(_buildTrendViewButton).toList(),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: _fieldFillColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _borderColor),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: _TrendView.values.map(_buildTrendViewButton).toList(),
+        ),
+      ),
     );
   }
 
   Widget _buildTrendViewButton(_TrendView view) {
     final bool isSelected = view == _selectedTrendView;
     final Color foregroundColor = isSelected
-        ? Colors.white
-        : const Color(0xFF55655B);
+        ? _reportAccent
+        : const Color(0xFF95A2BE);
 
     return Material(
-      color: isSelected ? _reportAccent : const Color(0xFFEFF3FA),
-      borderRadius: BorderRadius.circular(_reportSectionRadius),
+      color: isSelected ? _surfaceColor : Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      elevation: isSelected ? 2 : 0,
+      shadowColor: const Color(0xFF17305F).withValues(alpha: 0.08),
       child: InkWell(
         key: Key('appointment-trends-${view.name}'),
         onTap: () async {
@@ -1703,23 +1798,21 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
           await _loadTrendData(view);
         },
-        borderRadius: BorderRadius.circular(_reportSectionRadius),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(_trendIcon(view), size: 18, color: foregroundColor),
-              const SizedBox(width: 8),
-              Text(
-                _trendLabel(view),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: foregroundColor,
-                ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: SizedBox(
+            width: 72,
+            child: Text(
+              _trendLabel(view).toUpperCase(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: foregroundColor,
+                letterSpacing: 1.2,
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1747,80 +1840,6 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     }
 
     return 'Pending';
-  }
-
-  IconData _trendDataSourceIcon({
-    required bool hasLoadedSelectedTrend,
-    required bool hasRealData,
-  }) {
-    if (_isTrendLoading) {
-      return Icons.sync;
-    }
-
-    if (_trendLoadError != null) {
-      return Icons.cloud_off;
-    }
-
-    if (hasLoadedSelectedTrend && hasRealData) {
-      return Icons.cloud_done;
-    }
-
-    if (hasLoadedSelectedTrend) {
-      return Icons.inbox_outlined;
-    }
-
-    return Icons.schedule;
-  }
-
-  Widget _buildTrendSummaryChip({
-    required String label,
-    required String value,
-    required IconData icon,
-    bool emphasize = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: emphasize ? const Color(0xFFFFF8E2) : const Color(0xFFF5F8F5),
-        borderRadius: BorderRadius.circular(_reportSectionRadius),
-        border: Border.all(
-          color: emphasize ? const Color(0xFFE8D48E) : const Color(0xFFDDE7DF),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 18,
-            color: emphasize ? const Color(0xFF9A7A19) : _reportAccent,
-          ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF66746B),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 
   List<_AppointmentTrendPoint> get _currentTrendPoints {
@@ -1884,17 +1903,6 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     }
   }
 
-  String _trendNarrative(_TrendView view) {
-    switch (view) {
-      case _TrendView.daily:
-        return 'Daily view highlights short-term spikes so admins can spot busy appointment days quickly.';
-      case _TrendView.weekly:
-        return 'Weekly view makes it easier to compare appointment flow across each week in the reporting window.';
-      case _TrendView.monthly:
-        return 'Monthly view reveals broader booking patterns and long-range seasonal movement at a glance.';
-    }
-  }
-
   String _trendAxisCaption(_TrendView view) {
     switch (view) {
       case _TrendView.daily:
@@ -1906,31 +1914,20 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     }
   }
 
-  IconData _trendIcon(_TrendView view) {
-    switch (view) {
-      case _TrendView.daily:
-        return Icons.today_outlined;
-      case _TrendView.weekly:
-        return Icons.view_week_outlined;
-      case _TrendView.monthly:
-        return Icons.calendar_month_outlined;
-    }
-  }
-
   Widget _buildDetailedReportTable() {
     final bool isPhone = MediaQuery.of(context).size.width < 800;
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _surfaceColor,
         borderRadius: BorderRadius.circular(12),
         border: const Border(
           top: BorderSide(color: Color(0xFF4A769E), width: 6.0),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: _isDarkMode ? 0.22 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1949,7 +1946,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   style: TextStyle(
                     fontSize: MobileTypography.sectionTitle(context),
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: _textColor,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1958,7 +1955,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   style: TextStyle(
                     fontSize: MobileTypography.bodySmall(context),
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF5E6C63),
+                    color: _mutedTextColor,
                     height: 1.45,
                   ),
                 ),
@@ -2009,28 +2006,36 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   dataRowMaxHeight: 76,
                   columns: <DataColumn>[
                     DataColumn(
-                      label: AdminDataTable.headerLabel('Date', width: 100),
+                      label: AdminDataTable.headerLabel(
+                        context,
+                        'Date',
+                        width: 100,
+                      ),
                     ),
                     DataColumn(
                       label: AdminDataTable.headerLabel(
+                        context,
                         'Patient',
                         width: isPhone ? 160 : 220,
                       ),
                     ),
                     DataColumn(
                       label: AdminDataTable.headerLabel(
+                        context,
                         'Booking Type',
                         width: 130,
                       ),
                     ),
                     DataColumn(
                       label: AdminDataTable.headerLabel(
+                        context,
                         'Service',
                         width: isPhone ? 150 : 190,
                       ),
                     ),
                     DataColumn(
                       label: AdminDataTable.headerLabel(
+                        context,
                         'Queue No.',
                         width: 90,
                         alignment: Alignment.center,
@@ -2038,6 +2043,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                     ),
                     DataColumn(
                       label: AdminDataTable.headerLabel(
+                        context,
                         'Status',
                         width: 180,
                         alignment: Alignment.center,
@@ -2050,16 +2056,18 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
                     return DataRow.byIndex(
                       index: index,
-                      color: AdminDataTable.rowColor(index),
+                      color: AdminDataTable.rowColor(context, index),
                       cells: <DataCell>[
                         DataCell(
                           AdminDataTable.cellText(
+                            context,
                             record['date']?.toString() ?? '-',
                             width: 100,
                           ),
                         ),
                         DataCell(
                           AdminDataTable.cellText(
+                            context,
                             record['patient_name']?.toString() ?? '-',
                             width: isPhone ? 160 : 220,
                             maxLines: 2,
@@ -2068,6 +2076,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                         ),
                         DataCell(
                           AdminDataTable.cellText(
+                            context,
                             record['booking_type']?.toString() ?? '-',
                             width: 130,
                             maxLines: 2,
@@ -2075,6 +2084,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                         ),
                         DataCell(
                           AdminDataTable.cellText(
+                            context,
                             record['service']?.toString() ?? '-',
                             width: isPhone ? 150 : 190,
                             maxLines: 2,
@@ -2082,6 +2092,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                         ),
                         DataCell(
                           AdminDataTable.cellText(
+                            context,
                             record['queue_number']?.toString() ?? '-',
                             width: 90,
                             alignment: Alignment.center,
@@ -2122,154 +2133,258 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   }
 
   Widget _buildDistributionChart() {
-    final total = _reportStats['total'] ?? 0;
+    final int completed = _reportStats['completed'] ?? 0;
+    final int approved = _reportStats['approved'] ?? 0;
+    final int pending =
+        (_reportStats['pending'] ?? 0) +
+        (_reportStats['reschedule_required'] ?? 0);
+    final int cancelled =
+        (_reportStats['cancelled'] ?? 0) +
+        (_reportStats['cancelled_by_doctor'] ?? 0);
+    final int total = completed + approved + pending + cancelled;
+    final List<_StatusDistributionDatum> segments = <_StatusDistributionDatum>[
+      _StatusDistributionDatum(
+        label: 'Completed',
+        subtitle: 'Operational Metrics',
+        value: completed,
+        color: const Color(0xFF1FBA8A),
+      ),
+      _StatusDistributionDatum(
+        label: 'Approved',
+        subtitle: 'Operational Metrics',
+        value: approved,
+        color: const Color(0xFF223C7A),
+      ),
+      _StatusDistributionDatum(
+        label: 'Pending',
+        subtitle: 'Operational Metrics',
+        value: pending,
+        color: const Color(0xFFFFB10A),
+      ),
+      _StatusDistributionDatum(
+        label: 'Cancelled',
+        subtitle: 'Operational Metrics',
+        value: cancelled,
+        color: const Color(0xFFFF4E4E),
+      ),
+    ];
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: _surfaceColor,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: _borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: (_isDarkMode ? Colors.black : const Color(0xFF17305F))
+                .withValues(alpha: _isDarkMode ? 0.22 : 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints outerConstraints) {
+          return Padding(
+            padding: _reportSectionPadding(outerConstraints.maxWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const _SectionIconBadge(
+                      icon: Icons.pie_chart_outline_rounded,
+                      iconColor: Color(0xFF9FB5E6),
+                      backgroundColor: Color(0xFFF3F6FD),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'System Status Distribution',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: _reportAccent,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'STATISTICAL ANALYSIS OF PATIENT SCHEDULING STATUSES',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: _mutedTextColor,
+                    letterSpacing: 1.8,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    final bool compact = constraints.maxWidth < 1080;
+                    final double chartSize = math.min(
+                      280,
+                      math.max(
+                        160,
+                        constraints.maxWidth - (compact ? 24 : 120),
+                      ),
+                    );
+
+                    final Widget chart = Center(
+                      child: SizedBox(
+                        width: chartSize,
+                        height: chartSize,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CustomPaint(
+                              size: Size.square(chartSize),
+                              painter: _StatusDistributionPainter(
+                                segments: segments,
+                                total: total,
+                              ),
+                            ),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  total == 0 ? '0%' : '100%',
+                                  style: const TextStyle(
+                                    fontSize: 30,
+                                    fontWeight: FontWeight.w900,
+                                    color: _reportAccent,
+                                    height: 1,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'AGGREGATE',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: _mutedTextColor,
+                                    letterSpacing: 1.8,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+
+                    final Widget legend = Column(
+                      children: segments.map((segment) {
+                        final int percentage = total == 0
+                            ? 0
+                            : ((segment.value / total) * 100).round();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildDistributionStatCard(
+                            label: segment.label,
+                            subtitle: segment.subtitle,
+                            percentage: percentage,
+                            color: segment.color,
+                          ),
+                        );
+                      }).toList(),
+                    );
+
+                    if (compact) {
+                      return Column(
+                        children: [chart, const SizedBox(height: 18), legend],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(flex: 6, child: chart),
+                        const SizedBox(width: 20),
+                        Expanded(flex: 7, child: legend),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDistributionStatCard({
+    required String label,
+    required String subtitle,
+    required int percentage,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: _surfaceAltColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: _isDarkMode ? 0.14 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Text(
-            'Status Distribution',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+          Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: _reportAccent,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: _mutedTextColor,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 32),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildChartRow(
-                  'Pending',
-                  _reportStats['pending'] ?? 0,
-                  total,
-                  const Color(0xFFE5CC82),
-                ),
-              ),
-              const SizedBox(width: 48),
-              Expanded(
-                child: _buildChartRow(
-                  'Approved',
-                  _reportStats['approved'] ?? 0,
-                  total,
-                  const Color(0xFF86B9B0),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildChartRow(
-                  'Completed',
-                  _reportStats['completed'] ?? 0,
-                  total,
-                  const Color(0xFF4CAF50),
-                ),
-              ),
-              const SizedBox(width: 48),
-              Expanded(
-                child: _buildChartRow(
-                  'Cancelled',
-                  _reportStats['cancelled'] ?? 0,
-                  total,
-                  const Color(0xFFE28B71),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildChartRow(
-                  'Cancelled by Doctor',
-                  _reportStats['cancelled_by_doctor'] ?? 0,
-                  total,
-                  const Color(0xFFF59E9E),
-                ),
-              ),
-              const SizedBox(width: 48),
-              Expanded(
-                child: _buildChartRow(
-                  'Reschedule Required',
-                  _reportStats['reschedule_required'] ?? 0,
-                  total,
-                  const Color(0xFFF5C56B),
-                ),
-              ),
-            ],
+          Text(
+            '$percentage%',
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: _reportAccent,
+            ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildChartRow(String label, int count, int total, Color color) {
-    final double percentage = total > 0 ? (count / total * 100) : 0;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black54,
-              ),
-            ),
-            Text(
-              '${percentage.toStringAsFixed(1)}% ($count)',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 12,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: total > 0 ? (count / total) : 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -2280,51 +2395,51 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     required Color accentColor,
   }) {
     return Container(
-      width: 320,
-      height: 156,
+      width: 240,
+      height: 118,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: _surfaceColor,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: accentColor.withValues(alpha: 0.16)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: _isDarkMode ? 0.16 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: accentColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, size: 22, color: accentColor),
+              child: Icon(icon, size: 17, color: accentColor),
             ),
             const Spacer(),
             Text(
               value,
               style: TextStyle(
-                fontSize: 42,
+                fontSize: 28,
                 fontWeight: FontWeight.w900,
                 color: accentColor,
                 height: 1,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 16,
+              style: TextStyle(
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF243746),
+                color: _textColor,
                 height: 1.2,
               ),
               maxLines: 2,
@@ -2334,6 +2449,93 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         ),
       ),
     );
+  }
+}
+
+class _StatusDistributionDatum {
+  const _StatusDistributionDatum({
+    required this.label,
+    required this.subtitle,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String subtitle;
+  final int value;
+  final Color color;
+}
+
+class _SectionIconBadge extends StatelessWidget {
+  const _SectionIconBadge({
+    required this.icon,
+    required this.iconColor,
+    this.backgroundColor = const Color(0xFFF4F7FD),
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
+      child: Icon(icon, size: 16, color: iconColor),
+    );
+  }
+}
+
+class _StatusDistributionPainter extends CustomPainter {
+  const _StatusDistributionPainter({
+    required this.segments,
+    required this.total,
+  });
+
+  final List<_StatusDistributionDatum> segments;
+  final int total;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Rect rect = Rect.fromCircle(
+      center: size.center(Offset.zero),
+      radius: size.width / 2 - 18,
+    );
+    final Paint basePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 44
+      ..strokeCap = StrokeCap.butt
+      ..color = const Color(0xFFF0F3FA);
+    canvas.drawArc(rect, 0, math.pi * 2, false, basePaint);
+
+    if (total <= 0) {
+      return;
+    }
+
+    const double gapRadians = 0.16;
+    double startAngle = -math.pi / 2;
+    for (final _StatusDistributionDatum segment in segments) {
+      if (segment.value <= 0) {
+        continue;
+      }
+
+      final double sweep =
+          ((segment.value / total) * (math.pi * 2)) - gapRadians;
+      final Paint segmentPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 44
+        ..strokeCap = StrokeCap.butt
+        ..color = segment.color;
+      canvas.drawArc(rect, startAngle, sweep, false, segmentPaint);
+      startAngle += sweep + gapRadians;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StatusDistributionPainter oldDelegate) {
+    return oldDelegate.total != total || oldDelegate.segments != segments;
   }
 }
 

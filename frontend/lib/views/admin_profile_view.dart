@@ -53,6 +53,18 @@ class _AdminProfileViewState extends State<AdminProfileView> {
   AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   Map<String, String> _fieldErrors = <String, String>{};
   String? _formErrorText;
+  bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
+  Color get _surfaceColor =>
+      _isDarkMode ? const Color(0xFF162033) : Colors.white;
+  Color get _surfaceAltColor => _isDarkMode
+      ? const Color(0xFF1B2740)
+      : Colors.green.withValues(alpha: 0.05);
+  Color get _borderColor =>
+      _isDarkMode ? const Color(0xFF30415F) : Colors.black26;
+  Color get _textColor =>
+      _isDarkMode ? const Color(0xFFEAF1FF) : Colors.black87;
+  Color get _mutedTextColor =>
+      _isDarkMode ? const Color(0xFFAAB8D4) : Colors.black38;
 
   @override
   void initState() {
@@ -212,7 +224,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       style: TextStyle(
         fontSize: MobileTypography.pageTitle(context),
         fontWeight: FontWeight.bold,
-        color: Colors.black,
+        color: _isDarkMode ? const Color(0xFFEAF1FF) : Colors.black,
       ),
     );
 
@@ -274,14 +286,14 @@ class _AdminProfileViewState extends State<AdminProfileView> {
               width: double.infinity,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: _surfaceColor,
                 borderRadius: BorderRadius.circular(24),
                 border: const Border(
                   top: BorderSide(color: Color(0xFF4A769E), width: 6.0),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withValues(alpha: _isDarkMode ? 0.24 : 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -306,7 +318,9 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                 margin: const EdgeInsets.only(bottom: 16),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFFF1F1),
+                                  color: _isDarkMode
+                                      ? const Color(0xFF3A2026)
+                                      : const Color(0xFFFFF1F1),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: Colors.redAccent.withValues(
@@ -330,7 +344,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                   context,
                                 ),
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: _textColor,
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -422,7 +436,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                   context,
                                 ),
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: _textColor,
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -566,7 +580,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
           label,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            color: _textColor,
             fontSize: MobileTypography.label(context),
           ),
         ),
@@ -578,9 +592,9 @@ class _AdminProfileViewState extends State<AdminProfileView> {
           validator: validator,
           decoration: InputDecoration(
             filled: !readOnly,
-            fillColor: Colors.green.withValues(alpha: 0.05),
+            fillColor: _surfaceAltColor,
             hintText: hint,
-            hintStyle: const TextStyle(color: Colors.black38),
+            hintStyle: TextStyle(color: _mutedTextColor),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,
@@ -588,14 +602,14 @@ class _AdminProfileViewState extends State<AdminProfileView> {
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: BorderSide(
-                color: readOnly ? Colors.black26 : const Color(0xFF436B46),
+                color: readOnly ? _borderColor : const Color(0xFF436B46),
                 width: readOnly ? 1.0 : 2.0,
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: BorderSide(
-                color: readOnly ? Colors.black26 : const Color(0xFF436B46),
+                color: readOnly ? _borderColor : const Color(0xFF436B46),
                 width: readOnly ? 1.0 : 2.0,
               ),
             ),
@@ -637,7 +651,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
           label,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            color: _textColor,
             fontSize: MobileTypography.label(context),
           ),
         ),
@@ -650,7 +664,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
           validator: validator,
           decoration: InputDecoration(
             filled: !readOnly,
-            fillColor: Colors.green.withValues(alpha: 0.05),
+            fillColor: _surfaceAltColor,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 12,
@@ -658,14 +672,14 @@ class _AdminProfileViewState extends State<AdminProfileView> {
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: BorderSide(
-                color: readOnly ? Colors.black26 : const Color(0xFF436B46),
+                color: readOnly ? _borderColor : const Color(0xFF436B46),
                 width: readOnly ? 1.0 : 2.0,
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: BorderSide(
-                color: readOnly ? Colors.black26 : const Color(0xFF436B46),
+                color: readOnly ? _borderColor : const Color(0xFF436B46),
                 width: readOnly ? 1.0 : 2.0,
               ),
             ),
