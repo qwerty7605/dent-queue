@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/token_storage.dart';
 import 'package:frontend/models/app_notification.dart';
+import 'package:frontend/services/appointment_service.dart';
 import 'package:frontend/services/notification_service.dart';
 import 'package:frontend/views/notifications_view.dart';
 
@@ -85,6 +86,48 @@ class _FakeNotificationService extends Fake implements NotificationService {
   }
 }
 
+class _FakeAppointmentService extends Fake implements AppointmentService {
+  int? lastFetchedAppointmentId;
+  int availabilityCalls = 0;
+
+  @override
+  Future<Map<String, dynamic>> getPatientAppointment(int id) async {
+    lastFetchedAppointmentId = id;
+
+    return <String, dynamic>{
+      'id': id,
+      'appointment_date': '2026-05-10',
+      'appointment_time': '10:00',
+      'notes': '',
+      'status': 'Reschedule Required',
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> getAvailabilitySlots(
+    String date, {
+    int? ignoreAppointmentId,
+  }) async {
+    availabilityCalls += 1;
+
+    return <String, dynamic>{
+      'slots': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'time': '10:00',
+          'time_label': '10:00 AM',
+          'status': 'available',
+        },
+        <String, dynamic>{
+          'time': '10:30',
+          'time_label': '10:30 AM',
+          'status': 'available',
+        },
+      ],
+      'unavailable_ranges': <Map<String, dynamic>>[],
+    };
+  }
+}
+
 void main() {
   testWidgets('loads live notifications and marks a tapped item as read', (
     WidgetTester tester,
@@ -117,11 +160,14 @@ void main() {
             ],
             unreadCount: 1,
           );
+    final _FakeAppointmentService appointmentService =
+        _FakeAppointmentService();
 
     await tester.pumpWidget(
       MaterialApp(
         home: NotificationsView(
           notificationService: notificationService,
+          appointmentService: appointmentService,
           tokenStorage: tokenStorage,
         ),
       ),
@@ -130,23 +176,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(notificationService.lastListedRole, 'patient');
-    expect(find.text('1 unread notification'), findsOneWidget);
+    expect(find.text('Appointment booked'), findsOneWidget);
+    expect(find.text('Your appointment is pending approval.'), findsOneWidget);
     expect(
       find.byKey(const Key('notification-mark-all-button')),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('notification-unread-dot-1')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('notification-tile-1')));
     await tester.pumpAndSettle();
 
     expect(notificationService.markedIds, <int>[1]);
-    expect(find.text('All caught up'), findsOneWidget);
     expect(find.byKey(const Key('notification-mark-all-button')), findsNothing);
-    expect(find.byKey(const Key('notification-unread-dot-1')), findsNothing);
   });
 
-  testWidgets('mark all as read updates the unread summary', (
+  testWidgets('mark all as read updates the notification actions', (
     WidgetTester tester,
   ) async {
     final InMemoryTokenStorage tokenStorage = InMemoryTokenStorage();
@@ -175,11 +219,14 @@ void main() {
             ],
             unreadCount: 2,
           );
+    final _FakeAppointmentService appointmentService =
+        _FakeAppointmentService();
 
     await tester.pumpWidget(
       MaterialApp(
         home: NotificationsView(
           notificationService: notificationService,
+          appointmentService: appointmentService,
           tokenStorage: tokenStorage,
         ),
       ),
@@ -188,13 +235,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(notificationService.lastListedRole, 'staff');
-    expect(find.text('2 unread notifications'), findsOneWidget);
+    expect(find.text('Queue update'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('notification-mark-all-button')));
     await tester.pumpAndSettle();
 
     expect(notificationService.markAllCalls, 1);
-    expect(find.text('All caught up'), findsOneWidget);
     expect(find.byKey(const Key('notification-mark-all-button')), findsNothing);
   });
 
@@ -242,11 +288,14 @@ void main() {
               unreadCount: 2,
             ),
           ];
+    final _FakeAppointmentService appointmentService =
+        _FakeAppointmentService();
 
     await tester.pumpWidget(
       MaterialApp(
         home: NotificationsView(
           notificationService: notificationService,
+          appointmentService: appointmentService,
           tokenStorage: tokenStorage,
         ),
       ),
@@ -285,11 +334,14 @@ void main() {
               notifications: <AppNotification>[],
               unreadCount: 0,
             );
+      final _FakeAppointmentService appointmentService =
+          _FakeAppointmentService();
 
       await tester.pumpWidget(
         MaterialApp(
           home: NotificationsView(
             notificationService: notificationService,
+            appointmentService: appointmentService,
             tokenStorage: tokenStorage,
           ),
         ),
@@ -310,6 +362,69 @@ void main() {
 
       expect(notificationService.listCalls, 2);
       expect(notificationService.lastForceRefresh, isTrue);
+    },
+  );
+
+  testWidgets(
+    'reschedule notifications show a Reschedule Now button and open the reschedule page',
+    (WidgetTester tester) async {
+      final InMemoryTokenStorage tokenStorage = InMemoryTokenStorage();
+      await tokenStorage.writeUserInfo(<String, dynamic>{'role': 'patient'});
+
+      final _FakeNotificationService notificationService =
+          _FakeNotificationService()
+            ..nextResult = NotificationListResult(
+              notifications: <AppNotification>[
+                AppNotification(
+                  id: 50,
+                  title: 'Appointment Needs Reschedule',
+                  message: 'Your current appointment needs a new time.',
+                  createdAt: DateTime(2026, 4, 25, 9, 0),
+                  isRead: false,
+                  type: 'appointment_reschedule_required',
+                  relatedAppointmentId: 55,
+                  actionType: 'reschedule',
+                  actionLabel: 'Reschedule',
+                ),
+              ],
+              unreadCount: 1,
+            );
+      final _FakeAppointmentService appointmentService =
+          _FakeAppointmentService();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: NotificationsView(
+            notificationService: notificationService,
+            appointmentService: appointmentService,
+            tokenStorage: tokenStorage,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Your current appointment needs a new time.'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('notification-action-button-50')),
+        findsOneWidget,
+      );
+      expect(find.text('Reschedule Now'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('notification-action-button-50')));
+      await tester.pumpAndSettle();
+
+      expect(notificationService.markedIds, <int>[50]);
+      expect(appointmentService.lastFetchedAppointmentId, 55);
+      expect(appointmentService.availabilityCalls, 1);
+      expect(
+        find.byKey(const Key('reschedule-appointment-page')),
+        findsOneWidget,
+      );
+      expect(find.text('Reschedule Appointment'), findsOneWidget);
     },
   );
 }
