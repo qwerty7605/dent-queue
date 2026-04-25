@@ -531,9 +531,10 @@ class AppointmentService
                     $appointment->forceFill([
                         'appointment_date' => $validatedBooking['appointment_date'],
                         'time_slot' => $validatedBooking['time_slot'],
-                        'status' => in_array($currentStatus, [self::STATUS_CANCELLED_BY_DOCTOR, self::STATUS_RESCHEDULE_REQUIRED], true)
-                            ? self::STATUS_PENDING
-                            : $appointment->status,
+                        'status' => $this->resolvePatientRescheduleStatus(
+                            $currentStatus,
+                            (string) $appointment->status,
+                        ),
                         'notes' => $validatedBooking['notes'] ?? $appointment->notes,
                     ])->save();
 
@@ -580,6 +581,13 @@ class AppointmentService
         return $this->withAppointmentDateLock($lockDates[0], function () use ($lockDates, $performReschedule) {
             return $this->withAppointmentDateLock($lockDates[1], $performReschedule);
         });
+    }
+
+    private function resolvePatientRescheduleStatus(string $currentStatus, string $persistedStatus): string
+    {
+        return in_array($currentStatus, [self::STATUS_CANCELLED_BY_DOCTOR, self::STATUS_RESCHEDULE_REQUIRED], true)
+            ? self::STATUS_CONFIRMED
+            : $persistedStatus;
     }
 
     public function getRecycleBinAppointments(?int $patientId = null)

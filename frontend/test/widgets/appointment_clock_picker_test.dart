@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/widgets/appointment_clock_picker.dart';
 
 void main() {
-  testWidgets('time picker modal shows visible appointment slots', (
+  testWidgets('time picker modal only cycles through available slots', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -25,6 +25,11 @@ void main() {
           'time_label': '8:30 AM',
           'status': 'booked',
         },
+        <String, dynamic>{
+          'time': '09:00',
+          'time_label': '9:00 AM',
+          'status': 'available',
+        },
       ],
       selectedTimeSlot: null,
       isSlotDisabled: (Map<String, dynamic> slot) =>
@@ -36,13 +41,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Choose Appointment Time'), findsOneWidget);
-    expect(find.text('8:00\nAM'), findsOneWidget);
-    expect(find.text('8:30\nAM'), findsOneWidget);
+    expect(find.text('SELECTED TIME: 8:00 AM'), findsOneWidget);
 
-    await tester.tap(find.text('8:00\nAM'));
+    await tester.tap(find.byIcon(Icons.add_rounded).first);
     await tester.pumpAndSettle();
 
-    expect(await result, '08:00');
+    expect(find.text('SELECTED TIME: 9:00 AM'), findsOneWidget);
+
+    await tester.tap(find.text('Set Time'));
+    await tester.pumpAndSettle();
+
+    expect(await result, '09:00');
   });
 
   testWidgets('time picker modal explains afternoon-only doctor availability', (
