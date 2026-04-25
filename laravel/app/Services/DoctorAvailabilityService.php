@@ -23,7 +23,10 @@ class DoctorAvailabilityService
     ) {
     }
 
-    public function create(User $user, array $payload): DoctorUnavailability
+    /**
+     * @return array{schedule: DoctorUnavailability, affected_appointments: array<int, array<string, mixed>>}
+     */
+    public function create(User $user, array $payload): array
     {
         $schedule = $this->validateSchedulePayload($payload);
 
@@ -33,7 +36,7 @@ class DoctorAvailabilityService
             $schedule['end_time'],
         );
 
-        return DB::transaction(function () use ($schedule, $user): DoctorUnavailability {
+        return DB::transaction(function () use ($schedule, $user): array {
             $doctorUnavailability = DoctorUnavailability::query()->create([
                 'unavailable_date' => $schedule['unavailable_date'],
                 'start_time' => $schedule['start_time'],
@@ -42,10 +45,18 @@ class DoctorAvailabilityService
                 'created_by_user_id' => (int) $user->id,
             ]);
 
-            $affectedAppointments = $this->updateAffectedAppointmentStatuses($doctorUnavailability);
+            $affectedAppointments = $this->affectedAppointmentsForSchedule($doctorUnavailability);
+            $serializedAffectedAppointments = $affectedAppointments
+                ->map(fn (Appointment $appointment): array => $this->serializeAffectedAppointment($appointment))
+                ->all();
+
+            $this->updateAffectedAppointmentStatuses($doctorUnavailability, $affectedAppointments);
             $this->notifyAffectedPatients($doctorUnavailability, $affectedAppointments);
 
-            return $doctorUnavailability;
+            return [
+                'schedule' => $doctorUnavailability,
+                'affected_appointments' => $serializedAffectedAppointments,
+            ];
         });
     }
 
@@ -391,7 +402,8 @@ class DoctorAvailabilityService
             ->with(['patient', 'service'])
             ->whereDate('appointment_date', $date)
             ->whereNull('deleted_at')
-            ->whereIn('status', ['pending', 'confirmed'])
+            // Approved appointments are stored internally as `confirmed`.
+            ->where('status', 'confirmed')
             ->get()
             ->filter(function (Appointment $appointment) use ($date, $timezone, $blockedStart, $blockedEnd): bool {
                 $normalizedTime = $this->normalizeTimeString((string) $appointment->time_slot, $timezone);
@@ -487,23 +499,44 @@ class DoctorAvailabilityService
         };
     }
 
-    private function updateAffectedAppointmentStatuses(DoctorUnavailability $schedule): Collection
+    private function updateAffectedAppointmentStatuses(
+        DoctorUnavailability $schedule,
+        Collection $appointments,
+    ): void
     {
-        $appointments = $this->affectedAppointmentsForSchedule($schedule);
-
         foreach ($appointments as $appointment) {
-            $appointment->forceFill([
-                'status' => (string) $appointment->status === 'confirmed'
-                    ? 'cancelled_by_doctor'
-                    : 'reschedule_required',
-            ])->save();
+            $appointment->forceFill(['status' => 'cancelled_by_doctor'])->save();
         }
 
         if ($appointments->isNotEmpty()) {
             $this->queueService->syncQueueNumbersForDate((string) $schedule->unavailable_date);
         }
+    }
 
-        return $appointments;
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeAffectedAppointment(Appointment $appointment): array
+    {
+        $patientName = trim(sprintf(
+            '%s %s',
+            (string) ($appointment->patient?->first_name ?? ''),
+            (string) ($appointment->patient?->last_name ?? ''),
+        ));
+
+        return [
+            'appointment_id' => (int) $appointment->id,
+            'patient_record_id' => (int) $appointment->patient_id,
+            'patient_name' => $patientName,
+            'service_id' => (int) $appointment->service_id,
+            'service_name' => $appointment->service?->name !== null
+                ? (string) $appointment->service->name
+                : null,
+            'appointment_date' => (string) $appointment->appointment_date,
+            'appointment_time' => (string) $appointment->time_slot,
+            'status' => 'approved',
+            'resulting_status' => 'cancelled_by_doctor',
+        ];
     }
 
     /**

@@ -46,11 +46,12 @@ class DoctorAvailabilityController extends Controller
             'reason' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $schedule = $this->doctorAvailabilityService->create($request->user(), $payload);
+        $result = $this->doctorAvailabilityService->create($request->user(), $payload);
 
         return response()->json([
             'message' => 'Doctor unavailability saved successfully.',
             'data' => $this->doctorAvailabilityService->getUpcomingSchedules(),
+            'affected_appointments' => $result['affected_appointments'],
         ], 201);
     }
 
