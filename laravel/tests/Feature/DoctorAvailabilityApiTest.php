@@ -120,7 +120,7 @@ class DoctorAvailabilityApiTest extends TestCase
             ]);
     }
 
-    public function test_creating_doctor_unavailability_detects_only_approved_affected_appointments(): void
+    public function test_creating_doctor_unavailability_marks_affected_appointments_for_reschedule_and_notifies_correct_patients(): void
     {
         $admin = $this->createUserWithRole('Admin');
         $service = $this->createService();
@@ -179,8 +179,8 @@ class DoctorAvailabilityApiTest extends TestCase
         $this->assertDatabaseHas('patient_notifications', [
             'patient_id' => (int) $approvedAffectedAppointment->patient_id,
             'appointment_id' => (int) $approvedAffectedAppointment->id,
-            'type' => 'appointment_cancelled_by_doctor',
-            'title' => 'Appointment Cancelled by Doctor',
+            'type' => 'appointment_reschedule_required',
+            'title' => 'Appointment Needs Reschedule',
         ]);
         $this->assertDatabaseMissing('patient_notifications', [
             'appointment_id' => (int) $pendingAppointment->id,
@@ -193,7 +193,7 @@ class DoctorAvailabilityApiTest extends TestCase
         ]);
         $this->assertDatabaseHas('appointments', [
             'id' => (int) $approvedAffectedAppointment->id,
-            'status' => 'cancelled_by_doctor',
+            'status' => 'reschedule_required',
         ]);
         $this->assertDatabaseHas('appointments', [
             'id' => (int) $pendingAppointment->id,
@@ -217,7 +217,7 @@ class DoctorAvailabilityApiTest extends TestCase
             ->assertJsonPath('affected_appointments.0.appointment_date', $date)
             ->assertJsonPath('affected_appointments.0.appointment_time', '10:15')
             ->assertJsonPath('affected_appointments.0.status', 'approved')
-            ->assertJsonPath('affected_appointments.0.resulting_status', 'cancelled_by_doctor');
+            ->assertJsonPath('affected_appointments.0.resulting_status', 'reschedule_required');
 
         $notification = PatientNotification::query()
             ->where('appointment_id', (int) $approvedAffectedAppointment->id)
@@ -228,16 +228,16 @@ class DoctorAvailabilityApiTest extends TestCase
         $this->assertStringContainsString('Emergency leave', (string) $notification->message);
         $this->assertStringContainsString($date, (string) $notification->message);
         $this->assertStringContainsString('10:15', (string) $notification->message);
-        $this->assertStringContainsString('follow-up on the cancellation', (string) $notification->message);
-        $this->assertStringNotContainsString('Please choose a new appointment time.', (string) $notification->message);
+        $this->assertStringContainsString('Please choose a new appointment time.', (string) $notification->message);
+        $this->assertStringNotContainsString('follow-up on the cancellation', (string) $notification->message);
 
         Sanctum::actingAs($approvedAffectedPatient);
 
         $this->getJson('/api/v1/patient/notifications')
             ->assertOk()
-            ->assertJsonPath('notifications.0.type', 'appointment_cancelled_by_doctor')
+            ->assertJsonPath('notifications.0.type', 'appointment_reschedule_required')
             ->assertJsonPath('notifications.0.related_appointment_id', (int) $approvedAffectedAppointment->id)
-            ->assertJsonPath('notifications.0.title', 'Appointment Cancelled by Doctor');
+            ->assertJsonPath('notifications.0.title', 'Appointment Needs Reschedule');
     }
 
     private function createAppointment(
