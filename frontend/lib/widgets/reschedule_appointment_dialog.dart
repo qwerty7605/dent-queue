@@ -10,16 +10,19 @@ import '../services/base_service.dart';
 import 'app_dialog_scaffold.dart';
 import 'appointment_clock_picker.dart';
 import 'appointment_success_dialog.dart';
+import 'navigation_chrome.dart';
 
 class RescheduleAppointmentDialog extends StatefulWidget {
   const RescheduleAppointmentDialog({
     super.key,
     required this.appointment,
     this.appointmentService,
+    this.asPage = false,
   });
 
   final Map<String, dynamic> appointment;
   final AppointmentService? appointmentService;
+  final bool asPage;
 
   @override
   State<RescheduleAppointmentDialog> createState() =>
@@ -236,6 +239,47 @@ class _RescheduleAppointmentDialogState
 
   @override
   Widget build(BuildContext context) {
+    final Widget formBody = Form(
+      key: _formKey,
+      autovalidateMode: _autoValidateMode,
+      child: _buildFormBody(),
+    );
+
+    if (widget.asPage) {
+      return Scaffold(
+        key: const Key('reschedule-appointment-page'),
+        backgroundColor: AppNavigationTheme.background,
+        appBar: AppHeaderBar(
+          titleWidget: const AppBrandLockup(logoSize: 40, spacing: 4),
+          titleSpacing: -8,
+          showBottomAccent: false,
+        ),
+        body: SafeArea(
+          child: Column(
+            children: <Widget>[
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _buildPageHeader(),
+                      const SizedBox(height: 18),
+                      formBody,
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+                child: _buildSubmitButton(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Form(
       key: _formKey,
       autovalidateMode: _autoValidateMode,
@@ -247,120 +291,166 @@ class _RescheduleAppointmentDialogState
           color: const Color(0xFF2C3E50),
         ),
         onClose: _isLoading ? null : () => Navigator.of(context).pop(),
-        footer: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _isLoading || !_hasScheduleChanged() ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A2F64),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              textStyle: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-              ),
+        footer: _buildSubmitButton(),
+        child: _buildFormBody(),
+      ),
+    );
+  }
+
+  Widget _buildPageHeader() {
+    return Row(
+      children: <Widget>[
+        InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _isLoading ? null : () => Navigator.of(context).maybePop(),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-            child: _isLoading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Text('Confirm New Schedule'),
+            child: const Icon(
+              Icons.chevron_left_rounded,
+              color: Color(0xFF1F3763),
+            ),
           ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_formErrorText != null) ...[
-              _buildErrorBanner(_formErrorText!),
-              const SizedBox(height: 16),
-            ],
-            Text(
-              'Current schedule: ${widget.appointment['appointment_date']} at ${_formatTimeLabel(widget.appointment['appointment_time']?.toString() ?? '--')}',
-              style: const TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            'Reschedule Appointment',
+            style: TextStyle(
+              fontSize: MobileTypography.sectionTitle(context),
+              fontWeight: FontWeight.w900,
+              color: const Color(0xFF1F3763),
             ),
-            const SizedBox(height: 20),
-            _buildLabel('NEW DATE'),
-            const SizedBox(height: 8),
-            FormField<DateTime>(
-              validator: (_) => _mergeFieldError('date', null),
-              builder: (state) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  InkWell(
-                    onTap: _isLoading ? null : _pickDate,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isLoading || !_hasScheduleChanged() ? null : _submit,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1A2F64),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Text('Confirm New Schedule'),
+      ),
+    );
+  }
+
+  Widget _buildFormBody() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (_formErrorText != null) ...[
+          _buildErrorBanner(_formErrorText!),
+          const SizedBox(height: 16),
+        ],
+        Text(
+          'Current schedule: ${widget.appointment['appointment_date']} at ${_formatTimeLabel(widget.appointment['appointment_time']?.toString() ?? '--')}',
+          style: const TextStyle(
+            color: Color(0xFF64748B),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 20),
+        _buildLabel('NEW DATE'),
+        const SizedBox(height: 8),
+        FormField<DateTime>(
+          validator: (_) => _mergeFieldError('date', null),
+          builder: (state) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              InkWell(
+                onTap: _isLoading ? null : _pickDate,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: state.hasError
-                              ? Colors.redAccent
-                              : const Color(0xFFE2E8F0),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.calendar_today_outlined,
-                            size: 18,
-                            color: Color(0xFF64748B),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            _formatDateLabel(_selectedDate),
-                            style: const TextStyle(
-                              color: Color(0xFF1E293B),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                    border: Border.all(
+                      color: state.hasError
+                          ? Colors.redAccent
+                          : const Color(0xFFE2E8F0),
                     ),
                   ),
-                  if (state.errorText != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      state.errorText!,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 12,
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 18,
+                        color: Color(0xFF64748B),
                       ),
-                    ),
-                  ],
-                ],
+                      const SizedBox(width: 10),
+                      Text(
+                        _formatDateLabel(_selectedDate),
+                        style: const TextStyle(
+                          color: Color(0xFF1E293B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            _buildLabel('AVAILABLE TIME SLOTS'),
-            const SizedBox(height: 8),
-            FormField<String>(
-              validator: (_) {
-                if (_selectedTimeSlot == null) {
-                  return _mergeFieldError('time', 'Please select a time slot.');
-                }
-
-                return _mergeFieldError('time', null);
-              },
-              builder: (state) => _buildTimeField(state),
-            ),
-          ],
+              if (state.errorText != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  state.errorText!,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
         ),
-      ),
+        const SizedBox(height: 18),
+        _buildLabel('AVAILABLE TIME SLOTS'),
+        const SizedBox(height: 8),
+        FormField<String>(
+          validator: (_) {
+            if (_selectedTimeSlot == null) {
+              return _mergeFieldError('time', 'Please select a time slot.');
+            }
+
+            return _mergeFieldError('time', null);
+          },
+          builder: (state) => _buildTimeField(state),
+        ),
+      ],
     );
   }
 
@@ -571,5 +661,4 @@ class _RescheduleAppointmentDialogState
   bool _isSlotDisabled(Map<String, dynamic> slot) {
     return _effectiveSlotStatus(slot) != 'available';
   }
-
 }

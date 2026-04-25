@@ -16,10 +16,12 @@ class NotificationsView extends StatefulWidget {
   const NotificationsView({
     super.key,
     this.notificationService,
+    this.appointmentService,
     this.tokenStorage,
   });
 
   final NotificationService? notificationService;
+  final AppointmentService? appointmentService;
   final TokenStorage? tokenStorage;
 
   @override
@@ -49,9 +51,9 @@ class _NotificationsViewState extends State<NotificationsView> {
           BaseService(ApiClient(tokenStorage: _tokenStorage)),
           tokenStorage: _tokenStorage,
         );
-    _appointmentService = AppointmentService(
-      BaseService(ApiClient(tokenStorage: _tokenStorage)),
-    );
+    _appointmentService =
+        widget.appointmentService ??
+        AppointmentService(BaseService(ApiClient(tokenStorage: _tokenStorage)));
     _fetchNotifications();
   }
 
@@ -257,14 +259,16 @@ class _NotificationsViewState extends State<NotificationsView> {
         return;
       }
 
-      final bool? rescheduled = await showDialog<bool>(
-        context: context,
-        builder: (BuildContext dialogContext) {
-          return RescheduleAppointmentDialog(
-            appointment: appointment,
-            appointmentService: _appointmentService,
-          );
-        },
+      final bool? rescheduled = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (BuildContext routeContext) {
+            return RescheduleAppointmentDialog(
+              appointment: appointment,
+              appointmentService: _appointmentService,
+              asPage: true,
+            );
+          },
+        ),
       );
 
       if (rescheduled == true && mounted) {
@@ -405,9 +409,13 @@ class _NotificationsViewState extends State<NotificationsView> {
                       if (hasUnread)
                         TextButton(
                           key: const Key('notification-mark-all-button'),
-                          onPressed: _isMarkingAllAsRead ? null : _markAllAsRead,
+                          onPressed: _isMarkingAllAsRead
+                              ? null
+                              : _markAllAsRead,
                           child: Text(
-                            _isMarkingAllAsRead ? 'MARKING...' : 'MARK ALL AS READ',
+                            _isMarkingAllAsRead
+                                ? 'MARKING...'
+                                : 'MARK ALL AS READ',
                             style: TextStyle(
                               color: const Color(0xFFC8D5F2),
                               fontWeight: FontWeight.bold,
@@ -512,158 +520,165 @@ class _NotificationsViewState extends State<NotificationsView> {
 
   List<Widget> _buildNotificationTiles() {
     return _notifications.map((AppNotification notification) {
-          final bool isRead = notification.isRead;
-          final String type = notification.type;
-          final iconColor = _getColorForType(type);
-          final bool canReschedule =
-              _role == 'patient' &&
-              notification.actionType == 'reschedule' &&
-              notification.relatedAppointmentId != null;
+      final bool isRead = notification.isRead;
+      final String type = notification.type;
+      final iconColor = _getColorForType(type);
+      final bool canReschedule =
+          _role == 'patient' &&
+          notification.actionType == 'reschedule' &&
+          notification.relatedAppointmentId != null;
 
-          return Container(
-            key: Key('notification-tile-${notification.id}'),
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: isRead ? const Color(0xFFFDFDFE) : Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-              border: Border.all(
-                color: isRead
-                    ? const Color(0xFFF3F4F8)
-                    : const Color(0xFFE7ECF8),
-                width: 1,
-              ),
+      return Container(
+        key: Key('notification-tile-${notification.id}'),
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: isRead ? const Color(0xFFFDFDFE) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () async {
-                  if (!isRead) {
-                    await _markAsRead(notification.id);
-                  }
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(18.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Icon Container
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: isRead
-                              ? const Color(0xFFF8F9FD)
-                              : iconColor.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isRead
-                                ? const Color(0xFFF0F2F7)
-                                : iconColor.withValues(alpha: 0.18),
-                          ),
-                        ),
-                        child: Icon(
-                          _getIconForType(type),
-                          color: isRead ? const Color(0xFF94A3B8) : iconColor,
-                          size: 22,
-                        ),
+          ],
+          border: Border.all(
+            color: isRead ? const Color(0xFFF3F4F8) : const Color(0xFFE7ECF8),
+            width: 1,
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () async {
+              if (!isRead) {
+                await _markAsRead(notification.id);
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(18.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Icon Container
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isRead
+                          ? const Color(0xFFF8F9FD)
+                          : iconColor.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isRead
+                            ? const Color(0xFFF0F2F7)
+                            : iconColor.withValues(alpha: 0.18),
                       ),
-                      const SizedBox(width: 16),
+                    ),
+                    child: Icon(
+                      _getIconForType(type),
+                      color: isRead ? const Color(0xFF94A3B8) : iconColor,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
 
-                      // Content
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    notification.title,
-                                    style: TextStyle(
-                                      fontSize: MobileTypography.body(context),
-                                      fontWeight: isRead
-                                          ? FontWeight.w700
-                                          : FontWeight.w900,
-                                      color: isRead
-                                          ? const Color(0xFF67748A)
-                                          : const Color(0xFF243B6B),
-                                    ),
-                                  ),
+                            Expanded(
+                              child: Text(
+                                notification.title,
+                                style: TextStyle(
+                                  fontSize: MobileTypography.body(context),
+                                  fontWeight: isRead
+                                      ? FontWeight.w700
+                                      : FontWeight.w900,
+                                  color: isRead
+                                      ? const Color(0xFF67748A)
+                                      : const Color(0xFF243B6B),
                                 ),
-                                Text(
-                                  _formatDate(notification.createdAt),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFFB0B8C9),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                            const SizedBox(height: 6),
                             Text(
-                              notification.message,
-                              style: TextStyle(
-                                fontSize: MobileTypography.bodySmall(context),
-                                color: isRead
-                                    ? const Color(0xFFBCC4D1)
-                                    : const Color(0xFF4E596F),
-                                height: 1.4,
-                                fontWeight: isRead
-                                    ? FontWeight.w500
-                                    : FontWeight.w600,
+                              _formatDate(notification.createdAt),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFFB0B8C9),
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            if (canReschedule) ...[
-                              const SizedBox(height: 14),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: SizedBox(
-                                  height: 38,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () =>
-                                        _openRescheduleFromNotification(notification),
-                                    style: ElevatedButton.styleFrom(
-                                      elevation: 0,
-                                      backgroundColor: const Color(0xFFEEF4FF),
-                                      foregroundColor: const Color(0xFF1F4AA8),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      textStyle: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    icon: const Icon(Icons.schedule_rounded, size: 16),
-                                    label: Text(
-                                      notification.actionLabel ?? 'Reschedule',
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
                           ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 6),
+                        Text(
+                          notification.message,
+                          style: TextStyle(
+                            fontSize: MobileTypography.bodySmall(context),
+                            color: isRead
+                                ? const Color(0xFFBCC4D1)
+                                : const Color(0xFF4E596F),
+                            height: 1.4,
+                            fontWeight: isRead
+                                ? FontWeight.w500
+                                : FontWeight.w600,
+                          ),
+                        ),
+                        if (canReschedule) ...[
+                          const SizedBox(height: 14),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: SizedBox(
+                              height: 38,
+                              child: ElevatedButton.icon(
+                                key: Key(
+                                  'notification-action-button-${notification.id}',
+                                ),
+                                onPressed: () =>
+                                    _openRescheduleFromNotification(
+                                      notification,
+                                    ),
+                                style: ElevatedButton.styleFrom(
+                                  elevation: 0,
+                                  backgroundColor: const Color(0xFFEEF4FF),
+                                  foregroundColor: const Color(0xFF1F4AA8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                icon: const Icon(
+                                  Icons.schedule_rounded,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  notification.actionType == 'reschedule'
+                                      ? 'Reschedule Now'
+                                      : (notification.actionLabel ?? 'Open'),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
-          );
-        }).toList();
+          ),
+        ),
+      );
+    }).toList();
   }
-
 }
