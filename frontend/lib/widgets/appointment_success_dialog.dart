@@ -7,6 +7,7 @@ Future<void> showAppointmentSuccessDialog(
   required String title,
   required String message,
   String buttonLabel = 'Close',
+  String statusLabel = 'Waiting Approval',
 }) {
   return showDialog<void>(
     context: context,
@@ -16,6 +17,7 @@ Future<void> showAppointmentSuccessDialog(
         title: title,
         message: message,
         buttonLabel: buttonLabel,
+        statusLabel: statusLabel,
         onClose: () => Navigator.of(dialogContext).pop(),
       );
     },
@@ -29,12 +31,14 @@ class AppointmentSuccessDialog extends StatelessWidget {
     required this.message,
     required this.onClose,
     this.buttonLabel = 'Close',
+    this.statusLabel = 'Waiting Approval',
   });
 
   final String title;
   final String message;
   final VoidCallback onClose;
   final String buttonLabel;
+  final String statusLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -84,10 +88,7 @@ class AppointmentSuccessDialog extends StatelessWidget {
                 height: 66,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFF27C38F),
-                    width: 3,
-                  ),
+                  border: Border.all(color: const Color(0xFF27C38F), width: 3),
                 ),
                 child: const Icon(
                   Icons.check_rounded,
@@ -133,7 +134,7 @@ class AppointmentSuccessDialog extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
-                  'QUEUE STATUS',
+                  'APPOINTMENT STATUS',
                   style: TextStyle(
                     color: isDark
                         ? const Color(0xFFAAB7CD)
@@ -160,7 +161,7 @@ class AppointmentSuccessDialog extends StatelessWidget {
                     ],
                   ),
                   child: Text(
-                    'Waiting Approval',
+                    statusLabel,
                     style: TextStyle(
                       color: isDark ? Colors.white : const Color(0xFF3A4B68),
                       fontWeight: FontWeight.w800,

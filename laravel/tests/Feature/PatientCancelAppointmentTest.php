@@ -250,6 +250,58 @@ class PatientCancelAppointmentTest extends TestCase
         ]);
     }
 
+    public function test_patient_can_reschedule_reschedule_required_appointment_back_to_approved(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $appointment = $this->createAppointment($patient->id, 'reschedule_required');
+        Sanctum::actingAs($patient);
+
+        $newDate = now()->next('Tuesday')->format('Y-m-d');
+
+        $this->putJson('/api/v1/patient/appointments/' . $appointment->id, [
+            'appointment_date' => $newDate,
+            'time_slot' => '10:30',
+            'notes' => 'Please keep the new slot approved',
+        ])->assertOk()
+            ->assertJsonPath('message', 'Appointment rescheduled successfully.')
+            ->assertJsonPath('appointment.appointment_date', $newDate)
+            ->assertJsonPath('appointment.appointment_time', '10:30')
+            ->assertJsonPath('appointment.status', 'Approved')
+            ->assertJsonPath('appointment.notes', 'Please keep the new slot approved');
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $appointment->id,
+            'appointment_date' => $newDate,
+            'time_slot' => '10:30',
+            'notes' => 'Please keep the new slot approved',
+            'status' => 'confirmed',
+        ]);
+    }
+
+    public function test_patient_can_reschedule_cancelled_by_doctor_appointment_back_to_approved(): void
+    {
+        $patient = $this->createUserWithRole('Patient');
+        $appointment = $this->createAppointment($patient->id, 'cancelled_by_doctor');
+        Sanctum::actingAs($patient);
+
+        $newDate = now()->next('Wednesday')->format('Y-m-d');
+
+        $this->putJson('/api/v1/patient/appointments/' . $appointment->id, [
+            'appointment_date' => $newDate,
+            'time_slot' => '11:00',
+        ])->assertOk()
+            ->assertJsonPath('appointment.appointment_date', $newDate)
+            ->assertJsonPath('appointment.appointment_time', '11:00')
+            ->assertJsonPath('appointment.status', 'Approved');
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $appointment->id,
+            'appointment_date' => $newDate,
+            'time_slot' => '11:00',
+            'status' => 'confirmed',
+        ]);
+    }
+
     public function test_patient_cannot_reschedule_to_booked_time_slot(): void
     {
         $patient = $this->createUserWithRole('Patient');

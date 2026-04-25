@@ -202,14 +202,15 @@ class _RescheduleAppointmentDialogState
     setState(() => _isLoading = true);
 
     try {
-      await _appointmentService.rescheduleAppointment(
-        (widget.appointment['id'] as num).toInt(),
-        <String, dynamic>{
-          'appointment_date': _formatSelectedDate(),
-          'time_slot': _selectedTimeSlot,
-          'notes': widget.appointment['notes']?.toString() ?? '',
-        },
-      );
+      final Map<String, dynamic> response = await _appointmentService
+          .rescheduleAppointment(
+            (widget.appointment['id'] as num).toInt(),
+            <String, dynamic>{
+              'appointment_date': _formatSelectedDate(),
+              'time_slot': _selectedTimeSlot,
+              'notes': widget.appointment['notes']?.toString() ?? '',
+            },
+          );
 
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -220,6 +221,7 @@ class _RescheduleAppointmentDialogState
         message:
             'Your updated appointment schedule has been saved successfully.',
         buttonLabel: 'Return to Dashboard',
+        statusLabel: _resolveSuccessStatusLabel(response),
       );
 
       if (!mounted) return;
@@ -235,6 +237,28 @@ class _RescheduleAppointmentDialogState
         _formErrorText = 'Failed to reschedule appointment.';
       });
     }
+  }
+
+  String _resolveSuccessStatusLabel(Map<String, dynamic> response) {
+    final dynamic appointment = response['appointment'];
+    if (appointment is Map) {
+      final String statusLabel = appointment['status']?.toString().trim() ?? '';
+      if (statusLabel.isNotEmpty) {
+        return statusLabel;
+      }
+    }
+
+    return _fallbackSuccessStatusLabel();
+  }
+
+  String _fallbackSuccessStatusLabel() {
+    final String normalizedStatus =
+        (widget.appointment['status']?.toString() ?? '')
+            .trim()
+            .toLowerCase()
+            .replaceAll(' ', '_');
+
+    return normalizedStatus == 'pending' ? 'Pending' : 'Approved';
   }
 
   @override
