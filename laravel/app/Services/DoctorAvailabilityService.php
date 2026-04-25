@@ -505,7 +505,7 @@ class DoctorAvailabilityService
     ): void
     {
         foreach ($appointments as $appointment) {
-            $appointment->forceFill(['status' => 'cancelled_by_doctor'])->save();
+            $appointment->forceFill(['status' => 'reschedule_required'])->save();
         }
 
         if ($appointments->isNotEmpty()) {
@@ -535,7 +535,7 @@ class DoctorAvailabilityService
             'appointment_date' => (string) $appointment->appointment_date,
             'appointment_time' => (string) $appointment->time_slot,
             'status' => 'approved',
-            'resulting_status' => 'cancelled_by_doctor',
+            'resulting_status' => 'reschedule_required',
         ];
     }
 
