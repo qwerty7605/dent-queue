@@ -120,12 +120,12 @@ class DoctorAvailabilityApiTest extends TestCase
             ]);
     }
 
-    public function test_creating_doctor_unavailability_notifies_only_affected_patients(): void
+    public function test_creating_doctor_unavailability_detects_only_approved_affected_appointments(): void
     {
         $admin = $this->createUserWithRole('Admin');
         $service = $this->createService();
-        $affectedPatientOne = $this->createUserWithRole('Patient');
-        $affectedPatientTwo = $this->createUserWithRole('Patient');
+        $pendingPatient = $this->createUserWithRole('Patient');
+        $approvedAffectedPatient = $this->createUserWithRole('Patient');
         $unaffectedPatient = $this->createUserWithRole('Patient');
         $otherDatePatient = $this->createUserWithRole('Patient');
         $targetDate = now()->addDays(21);
@@ -140,14 +140,14 @@ class DoctorAvailabilityApiTest extends TestCase
             ],
         ]);
 
-        $affectedAppointmentOne = $this->createAppointment(
-            PatientRecord::resolveForUser($affectedPatientOne)->id,
+        $pendingAppointment = $this->createAppointment(
+            PatientRecord::resolveForUser($pendingPatient)->id,
             $service->id,
             $date,
             '10:00',
         );
-        $affectedAppointmentTwo = $this->createAppointment(
-            PatientRecord::resolveForUser($affectedPatientTwo)->id,
+        $approvedAffectedAppointment = $this->createAppointment(
+            PatientRecord::resolveForUser($approvedAffectedPatient)->id,
             $service->id,
             $date,
             '10:15',
@@ -168,25 +168,22 @@ class DoctorAvailabilityApiTest extends TestCase
 
         Sanctum::actingAs($admin);
 
-        $this->postJson('/api/v1/admin/settings/doctor-unavailability', [
+        $response = $this->postJson('/api/v1/admin/settings/doctor-unavailability', [
             'unavailable_date' => $date,
             'start_time' => '10:00',
             'end_time' => '12:00',
             'reason' => 'Emergency leave',
         ])->assertCreated();
 
-        $this->assertDatabaseCount('patient_notifications', 2);
+        $this->assertDatabaseCount('patient_notifications', 1);
         $this->assertDatabaseHas('patient_notifications', [
-            'patient_id' => (int) $affectedAppointmentOne->patient_id,
-            'appointment_id' => (int) $affectedAppointmentOne->id,
-            'type' => 'appointment_reschedule_required',
-            'title' => 'Appointment Needs Reschedule',
-        ]);
-        $this->assertDatabaseHas('patient_notifications', [
-            'patient_id' => (int) $affectedAppointmentTwo->patient_id,
-            'appointment_id' => (int) $affectedAppointmentTwo->id,
+            'patient_id' => (int) $approvedAffectedAppointment->patient_id,
+            'appointment_id' => (int) $approvedAffectedAppointment->id,
             'type' => 'appointment_cancelled_by_doctor',
             'title' => 'Appointment Cancelled by Doctor',
+        ]);
+        $this->assertDatabaseMissing('patient_notifications', [
+            'appointment_id' => (int) $pendingAppointment->id,
         ]);
         $this->assertDatabaseMissing('patient_notifications', [
             'appointment_id' => (int) $unaffectedAppointment->id,
@@ -195,44 +192,52 @@ class DoctorAvailabilityApiTest extends TestCase
             'appointment_id' => (int) $otherDateAppointment->id,
         ]);
         $this->assertDatabaseHas('appointments', [
-            'id' => (int) $affectedAppointmentOne->id,
-            'status' => 'reschedule_required',
+            'id' => (int) $approvedAffectedAppointment->id,
+            'status' => 'cancelled_by_doctor',
         ]);
         $this->assertDatabaseHas('appointments', [
-            'id' => (int) $affectedAppointmentTwo->id,
-            'status' => 'cancelled_by_doctor',
+            'id' => (int) $pendingAppointment->id,
+            'status' => 'pending',
         ]);
         $this->assertDatabaseHas('appointments', [
             'id' => (int) $unaffectedAppointment->id,
             'status' => 'pending',
         ]);
 
+        $response->assertJsonCount(1, 'affected_appointments')
+            ->assertJsonPath('affected_appointments.0.appointment_id', (int) $approvedAffectedAppointment->id)
+            ->assertJsonPath('affected_appointments.0.patient_record_id', (int) $approvedAffectedAppointment->patient_id)
+            ->assertJsonPath('affected_appointments.0.patient_name', trim(sprintf(
+                '%s %s',
+                (string) $approvedAffectedPatient->first_name,
+                (string) $approvedAffectedPatient->last_name,
+            )))
+            ->assertJsonPath('affected_appointments.0.service_id', (int) $service->id)
+            ->assertJsonPath('affected_appointments.0.service_name', 'Dental Check-up')
+            ->assertJsonPath('affected_appointments.0.appointment_date', $date)
+            ->assertJsonPath('affected_appointments.0.appointment_time', '10:15')
+            ->assertJsonPath('affected_appointments.0.status', 'approved')
+            ->assertJsonPath('affected_appointments.0.resulting_status', 'cancelled_by_doctor');
+
         $notification = PatientNotification::query()
-            ->where('appointment_id', (int) $affectedAppointmentOne->id)
+            ->where('appointment_id', (int) $approvedAffectedAppointment->id)
             ->firstOrFail();
 
         $this->assertStringContainsString('doctor is unavailable', (string) $notification->message);
         $this->assertStringContainsString('needs attention', (string) $notification->message);
         $this->assertStringContainsString('Emergency leave', (string) $notification->message);
         $this->assertStringContainsString($date, (string) $notification->message);
-        $this->assertStringContainsString('10:00', (string) $notification->message);
-        $this->assertStringContainsString('Please choose a new appointment time.', (string) $notification->message);
+        $this->assertStringContainsString('10:15', (string) $notification->message);
+        $this->assertStringContainsString('follow-up on the cancellation', (string) $notification->message);
+        $this->assertStringNotContainsString('Please choose a new appointment time.', (string) $notification->message);
 
-        $cancelledNotification = PatientNotification::query()
-            ->where('appointment_id', (int) $affectedAppointmentTwo->id)
-            ->firstOrFail();
-
-        $this->assertStringContainsString('doctor is unavailable', (string) $cancelledNotification->message);
-        $this->assertStringContainsString('follow-up on the cancellation', (string) $cancelledNotification->message);
-        $this->assertStringNotContainsString('Please choose a new appointment time.', (string) $cancelledNotification->message);
-
-        Sanctum::actingAs($affectedPatientOne);
+        Sanctum::actingAs($approvedAffectedPatient);
 
         $this->getJson('/api/v1/patient/notifications')
             ->assertOk()
-            ->assertJsonPath('notifications.0.type', 'appointment_reschedule_required')
-            ->assertJsonPath('notifications.0.related_appointment_id', (int) $affectedAppointmentOne->id)
-            ->assertJsonPath('notifications.0.title', 'Appointment Needs Reschedule');
+            ->assertJsonPath('notifications.0.type', 'appointment_cancelled_by_doctor')
+            ->assertJsonPath('notifications.0.related_appointment_id', (int) $approvedAffectedAppointment->id)
+            ->assertJsonPath('notifications.0.title', 'Appointment Cancelled by Doctor');
     }
 
     private function createAppointment(
