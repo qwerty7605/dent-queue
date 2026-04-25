@@ -121,14 +121,22 @@ class AppointmentService
             });
     }
 
-    public function getApprovedAppointmentsByDate(string $date)
+    public function getCalendarAppointmentsByDate(string $date)
     {
+        $this->syncDailyQueueNumbers($date);
+
         return Appointment::query()
             ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id')
             ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->where('appointments.appointment_date', $date)
-            ->where('appointments.status', self::STATUS_CONFIRMED)
+            ->whereIn('appointments.status', [
+                self::STATUS_PENDING,
+                self::STATUS_CONFIRMED,
+                self::STATUS_COMPLETED,
+                self::STATUS_CANCELLED_BY_DOCTOR,
+                self::STATUS_RESCHEDULE_REQUIRED,
+            ])
             ->tap(static fn (Builder $query) => AppointmentQueueOrder::apply($query))
             ->select([
                 'appointments.id',
@@ -157,7 +165,7 @@ class AppointmentService
                         (int) $appointment->service_id,
                     ),
                     'appointment_time' => (string) $appointment->time_slot,
-                    'status' => 'Approved',
+                    'status' => self::humanStatusLabel((string) $appointment->status),
                     'queue_number' => $appointment->queue_number !== null
                         ? (int) $appointment->queue_number
                         : null,
@@ -170,14 +178,20 @@ class AppointmentService
             });
     }
 
-    public function getApprovedAppointmentDetails(int $appointmentId): ?array
+    public function getCalendarAppointmentDetails(int $appointmentId): ?array
     {
         $appointment = Appointment::query()
-            ->join('queues', 'queues.appointment_id', '=', 'appointments.id')
+            ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id')
             ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->where('appointments.id', $appointmentId)
-            ->where('appointments.status', self::STATUS_CONFIRMED)
+            ->whereIn('appointments.status', [
+                self::STATUS_PENDING,
+                self::STATUS_CONFIRMED,
+                self::STATUS_COMPLETED,
+                self::STATUS_CANCELLED_BY_DOCTOR,
+                self::STATUS_RESCHEDULE_REQUIRED,
+            ])
             ->select([
                 'appointments.id',
                 'appointments.patient_id',
@@ -208,9 +222,9 @@ class AppointmentService
             ),
             'appointment_date' => (string) $appointment->appointment_date,
             'appointment_time' => (string) $appointment->time_slot,
-            'queue_number' => (int) $appointment->queue_number,
+            'queue_number' => $appointment->queue_number !== null ? (int) $appointment->queue_number : null,
             'notes' => (string) ($appointment->notes ?? ''),
-            'status' => 'Approved',
+            'status' => self::humanStatusLabel((string) $appointment->status),
         ];
     }
 

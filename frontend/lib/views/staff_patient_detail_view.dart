@@ -15,7 +15,7 @@ class StaffPatientSearchResult {
   final String fullName;
   final String contactNumber;
 
-  String get initial => fullName.isEmpty ? '?' : fullName[0].toLowerCase();
+  String get initial => fullName.isEmpty ? '?' : fullName[0].toUpperCase();
 
   factory StaffPatientSearchResult.fromApi(Map<String, dynamic> json) {
     return StaffPatientSearchResult(
@@ -52,7 +52,7 @@ class StaffPatientRecordData {
   final List<StaffPatientAppointmentItem> upcomingAppointments;
   final List<StaffPatientAppointmentItem> clinicalHistory;
 
-  String get initial => name.isEmpty ? '?' : name[0].toLowerCase();
+  String get initial => name.isEmpty ? '?' : name[0].toUpperCase();
 
   Map<String, String> toDialogPatient() {
     return <String, String>{
@@ -141,44 +141,105 @@ class StaffPatientDetailView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextButton.icon(
-          onPressed: onBack,
-          style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFF7BA47A),
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 15),
-          label: const Text(
-            'Back to Search',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-          ),
+        Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                onPressed: onBack,
+                icon: const Icon(
+                  Icons.chevron_left_rounded,
+                  color: Color(0xFF1A2F64),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Patient Brief',
+                    style: TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1A2F64),
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'CLINICAL PROFILE',
+                    style: TextStyle(
+                      color: Color(0xFFA0AABF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.8,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 14),
-        _PatientInfoCard(
-          patient: patient,
-          onBookAppointment: onBookAppointment,
-        ),
+        _PatientInfoCard(patient: patient),
         const SizedBox(height: 18),
         _SectionHeader(
           title: 'Upcoming Appointments',
-          counter: '${patient.upcomingAppointments.length} Scheduled',
+          icon: Icons.access_time_rounded,
         ),
         const SizedBox(height: 10),
         _AppointmentSection(
           items: patient.upcomingAppointments,
-          emptyLabel: 'No upcoming appointments yet.',
+          emptyLabel: 'No scheduled appointments',
+          emptyMessage: '',
+          emptyIcon: Icons.event_note_outlined,
         ),
         const SizedBox(height: 18),
         _SectionHeader(
           title: 'Clinical History',
-          counter:
-              '${patient.clinicalHistory.length} Record${patient.clinicalHistory.length == 1 ? "" : "s"}',
+          icon: Icons.assignment_outlined,
         ),
         const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: onBookAppointment,
+            icon: const Icon(Icons.event_available_outlined, size: 20),
+            label: const Text(
+              'BOOK APPOINTMENT',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF06D64F),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
         _AppointmentSection(
           items: patient.clinicalHistory,
-          emptyLabel: 'No clinical history yet.',
+          emptyLabel: 'No clinical history yet',
+          emptyMessage:
+              'Records will appear here once appointment activity is available for this patient.',
+          emptyIcon: Icons.folder_open_rounded,
         ),
       ],
     );
@@ -186,13 +247,9 @@ class StaffPatientDetailView extends StatelessWidget {
 }
 
 class _PatientInfoCard extends StatelessWidget {
-  const _PatientInfoCard({
-    required this.patient,
-    required this.onBookAppointment,
-  });
+  const _PatientInfoCard({required this.patient});
 
   final StaffPatientRecordData patient;
-  final VoidCallback onBookAppointment;
 
   @override
   Widget build(BuildContext context) {
@@ -209,106 +266,68 @@ class _PatientInfoCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF7EA87C),
-                    borderRadius: BorderRadius.circular(15),
+            Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE6EEFF),
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: Center(
+                child: Text(
+                  patient.initial,
+                  style: const TextStyle(
+                    color: Color(0xFF1A2F64),
+                    fontSize: 46,
+                    fontWeight: FontWeight.w900,
                   ),
-                  child: Center(
-                    child: Text(
-                      patient.initial,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          patient.name,
-                          style: const TextStyle(
-                            fontSize: 29,
-                            height: 0.95,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF243244),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'PATIENT ID: ${patient.patientId}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            letterSpacing: 0.8,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF88A8A4),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Wrap(
-              runSpacing: 14,
-              spacing: 18,
-              children: [
-                _DetailStat(label: 'Gender', value: patient.gender, width: 88),
-                _DetailStat(
-                  label: 'Birthdate',
-                  value: patient.birthdate,
-                  width: 116,
-                ),
-                _DetailStat(
-                  label: 'Address',
-                  value: patient.address,
-                  width: 124,
-                ),
-                _DetailStat(
-                  label: 'Contact Number',
-                  value: patient.contactNumber,
-                  width: 140,
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: onBookAppointment,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7BA47A),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-                child: const Text(
-                  'Book Appointment',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
                 ),
               ),
             ),
+            const SizedBox(height: 20),
+            Text(
+              patient.name,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 29,
+                height: 0.95,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF243244),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'ID: ${patient.patientId}',
+              style: const TextStyle(
+                fontSize: 12,
+                letterSpacing: 0.8,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFFA5B0C2),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: _DetailStat(label: 'Gender', value: patient.gender),
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: _DetailStat(
+                    label: 'Birthdate',
+                    value: patient.birthdate,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _DetailStat(label: 'Address', value: patient.address),
+            const SizedBox(height: 18),
+            _DetailStat(label: 'Contact Number', value: patient.contactNumber),
           ],
         ),
       ),
@@ -317,73 +336,65 @@ class _PatientInfoCard extends StatelessWidget {
 }
 
 class _DetailStat extends StatelessWidget {
-  const _DetailStat({
-    required this.label,
-    required this.value,
-    required this.width,
-  });
+  const _DetailStat({required this.label, required this.value});
 
   final String label;
   final String value;
-  final double width;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.7,
-              color: Color(0xFFB4BDC8),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.2,
+            color: Color(0xFFA9B3C2),
           ),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF303C4E),
-            ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF303C4E),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.counter});
+  const _SectionHeader({required this.title, required this.icon});
 
   final String title;
-  final String counter;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(
-          title.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.75,
-            color: Color(0xFFA7B5FF),
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF4FF),
+            borderRadius: BorderRadius.circular(14),
           ),
+          child: Icon(icon, color: const Color(0xFF4A78D0), size: 20),
         ),
-        const Spacer(),
+        const SizedBox(width: 12),
         Text(
-          counter,
+          title,
           style: const TextStyle(
-            fontSize: 10,
+            fontSize: 18,
             fontWeight: FontWeight.w900,
-            color: Color(0xFF6E8BFF),
+            color: Color(0xFF1A2F64),
           ),
         ),
       ],
@@ -392,15 +403,26 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _AppointmentSection extends StatelessWidget {
-  const _AppointmentSection({required this.items, required this.emptyLabel});
+  const _AppointmentSection({
+    required this.items,
+    required this.emptyLabel,
+    required this.emptyMessage,
+    required this.emptyIcon,
+  });
 
   final List<StaffPatientAppointmentItem> items;
   final String emptyLabel;
+  final String emptyMessage;
+  final IconData emptyIcon;
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return _EmptySection(label: emptyLabel);
+      return _EmptySection(
+        label: emptyLabel,
+        message: emptyMessage,
+        icon: emptyIcon,
+      );
     }
 
     return Column(
@@ -448,21 +470,19 @@ class _AppointmentCard extends StatelessWidget {
                   Text(
                     item.serviceType,
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFF263548),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: [
-                      _MetaChip(icon: Icons.event_outlined, label: item.date),
-                      if ((item.time ?? '').isNotEmpty)
-                        _MetaChip(icon: Icons.access_time, label: item.time!),
-                    ],
+                  const SizedBox(height: 6),
+                  Text(
+                    item.date,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF9CA6B5),
+                    ),
                   ),
                 ],
               ),
@@ -476,36 +496,16 @@ class _AppointmentCard extends StatelessWidget {
   }
 }
 
-class _MetaChip extends StatelessWidget {
-  const _MetaChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: const Color(0xFFAEB9C8)),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF8796AA),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _EmptySection extends StatelessWidget {
-  const _EmptySection({required this.label});
+  const _EmptySection({
+    required this.label,
+    required this.message,
+    required this.icon,
+  });
 
   final String label;
+  final String message;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -515,12 +515,18 @@ class _EmptySection extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: AppEmptyState(
-        icon: Icons.folder_open_rounded,
+        icon: icon,
         title: label,
-        message:
-            'Records will appear here once appointment activity is available for this patient.',
+        message: message,
         framed: false,
         compact: true,
       ),

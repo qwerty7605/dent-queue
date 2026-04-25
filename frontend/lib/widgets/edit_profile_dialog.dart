@@ -53,6 +53,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   late final ProfileService _profileService;
   Map<String, String> _fieldErrors = <String, String>{};
   String? _formErrorText;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
 
   @override
   void initState() {
@@ -156,76 +157,82 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     setState(() {
       _fieldErrors = fieldErrors;
       _formErrorText = formError;
+      _autoValidateMode = AutovalidateMode.always;
     });
     _formKey.currentState?.validate();
   }
 
   Future<void> _saveChanges() async {
-    if (_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) {
       setState(() {
-        _isLoading = true;
-        _fieldErrors = <String, String>{};
-        _formErrorText = null;
+        _autoValidateMode = AutovalidateMode.always;
       });
-      try {
-        final userId = widget.userInfo['id'] as int;
-        final role = _resolveRole(widget.userInfo['role']);
+      return;
+    }
 
-        // Assemble fields
-        final Map<String, String> fields = {
-          'first_name': _firstNameController.text.trim(),
-          'last_name': _lastNameController.text.trim(),
-        };
+    setState(() {
+      _isLoading = true;
+      _fieldErrors = <String, String>{};
+      _formErrorText = null;
+    });
+    try {
+      final userId = widget.userInfo['id'] as int;
+      final role = _resolveRole(widget.userInfo['role']);
 
-        if (_middleNameController.text.trim().isNotEmpty) {
-          fields['middle_name'] = _middleNameController.text.trim();
-        }
-        if (_addressController.text.trim().isNotEmpty) {
-          fields['address'] = _addressController.text.trim();
-        }
-        if (_contactNumberController.text.trim().isNotEmpty) {
-          fields['contact_number'] = _contactNumberController.text.trim();
-        }
-        if (_genderController.text.trim().isNotEmpty) {
-          fields['gender'] = _genderController.text.trim();
-        }
-        final response = await _profileService.updateProfile(
-          userId,
-          fields: fields,
-          role: role,
-          profilePicture: _selectedImage,
+      // Assemble fields
+      final Map<String, String> fields = {
+        'first_name': _firstNameController.text.trim(),
+        'last_name': _lastNameController.text.trim(),
+      };
+
+      if (_middleNameController.text.trim().isNotEmpty) {
+        fields['middle_name'] = _middleNameController.text.trim();
+      }
+      if (_addressController.text.trim().isNotEmpty) {
+        fields['address'] = _addressController.text.trim();
+      }
+      if (_contactNumberController.text.trim().isNotEmpty) {
+        fields['contact_number'] = _contactNumberController.text.trim();
+      }
+      if (_genderController.text.trim().isNotEmpty) {
+        fields['gender'] = _genderController.text.trim();
+      }
+      final response = await _profileService.updateProfile(
+        userId,
+        fields: fields,
+        role: role,
+        profilePicture: _selectedImage,
+      );
+
+      // Update token storage with new user info
+      final tokenStorage = SecureTokenStorage();
+      final updatedUserInfo = _normalizeUserInfo(response['user']);
+      if (response['user'] != null) {
+        await tokenStorage.writeUserInfo(updatedUserInfo);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully.'),
+            backgroundColor: Color(0xFF4A769E),
+          ),
         );
-
-        // Update token storage with new user info
-        final tokenStorage = SecureTokenStorage();
-        final updatedUserInfo = _normalizeUserInfo(response['user']);
-        if (response['user'] != null) {
-          await tokenStorage.writeUserInfo(updatedUserInfo);
-        }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profile updated successfully.'),
-              backgroundColor: Color(0xFF4A769E),
-            ),
-          );
-          Navigator.of(context).pop(updatedUserInfo);
-        }
-      } on ApiException catch (e) {
-        if (mounted) {
-          _applyApiErrors(e);
-        }
-      } catch (e) {
-        if (mounted) {
-          setState(() {
-            _formErrorText = 'Failed to update profile: $e';
-          });
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
+        Navigator.of(context).pop(updatedUserInfo);
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        _applyApiErrors(e);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _formErrorText = 'Failed to update profile: $e';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -361,7 +368,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
 
     return Form(
       key: _formKey,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
+      autovalidateMode: _autoValidateMode,
       child: AppDialogScaffold(
         title: 'Edit Profile',
         titleTextStyle: const TextStyle(

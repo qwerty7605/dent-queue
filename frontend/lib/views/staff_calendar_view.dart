@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../core/api_exception.dart';
 import '../services/appointment_service.dart';
 import '../widgets/app_empty_state.dart';
-import '../widgets/appointment_status_badge.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
 
 class StaffCalendarView extends StatefulWidget {
@@ -120,50 +119,113 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const SizedBox(height: 12),
-        const Center(
-          child: Text(
-            'CALENDAR',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.4,
-              color: Colors.black,
+    return SafeArea(
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Column(
+                children: [
+                  const SizedBox(height: 18),
+                  _buildPageTitle(),
+                  const SizedBox(height: 18),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(32),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFF1A2F64,
+                            ).withValues(alpha: 0.08),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+                      child: Column(
+                        children: [
+                          _buildCalendarHeader(),
+                          const SizedBox(height: 22),
+                          _buildDaysOfWeek(),
+                          const SizedBox(height: 12),
+                          _buildCalendarGrid(),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _buildScheduleSection(),
+                ],
+              ),
             ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Container(
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPageTitle() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: IconButton(
+              onPressed: () => Navigator.maybePop(context),
+              icon: const Icon(
+                Icons.chevron_left_rounded,
+                color: Color(0xFF1A2F64),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildCalendarHeader(),
-                const SizedBox(height: 14),
-                _buildDaysOfWeek(),
-                const SizedBox(height: 6),
-                _buildCalendarGrid(),
+                Text(
+                  'Calendar',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1A2F64),
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'MANAGE APPOINTMENTS BY DATE',
+                  style: TextStyle(
+                    color: Color(0xFFA0AABF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.8,
+                  ),
+                ),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        Expanded(child: _buildScheduleSection()),
-      ],
+        ],
+      ),
     );
   }
 
@@ -176,8 +238,8 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
           '$monthName ${_currentMonth.year}',
           style: const TextStyle(
             fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E293B),
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF1A2F64),
           ),
         ),
         Row(
@@ -194,19 +256,29 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
   Widget _buildNavButton(IconData icon, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
       child: Container(
-        padding: const EdgeInsets.all(8),
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(8),
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFF0F3F8)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Icon(icon, color: const Color(0xFF64748B), size: 24),
+        child: Icon(icon, color: const Color(0xFFB5BFCE), size: 20),
       ),
     );
   }
 
   Widget _buildDaysOfWeek() {
-    final days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    final days = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: days
@@ -214,9 +286,10 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
             (day) => Text(
               day,
               style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF94A3B8),
-                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFFD1D6E0),
+                fontSize: 12,
+                letterSpacing: 1.1,
               ),
             ),
           )
@@ -233,8 +306,8 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
         DateTime(_currentMonth.year, _currentMonth.month, 1).weekday % 7;
 
     final List<Widget> dayWidgets = [];
+    final DateTime today = DateTime.now();
 
-    // Empty boxes for first day offset
     for (int i = 0; i < firstDayOffset; i++) {
       dayWidgets.add(const SizedBox());
     }
@@ -245,6 +318,10 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
           _selectedDate.year == date.year &&
           _selectedDate.month == date.month &&
           _selectedDate.day == date.day;
+      final isToday =
+          today.year == date.year &&
+          today.month == date.month &&
+          today.day == date.day;
 
       dayWidgets.add(
         GestureDetector(
@@ -255,27 +332,43 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
             _loadAppointmentsForDate(date);
           },
           child: Container(
-            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF4A769E) : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              color: isSelected ? const Color(0xFF233D78) : Colors.transparent,
+              shape: BoxShape.circle,
+              border: !isSelected && isToday
+                  ? Border.all(color: const Color(0xFFD8DDE8), width: 2)
+                  : null,
               boxShadow: isSelected
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF4A769E).withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
+                        color: const Color(0xFF233D78).withValues(alpha: 0.25),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
                       ),
                     ]
                   : null,
             ),
-            child: Text(
-              day.toString(),
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                color: isSelected ? Colors.white : const Color(0xFF1E293B),
-                fontSize: 14,
-              ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Text(
+                  day.toString(),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: isSelected ? Colors.white : const Color(0xFF66758F),
+                    fontSize: 14,
+                  ),
+                ),
+                if (!isSelected && day % 6 == 0)
+                  const Positioned(
+                    bottom: 5,
+                    child: Icon(
+                      Icons.circle,
+                      size: 4,
+                      color: Color(0xFFB6BFCE),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
@@ -285,9 +378,9 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
     return GridView.count(
       shrinkWrap: true,
       crossAxisCount: 7,
-      mainAxisSpacing: 6,
-      crossAxisSpacing: 6,
-      childAspectRatio: 1.18,
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      childAspectRatio: 0.95,
       physics: const NeverScrollableScrollPhysics(),
       children: dayWidgets,
     );
@@ -295,32 +388,32 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
 
   Widget _buildScheduleSection() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE6F4EA),
-                  borderRadius: BorderRadius.circular(16),
+                  color: const Color(0xFFEFF4FF),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
-                  Icons.access_time_rounded,
-                  color: Color(0xFF7DA97F),
-                  size: 18,
+                  Icons.calendar_today_outlined,
+                  color: Color(0xFF233D78),
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Schedule for ${_formatScheduleDate(_selectedDate)}',
                   style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                     color: Color(0xFF243B53),
                   ),
                 ),
@@ -329,9 +422,13 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
           ),
           const SizedBox(height: 18),
           if (_isLoading)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: CircularProgressIndicator()),
+            )
           else if (_error != null)
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
                 child: Text(
                   _error!,
@@ -340,7 +437,8 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
               ),
             )
           else if (_dayAppointments.isEmpty)
-            const Expanded(
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: AppEmptyState(
@@ -353,16 +451,15 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
               ),
             )
           else
-            Expanded(
-              child: ListView.separated(
-                itemCount: _dayAppointments.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final appt = _dayAppointments[index];
-                  return _buildAppointmentListItem(appt);
-                },
-              ),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _dayAppointments.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final appt = _dayAppointments[index];
+                return _buildAppointmentListItem(appt);
+              },
             ),
         ],
       ),
@@ -380,64 +477,97 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
           appointment['time'] ??
           appointment['time_slot'],
     );
+    final parts = time.split(' ');
+    final timeLabel = parts.isNotEmpty ? parts.first : time;
+    final meridiem = parts.length > 1 ? parts.last : '';
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(24),
         onTap: isOpening ? null : () => _openAppointmentDetails(appointment),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
           child: Row(
             children: [
               SizedBox(
-                width: 68,
-                child: Text(
-                  time,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    color: Color(0xFF7DA97F),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
+                width: 64,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      patientName,
+                      timeLabel,
                       style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
-                        color: Color(0xFF243B53),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                        color: Color(0xFF233D78),
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    if (meridiem.isNotEmpty)
+                      Text(
+                        meridiem,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          color: Color(0xFFA0AABF),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Container(width: 1, height: 46, color: const Color(0xFFF0F3F8)),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            patientName.toString(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                              color: Color(0xFF243B53),
+                            ),
+                          ),
+                        ),
+                        if (!isOpening)
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF08B1D),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
                     Text(
-                      serviceType.toString().toUpperCase(),
+                      serviceType.toString(),
                       style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                         color: Color(0xFF7B8794),
-                        letterSpacing: 0.4,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 12),
               if (isOpening)
                 const SizedBox(
                   width: 20,
@@ -445,9 +575,10 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
                   child: CircularProgressIndicator(strokeWidth: 2.2),
                 )
               else
-                AppointmentStatusBadge(
-                  status: appointment['status'],
-                  compact: true,
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFFD2D8E5),
+                  size: 26,
                 ),
             ],
           ),
@@ -504,7 +635,7 @@ class _StaffCalendarViewState extends State<StaffCalendarView> {
 
     final suffix = hour >= 12 ? 'PM' : 'AM';
     final normalizedHour = hour % 12 == 0 ? 12 : hour % 12;
-    return '$normalizedHour:$minute $suffix';
+    return '$normalizedHour:${minute.padLeft(2, '0')} $suffix';
   }
 
   String _getMonthName(int month) {

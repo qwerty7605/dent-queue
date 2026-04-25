@@ -38,6 +38,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
   bool _isSubmitting = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
 
   @override
   void dispose() {
@@ -53,14 +54,16 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
   }
 
   void _nextStep() {
-    if (!_formKey.currentState!.validate()) return;
-    if (_currentStep == 0 && _selectedGender == null) {
-      _showSnack('Please select a gender.');
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _autoValidateMode = AutovalidateMode.always;
+      });
       return;
     }
 
     setState(() {
       _currentStep++;
+      _autoValidateMode = AutovalidateMode.disabled;
     });
   }
 
@@ -68,13 +71,15 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
     if (_currentStep == 0) return;
     setState(() {
       _currentStep--;
+      _autoValidateMode = AutovalidateMode.disabled;
     });
   }
 
   Future<void> _handleSubmit() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedGender == null) {
-      _showSnack('Please select a gender.');
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _autoValidateMode = AutovalidateMode.always;
+      });
       return;
     }
 
@@ -83,20 +88,19 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
     });
 
     try {
-      final Map<String, dynamic> response = await widget.onSubmit(
-        <String, dynamic>{
-          'first_name': _firstNameController.text.trim(),
-          'middle_name': _middleNameController.text.trim(),
-          'last_name': _lastNameController.text.trim(),
-          'gender': _selectedGender!.toLowerCase(),
-          'address': _addressController.text.trim(),
-          'contact_number': _contactController.text.trim(),
-          'role': _selectedRole,
-          'username': _usernameController.text.trim(),
-          'password': _passwordController.text,
-          'password_confirmation': _confirmPasswordController.text,
-        },
-      );
+      final Map<String, dynamic> response = await widget
+          .onSubmit(<String, dynamic>{
+            'first_name': _firstNameController.text.trim(),
+            'middle_name': _middleNameController.text.trim(),
+            'last_name': _lastNameController.text.trim(),
+            'gender': _selectedGender!.toLowerCase(),
+            'address': _addressController.text.trim(),
+            'contact_number': _contactController.text.trim(),
+            'role': _selectedRole,
+            'username': _usernameController.text.trim(),
+            'password': _passwordController.text,
+            'password_confirmation': _confirmPasswordController.text,
+          });
 
       if (!mounted) return;
       Navigator.of(context).pop(response);
@@ -137,7 +141,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
         height: dialogHeight,
         child: Form(
           key: _formKey,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
+          autovalidateMode: _autoValidateMode,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(30),
             child: DecoratedBox(
@@ -299,7 +303,9 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
                   ),
                 ),
                 IconButton(
-                  onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close, color: Colors.white),
                 ),
               ],
@@ -335,8 +341,10 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
           label: 'Middle Name',
           child: _buildTextField(
             controller: _middleNameController,
-            validator: (value) =>
-                AppFormValidators.optionalName(value, fieldLabel: 'Middle name'),
+            validator: (value) => AppFormValidators.optionalName(
+              value,
+              fieldLabel: 'Middle name',
+            ),
             inputFormatters: AppFormValidators.nameInputFormatters(),
             textInputAction: TextInputAction.next,
           ),
@@ -538,9 +546,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
             onFieldSubmitted: (_) => _handleSubmit(),
             suffixIcon: IconButton(
               icon: Icon(
-                _showConfirmPassword
-                    ? Icons.visibility_off
-                    : Icons.visibility,
+                _showConfirmPassword ? Icons.visibility_off : Icons.visibility,
                 color: Colors.black45,
               ),
               onPressed: () {
