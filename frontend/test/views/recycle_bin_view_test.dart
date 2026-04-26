@@ -62,11 +62,9 @@ void main() {
     expect(find.text('Recycle Bin'), findsOneWidget);
     expect(find.byKey(const Key('recycle-bin-list')), findsOneWidget);
     expect(find.text('Dental Cleaning'), findsOneWidget);
-    expect(find.text('Ava Stone'), findsOneWidget);
-    expect(
-      find.byKey(const Key('recycle-bin-chip-available-10')),
-      findsOneWidget,
-    );
+    expect(find.text('Patient: Ava Stone'), findsOneWidget);
+    expect(find.text('RESTORE\nAVAILABLE'), findsOneWidget);
+    expect(find.byKey(const Key('recycle-bin-entry-10')), findsOneWidget);
     await tester.drag(
       find.byKey(const Key('recycle-bin-list')),
       const Offset(0, -500),
@@ -74,21 +72,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Root Canal Consultation'), findsOneWidget);
-    expect(find.text('Noah Lane'), findsOneWidget);
-    expect(
-      find.byKey(const Key('recycle-bin-chip-expired-11')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('recycle-bin-restore-area-10')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const Key('recycle-bin-restore-area-11')),
-      findsOneWidget,
-    );
+    expect(find.text('Patient: Noah Lane'), findsOneWidget);
+    expect(find.text('EXPIRED'), findsOneWidget);
+    expect(find.byKey(const Key('recycle-bin-entry-11')), findsOneWidget);
     expect(find.text('Restore Appointment'), findsOneWidget);
-    expect(find.text('Restore expired'), findsOneWidget);
+    expect(find.text('Restore Unavailable'), findsOneWidget);
   });
 
   testWidgets('renders a clear recycle bin empty state', (
