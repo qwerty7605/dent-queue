@@ -8,46 +8,55 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
-            width: 900,
-            height: 420,
-            child: AdminDataTable(
-              minWidth: 640,
-              columns: <DataColumn>[
-                DataColumn(
-                  label: AdminDataTable.headerLabel('Patient', width: 220),
-                ),
-                DataColumn(
-                  label: AdminDataTable.headerLabel(
-                    'Status',
-                    width: 110,
-                    alignment: Alignment.center,
+        home: Builder(
+          builder: (BuildContext context) => Scaffold(
+            body: SizedBox(
+              width: 900,
+              height: 420,
+              child: AdminDataTable(
+                minWidth: 640,
+                columns: <DataColumn>[
+                  DataColumn(
+                    label: AdminDataTable.headerLabel(
+                      context,
+                      'Patient',
+                      width: 220,
+                    ),
                   ),
-                ),
-              ],
-              rows: <DataRow>[
-                DataRow.byIndex(
-                  index: 0,
-                  color: AdminDataTable.rowColor(0),
-                  cells: <DataCell>[
-                    DataCell(
-                      AdminDataTable.cellText(
-                        'Ava Stone',
-                        width: 220,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  DataColumn(
+                    label: AdminDataTable.headerLabel(
+                      context,
+                      'Status',
+                      width: 110,
+                      alignment: Alignment.center,
                     ),
-                    DataCell(
-                      AdminDataTable.cellText(
-                        'Approved',
-                        width: 110,
-                        alignment: Alignment.center,
+                  ),
+                ],
+                rows: <DataRow>[
+                  DataRow.byIndex(
+                    index: 0,
+                    color: AdminDataTable.rowColor(context, 0),
+                    cells: <DataCell>[
+                      DataCell(
+                        AdminDataTable.cellText(
+                          context,
+                          'Ava Stone',
+                          width: 220,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      DataCell(
+                        AdminDataTable.cellText(
+                          context,
+                          'Approved',
+                          width: 110,
+                          alignment: Alignment.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

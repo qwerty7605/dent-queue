@@ -226,7 +226,7 @@ void main() {
       );
       expect(appointmentService.patientAppointmentsCalls, 1);
       expect(appointmentService.patientQueueCalls, 1);
-      expect(find.text('Dental Check-up'), findsOneWidget);
+      expect(find.text('3 patients ahead of you.'), findsOneWidget);
 
       await triggerRefresh(
         tester,
@@ -237,7 +237,7 @@ void main() {
 
       expect(appointmentService.patientAppointmentsCalls, 2);
       expect(appointmentService.patientQueueCalls, 2);
-      expect(find.text('Root Canal'), findsOneWidget);
+      expect(find.text('2 patients ahead of you.'), findsOneWidget);
     },
   );
 
@@ -329,9 +329,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('staff-dashboard-refresh')), findsOneWidget);
-      expect(appointmentService.adminMasterListCalls, 1);
+      expect(appointmentService.adminMasterListCalls, 0);
       expect(appointmentService.adminAppointmentsCalls, 1);
       expect(appointmentService.adminQueueCalls, 1);
+      expect(appointmentService.recycleBinCalls, 1);
+      expect(notificationService.getNotificationsCalls, 1);
       expect(find.text('Ava Lopez'), findsWidgets);
 
       await triggerRefresh(
@@ -341,9 +343,10 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(appointmentService.adminMasterListCalls, 1);
+      expect(appointmentService.adminMasterListCalls, 0);
       expect(appointmentService.adminAppointmentsCalls, 2);
       expect(appointmentService.adminQueueCalls, 2);
+      expect(appointmentService.recycleBinCalls, 2);
       expect(notificationService.getNotificationsCalls, 1);
       expect(find.text('Noah Cruz'), findsWidgets);
     },
@@ -417,7 +420,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(appointmentService.adminMasterListCalls, 1);
+      expect(appointmentService.adminMasterListCalls, 0);
       expect(appointmentService.adminAppointmentsCalls, 1);
       expect(appointmentService.adminQueueCalls, 1);
       expect(appointmentService.recycleBinCalls, 0);

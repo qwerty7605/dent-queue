@@ -40,7 +40,7 @@ void main() {
 
     final rescheduleRequired = appointmentStatusVisual('Reschedule Required');
     expect(rescheduleRequired.key, 'reschedule_required');
-    expect(rescheduleRequired.label, 'Reschedule Required');
+    expect(rescheduleRequired.label, 'Needs Reschedule');
     expect(rescheduleRequired.icon, Icons.update_rounded);
   });
 
@@ -77,7 +77,7 @@ void main() {
     expect(find.text('Completed'), findsOneWidget);
     expect(find.text('Cancelled'), findsOneWidget);
     expect(find.text('Cancelled by Doctor'), findsOneWidget);
-    expect(find.text('Reschedule Required'), findsOneWidget);
+    expect(find.text('Needs Reschedule'), findsOneWidget);
     expect(find.byIcon(Icons.schedule_rounded), findsOneWidget);
     expect(find.byIcon(Icons.event_available_rounded), findsOneWidget);
     expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
