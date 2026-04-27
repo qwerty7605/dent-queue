@@ -27,23 +27,30 @@ jobs:
         run: docker compose build
 
       - name: Start Docker containers
-        run: docker compose up -d
+        run: docker compose up -d mysqlDB php
+
+      - name: Wait for MySQL
+        run: sleep 15
 
       - name: Prepare Laravel environment
-        run: docker compose exec -T app sh -c "cp .env.pipeline .env && php artisan key:generate"
+        run: docker compose exec -T php sh -c "cp .env.pipeline .env && php artisan key:generate"
 
       - name: Run Laravel migrations
-        run: docker compose exec -T app php artisan migrate --force
+        run: docker compose exec -T php php artisan migrate --force
 
       - name: Run Laravel tests
-        run: docker compose exec -T app php artisan test
+        run: docker compose exec -T php php artisan test
 
       - name: Build Laravel frontend assets
-        run: docker compose exec -T app npm run build
+        run: docker compose exec -T php npm run build
+
+      - name: Show Docker logs on failure
+        if: failure()
+        run: docker compose logs mysqlDB php
 
       - name: Stop Docker containers
         if: always()
-        run: docker compose down
+        run: docker compose down -v
 
   flutter:
     name: Flutter Test and Build
