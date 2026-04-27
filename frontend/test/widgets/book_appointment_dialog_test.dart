@@ -6,24 +6,28 @@ import 'package:frontend/widgets/book_appointment_dialog.dart';
 class _FakeAppointmentService extends Fake implements AppointmentService {}
 
 void main() {
-  testWidgets('shows inline required errors when booking fields are empty', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: BookAppointmentDialog(
-            appointmentService: _FakeAppointmentService(),
+  testWidgets(
+    'shows the current step action and prevents moving forward without a service',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BookAppointmentDialog(
+              appointmentService: _FakeAppointmentService(),
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    await tester.ensureVisible(find.text('Confirm Booking'));
-    await tester.tap(find.text('Confirm Booking'));
-    await tester.pump();
+      expect(find.text('Continue to Date'), findsOneWidget);
+      expect(find.text('Confirm Booking'), findsNothing);
 
-    expect(find.text('Required'), findsNWidgets(3));
-  });
+      final ElevatedButton button = tester.widget<ElevatedButton>(
+        find.byType(ElevatedButton),
+      );
+      expect(button.onPressed, isNull);
+      expect(find.text('Required'), findsNothing);
+    },
+  );
 }

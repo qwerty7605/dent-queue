@@ -354,20 +354,16 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
       );
     }
 
-    return Form(
-      key: _formKey,
-      autovalidateMode: _autoValidateMode,
-      child: AppDialogScaffold(
-        maxWidth: 460,
-        maxHeightFactor: 0.92,
-        backgroundColor: surfaceColor,
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-        bodyPadding: const EdgeInsets.only(top: 18),
-        headerContent: _buildStepHeader(headlineColor, mutedText, isDark),
-        onClose: _isLoading ? null : () => Navigator.of(context).pop(),
-        footer: _buildFooterActions(headlineColor, isDark),
-        child: content,
-      ),
+    return AppDialogScaffold(
+      maxWidth: 460,
+      maxHeightFactor: 0.92,
+      backgroundColor: surfaceColor,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      bodyPadding: const EdgeInsets.only(top: 18),
+      headerContent: _buildStepHeader(headlineColor, mutedText, isDark),
+      onClose: _isLoading ? null : () => Navigator.of(context).pop(),
+      footer: _buildFooterActions(headlineColor, isDark),
+      child: content,
     );
   }
 

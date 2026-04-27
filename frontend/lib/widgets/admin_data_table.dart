@@ -40,12 +40,23 @@ class AdminDataTable extends StatefulWidget {
   static const Color _darkStripedRowColor = Color(0xFF182132);
 
   static Widget headerLabel(
-    BuildContext context,
+    String label, {
+    BuildContext? context,
+    double? width,
+    Alignment alignment = Alignment.centerLeft,
+  }) {
+    return _headerLabel(context, label, width: width, alignment: alignment);
+  }
+
+  static Widget _headerLabel(
+    BuildContext? context,
     String label, {
     double? width,
     Alignment alignment = Alignment.centerLeft,
   }) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final bool isDark = context != null
+        ? Theme.of(context).brightness == Brightness.dark
+        : false;
     final Widget text = Text(
       label.toUpperCase(),
       maxLines: 2,
@@ -62,7 +73,27 @@ class AdminDataTable extends StatefulWidget {
   }
 
   static Widget cellText(
-    BuildContext context,
+    String text, {
+    BuildContext? context,
+    double? width,
+    Alignment alignment = Alignment.centerLeft,
+    int maxLines = 1,
+    FontWeight fontWeight = FontWeight.w600,
+    Color? color,
+  }) {
+    return _cellText(
+      context,
+      text,
+      width: width,
+      alignment: alignment,
+      maxLines: maxLines,
+      fontWeight: fontWeight,
+      color: color,
+    );
+  }
+
+  static Widget _cellText(
+    BuildContext? context,
     String text, {
     double? width,
     Alignment alignment = Alignment.centerLeft,
@@ -70,7 +101,9 @@ class AdminDataTable extends StatefulWidget {
     FontWeight fontWeight = FontWeight.w600,
     Color? color,
   }) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final bool isDark = context != null
+        ? Theme.of(context).brightness == Brightness.dark
+        : false;
     final Widget label = Text(
       text,
       maxLines: maxLines,
@@ -86,8 +119,13 @@ class AdminDataTable extends StatefulWidget {
     return _wrapCell(label, width: width, alignment: alignment);
   }
 
-  static WidgetStateProperty<Color?> rowColor(BuildContext context, int index) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+  static WidgetStateProperty<Color?> rowColor(
+    int index, {
+    BuildContext? context,
+  }) {
+    final bool isDark = context != null
+        ? Theme.of(context).brightness == Brightness.dark
+        : false;
     return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
       if (states.contains(WidgetState.selected)) {
         return isDark ? const Color(0xFF23314B) : const Color(0xFFEBF0FF);
@@ -162,8 +200,9 @@ class _AdminDataTableState extends State<AdminDataTable> {
                       controller: _verticalController,
                       thumbVisibility: false,
                       trackVisibility: false,
-                      notificationPredicate: (ScrollNotification notification) =>
-                          notification.metrics.axis == Axis.vertical,
+                      notificationPredicate:
+                          (ScrollNotification notification) =>
+                              notification.metrics.axis == Axis.vertical,
                       child: SingleChildScrollView(
                         controller: _verticalController,
                         child: _buildTable(),

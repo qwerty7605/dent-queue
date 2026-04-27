@@ -58,6 +58,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   late final NotificationService _notificationService;
   late final PatientRecordService _patientRecordService;
   late Map<String, dynamic> _localUserInfo;
+  bool _hasLoadedMasterListSnapshot = false;
 
   late DateTime _selectedDate;
   _StaffTab _selectedTab = _StaffTab.home;
@@ -214,7 +215,21 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Future<void> _initializeAppointments() async {
+    await _loadMasterListSnapshot();
     await _loadAppointmentsForSelectedDate();
+  }
+
+  Future<void> _loadMasterListSnapshot() async {
+    if (_hasLoadedMasterListSnapshot) {
+      return;
+    }
+
+    try {
+      await _appointmentService.getAdminMasterList();
+      _hasLoadedMasterListSnapshot = true;
+    } catch (_) {
+      // Keep the dashboard usable even if the wider snapshot call fails.
+    }
   }
 
   Future<void> _loadUnreadNotificationCount() async {
@@ -971,7 +986,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     final String firstName = _resolveTopBarName(_localUserInfo);
 
     return RefreshIndicator(
-      key: const Key('staff-home-refresh'),
+      key: const Key('staff-dashboard-refresh'),
       onRefresh: _refreshAppointmentsAndQueue,
       color: const Color(0xFF1A2F64),
       child: SingleChildScrollView(
@@ -1052,6 +1067,13 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _buildQueueShortcutCard(),
             ),
+            if (_appointments.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildHomeAppointmentsPreview(),
+              ),
+            ],
             const SizedBox(height: 18),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1061,6 +1083,28 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildHomeAppointmentsPreview() {
+    final List<Map<String, dynamic>> previewAppointments = _appointments
+        .take(2)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Today\'s Appointments',
+          style: TextStyle(
+            color: Color(0xFF1A2F64),
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...previewAppointments.map(_buildAppointmentCard),
+      ],
     );
   }
 

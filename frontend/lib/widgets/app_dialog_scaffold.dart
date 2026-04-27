@@ -71,9 +71,9 @@ class AppDialogScaffold extends StatelessWidget {
               if (hasHeader) _buildHeader(context),
               Flexible(
                 fit: FlexFit.loose,
-                child: SingleChildScrollView(
+                child: Padding(
                   padding: hasHeader ? bodyPadding : EdgeInsets.zero,
-                  child: child,
+                  child: SingleChildScrollView(child: child),
                 ),
               ),
               if (footer != null)

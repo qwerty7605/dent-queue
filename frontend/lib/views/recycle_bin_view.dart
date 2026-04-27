@@ -465,6 +465,11 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                 ),
               ),
               Container(
+                key: Key(
+                  entry.isRestorable
+                      ? 'recycle-bin-chip-available-${entry.id}'
+                      : 'recycle-bin-chip-expired-${entry.id}',
+                ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 10,
@@ -530,17 +535,33 @@ class _RecycleBinViewState extends State<RecycleBinView> {
           if (widget.role == RecycleBinRole.staff &&
               entry.patientName != null) ...[
             const SizedBox(height: 10),
-            Text(
-              'Patient: ${entry.patientName!}',
-              style: TextStyle(
-                color: mutedText,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Patient',
+                  style: TextStyle(
+                    color: mutedText,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  entry.patientName!,
+                  style: TextStyle(
+                    color: mutedText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ],
           const SizedBox(height: 16),
           SizedBox(
+            key: Key('recycle-bin-restore-area-${entry.id}'),
             width: double.infinity,
             child: entry.isRestorable
                 ? ElevatedButton(
@@ -570,7 +591,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    child: const Text('Restore Unavailable'),
+                    child: const Text('Restore expired'),
                   ),
           ),
         ],
