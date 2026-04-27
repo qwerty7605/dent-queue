@@ -29,17 +29,17 @@ jobs:
       - name: Start Docker containers
         run: docker compose up -d db php
 
-      - name: Prepare Laravel environment
-        run: docker compose exec -T php sh -c "cp .env.pipeline .env && php artisan key:generate"
-
       - name: Install Composer dependencies
         run: docker compose exec -T php composer install --no-interaction --prefer-dist
+
+      - name: Prepare Laravel environment
+        run: docker compose exec -T php sh -c "cp .env.pipeline .env && php artisan key:generate"
 
       - name: Run Laravel migrations
         run: docker compose exec -T php php artisan migrate --force
 
-      - name: Run Laravel tests
-        run: docker compose exec -T php php artisan test
+      - name: Run PHPUnit tests
+        run: docker compose exec -T php vendor/bin/phpunit
 
       - name: Show Docker logs on failure
         if: failure()
