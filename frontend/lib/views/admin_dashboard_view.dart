@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 
 import '../core/api_client.dart';
 import '../core/mobile_typography.dart';
-import '../core/paginated_result.dart';
 import '../core/token_storage.dart';
 import '../models/admin_ui_notification.dart';
 import '../services/admin_dashboard_service.dart';
@@ -57,8 +56,8 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           badgeText: 'ACTIVE',
         ),
         _DashboardMetricConfig(
-          route: 'Master List',
-          title: 'MASTER LIST',
+          route: 'Appointments',
+          title: 'APPOINTMENTS',
           description: 'Scheduled clinical procedures',
           icon: Icons.assignment_outlined,
           badgeText: 'SYNCED',
@@ -150,7 +149,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
               const <String, String>{},
               forceRefresh,
             ),
-            _appointmentService.getAdminMasterListPage(page: 1, perPage: 3),
+            _appointmentService.getAdminMasterList(
+              const <String, String>{'status': 'pending'},
+            ),
             _adminSettingsService.getClinicSettings(),
           ]);
 
@@ -158,13 +159,14 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return;
       }
 
-      final PaginatedResult<Map<String, dynamic>> appointmentsPage =
-          results[2] as PaginatedResult<Map<String, dynamic>>;
+      final List<Map<String, dynamic>> pendingAppointments =
+          List<Map<String, dynamic>>.from(results[2] as List<Map<String, dynamic>>)
+            ..sort(_compareRecentAppointments);
 
       setState(() {
         _dashboardStats = Map<String, int>.from(results[0] as Map);
         _reportSummary = Map<String, int>.from(results[1] as Map);
-        _masterListPreview = appointmentsPage.items;
+        _masterListPreview = pendingAppointments.take(10).toList();
         _clinicSettings = Map<String, dynamic>.from(results[3] as Map);
         _isLoadingDashboard = false;
       });
@@ -219,7 +221,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
             _loadDashboardSnapshot();
           },
         );
-      case 'Master List':
+      case 'Appointments':
         return AdminMasterListView(appointmentService: _appointmentService);
       case 'Reports':
         return AdminReportsView(
@@ -465,7 +467,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Master List',
+                        'Appointments',
                         style: TextStyle(
                           color: _headingColor,
                           fontSize: 20,
@@ -474,7 +476,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        'REAL-TIME CLINICAL SYNCHRONIZATION',
+                        'RECENT PENDING APPOINTMENT REQUESTS',
                         style: TextStyle(
                           color: _mutedColor,
                           fontSize: 11,
@@ -488,7 +490,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
                 TextButton.icon(
                   onPressed: () {
                     setState(() {
-                      _activeRoute = 'Master List';
+                      _activeRoute = 'Appointments';
                     });
                   },
                   icon: const Icon(Icons.open_in_new_rounded, size: 18),
@@ -856,7 +858,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return _compactNumber(_dashboardStats['patients_count'] ?? 0);
       case 'Staff':
         return _compactNumber(_dashboardStats['staff_accounts_count'] ?? 0);
-      case 'Master List':
+      case 'Appointments':
         return _compactNumber(_dashboardStats['appointments_count'] ?? 0);
       case 'Reports':
         return _compactNumber(_reportSummary['report_records'] ?? 0);
@@ -877,7 +879,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         final int staff = _dashboardStats['staff_count'] ?? 0;
         final int interns = _dashboardStats['intern_count'] ?? 0;
         return '$staff practitioners and $interns interns';
-      case 'Master List':
+      case 'Appointments':
         return fallback;
       case 'Reports':
         final int completed = _reportSummary['completed'] ?? 0;
@@ -943,6 +945,94 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     }
 
     return DateFormat('hh:mm a').format(parsed);
+  }
+
+  int _compareRecentAppointments(
+    Map<String, dynamic> left,
+    Map<String, dynamic> right,
+  ) {
+    final DateTime leftCreated = _resolveComparableDateTime(
+      left['created_at']?.toString(),
+      left['appointment_date']?.toString(),
+      left['date']?.toString(),
+      left['appointment_time']?.toString(),
+      left['time']?.toString(),
+    );
+    final DateTime rightCreated = _resolveComparableDateTime(
+      right['created_at']?.toString(),
+      right['appointment_date']?.toString(),
+      right['date']?.toString(),
+      right['appointment_time']?.toString(),
+      right['time']?.toString(),
+    );
+
+    final int byCreated = rightCreated.compareTo(leftCreated);
+    if (byCreated != 0) {
+      return byCreated;
+    }
+
+    final int leftId = int.tryParse(left['appointment_id']?.toString() ?? '') ?? 0;
+    final int rightId = int.tryParse(right['appointment_id']?.toString() ?? '') ?? 0;
+    return rightId.compareTo(leftId);
+  }
+
+  DateTime _resolveComparableDateTime(
+    String? createdAtRaw,
+    String? appointmentDateRaw,
+    String? dateRaw,
+    String? appointmentTimeRaw,
+    String? timeRaw,
+  ) {
+    final DateTime? createdAt = _tryParseDateTime(createdAtRaw);
+    if (createdAt != null) {
+      return createdAt;
+    }
+
+    final String? dateValue = _firstNonEmpty(<String?>[
+      appointmentDateRaw,
+      dateRaw,
+    ]);
+    final String? timeValue = _firstNonEmpty(<String?>[
+      appointmentTimeRaw,
+      timeRaw,
+      '00:00',
+    ]);
+
+    final DateTime? scheduledDateTime = _tryParseDateTime(
+      '${dateValue ?? '1970-01-01'} ${_normalizeTimeToken(timeValue ?? '00:00')}',
+    );
+
+    return scheduledDateTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  DateTime? _tryParseDateTime(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return null;
+    }
+
+    final DateTime? direct = DateTime.tryParse(raw.trim());
+    if (direct != null) {
+      return direct;
+    }
+
+    return DateFormat('yyyy-MM-dd HH:mm:ss').tryParse(raw.trim(), true)?.toLocal();
+  }
+
+  String _normalizeTimeToken(String raw) {
+    final String normalized = raw.trim();
+    if (RegExp(r'^\d{2}:\d{2}$').hasMatch(normalized)) {
+      return '$normalized:00';
+    }
+    return normalized;
+  }
+
+  String? _firstNonEmpty(List<String?> values) {
+    for (final String? value in values) {
+      if (value != null && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+    }
+    return null;
   }
 
   String _formatClinicHours() {

@@ -16,7 +16,7 @@ class AdminPatientsView extends StatefulWidget {
 }
 
 class _AdminPatientsViewState extends State<AdminPatientsView> {
-  static const int _pageSize = 5;
+  static const int _pageSize = 15;
   static const Color _surface = Colors.white;
   static const Color _outline = Color(0xFFE3EAF6);
   static const Color _text = Color(0xFF1D3264);
