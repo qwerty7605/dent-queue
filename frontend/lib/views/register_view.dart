@@ -66,7 +66,7 @@ class _RegisterViewState extends State<RegisterView> {
   bool _submitting = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
-  AutovalidateMode _autoValidateMode = AutovalidateMode.onUserInteraction;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   Map<String, String> _fieldErrors = <String, String>{};
   String? _formErrorText;
 
@@ -186,12 +186,14 @@ class _RegisterViewState extends State<RegisterView> {
     }
     setState(() {
       _currentStep++;
+      _autoValidateMode = AutovalidateMode.disabled;
     });
   }
 
   void _prevStep() {
     setState(() {
       _currentStep--;
+      _autoValidateMode = AutovalidateMode.disabled;
     });
   }
 

@@ -101,7 +101,7 @@ class AppointmentController extends Controller
             'date' => ['required', 'date_format:Y-m-d'],
         ]);
 
-        $appointments = $this->appointmentService->getApprovedAppointmentsByDate(
+        $appointments = $this->appointmentService->getCalendarAppointmentsByDate(
             (string) $payload['date'],
         );
 
@@ -113,7 +113,7 @@ class AppointmentController extends Controller
 
     public function calendarAppointmentDetails(Appointment $appointment): JsonResponse
     {
-        $details = $this->appointmentService->getApprovedAppointmentDetails(
+        $details = $this->appointmentService->getCalendarAppointmentDetails(
             (int) $appointment->id,
         );
 

@@ -2,14 +2,13 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+  pull_request:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-main
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,34 +23,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          extensions: mbstring, sqlite3, pdo_sqlite, fileinfo
-          coverage: none
+      - name: Build Docker containers
+        run: docker compose build
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Start Docker containers
+        run: docker compose up -d db php
 
       - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist
+        run: docker compose exec -T php composer install --no-interaction --prefer-dist
 
-      - name: Install Vite dependencies
-        run: npm install
+      - name: Prepare Laravel environment
+        run: docker compose exec -T php sh -c "cp .env.pipeline .env && php artisan key:generate"
 
-      - name: Prepare Laravel pipeline environment
-        run: |
-          cp .env.pipeline .env
-          php artisan key:generate
+      - name: Run Laravel migrations
+        run: docker compose exec -T php php artisan migrate --force
 
-      - name: Run Laravel automated tests
-        run: php artisan test
+      - name: Run PHPUnit tests
+        run: docker compose exec -T php vendor/bin/phpunit
 
-      - name: Build Laravel frontend assets
-        run: npm run build
+      - name: Show Docker logs on failure
+        if: failure()
+        run: docker compose logs db php
+
+      - name: Stop Docker containers
+        if: always()
+        run: docker compose down -v
 
   flutter:
     name: Flutter Test and Build
@@ -84,9 +80,3 @@ jobs:
 
       - name: Build Android debug APK
         run: flutter build apk --debug
-
-      - name: Upload debug APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: frontend/build/app/outputs/flutter-apk/app-debug.apk

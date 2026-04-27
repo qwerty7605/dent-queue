@@ -235,6 +235,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                 _fieldErrors = <String, String>{};
                 _formErrorText = null;
                 _isEditingProfile = true;
+                _autoValidateMode = AutovalidateMode.disabled;
               });
             },
             style: ElevatedButton.styleFrom(
@@ -265,20 +266,14 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   title,
-                  if (action != null) ...[
-                    const SizedBox(height: 16),
-                    action,
-                  ],
+                  if (action != null) ...[const SizedBox(height: 16), action],
                 ],
               ),
             )
           else
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                title,
-                if (action case final Widget button) button,
-              ],
+              children: [title, if (action case final Widget button) button],
             ),
           SizedBox(height: isPhone ? 16 : 24),
           Expanded(
@@ -293,7 +288,9 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: _isDarkMode ? 0.24 : 0.05),
+                    color: Colors.black.withValues(
+                      alpha: _isDarkMode ? 0.24 : 0.05,
+                    ),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),

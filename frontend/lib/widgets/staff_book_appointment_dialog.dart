@@ -261,17 +261,22 @@ class _StaffBookAppointmentDialogState
         titleTextStyle: TextStyle(
           fontSize: MobileTypography.sectionTitle(context),
           fontWeight: FontWeight.w900,
-          color: const Color(0xFF1E293B),
+          color: const Color(0xFF1A2F64),
         ),
         maxWidth: 420,
         onClose: _isSubmitting ? null : () => Navigator.of(context).pop(),
+        subtitle: 'FOR ${widget.patient['name']?.toUpperCase() ?? 'PATIENT'}',
         footer: SizedBox(
           width: double.infinity,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4A769E),
+              backgroundColor: const Color(0xFF1A2F64),
               foregroundColor: Colors.white,
               elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
             ),
             onPressed: _isSubmitting ? null : _submit,
             child: _isSubmitting
@@ -287,7 +292,7 @@ class _StaffBookAppointmentDialogState
                     'Confirm Booking',
                     style: TextStyle(
                       fontSize: MobileTypography.button(context),
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
           ),
@@ -300,18 +305,29 @@ class _StaffBookAppointmentDialogState
               _buildErrorBanner(),
               const SizedBox(height: 16),
             ],
-            _buildServiceTypeDropdown(),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _buildDateInput()),
-                const SizedBox(width: 16),
-                Expanded(child: _buildTimeInput()),
-              ],
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F7FF),
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildServiceTypeDropdown(),
+                  const SizedBox(height: 18),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildDateInput()),
+                      const SizedBox(width: 12),
+                      Expanded(child: _buildTimeInput()),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            _buildNotesInput(),
           ],
         ),
       ),
@@ -324,10 +340,10 @@ class _StaffBookAppointmentDialogState
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
-          color: Color(0xFF64748B),
-          letterSpacing: 0.5,
+          color: Color(0xFFA2ABBB),
+          letterSpacing: 1.4,
         ),
       ),
     );
@@ -340,7 +356,12 @@ class _StaffBookAppointmentDialogState
         _buildFieldLabel('SERVICE TYPE'),
         DropdownButtonFormField<String>(
           initialValue: _selectedService,
-          decoration: _inputDecoration(),
+          decoration: _inputDecoration(
+            prefixIcon: const Icon(
+              Icons.task_alt_outlined,
+              color: Color(0xFFB9C2D2),
+            ),
+          ),
           items: _services.map((service) {
             return DropdownMenuItem(
               value: service,
@@ -416,6 +437,10 @@ class _StaffBookAppointmentDialogState
           ),
           decoration: _inputDecoration(
             hint: 'dd/mm/yyyy',
+            prefixIcon: const Icon(
+              Icons.calendar_today_outlined,
+              color: Color(0xFFB9C2D2),
+            ),
             suffixIcon: Icons.calendar_today_outlined,
           ),
         ),
@@ -439,27 +464,34 @@ class _StaffBookAppointmentDialogState
               onTap: _isSubmitting ? null : () => _openTimePicker(state),
               borderRadius: BorderRadius.circular(10),
               child: InputDecorator(
-                decoration: _inputDecoration(
-                  suffixIcon: _isLoadingAvailability
-                      ? null
-                      : Icons.access_time_rounded,
-                ).copyWith(
-                  errorText: state.errorText,
-                  suffixIcon: _isLoadingAvailability
-                      ? const Padding(
-                          padding: EdgeInsets.all(14),
-                          child: SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      : const Icon(
-                          Icons.access_time_rounded,
-                          color: Color(0xFF475569),
-                          size: 20,
-                        ),
-                ),
+                decoration:
+                    _inputDecoration(
+                      prefixIcon: const Icon(
+                        Icons.access_time_rounded,
+                        color: Color(0xFFB9C2D2),
+                      ),
+                      suffixIcon: _isLoadingAvailability
+                          ? null
+                          : Icons.access_time_rounded,
+                    ).copyWith(
+                      errorText: state.errorText,
+                      suffixIcon: _isLoadingAvailability
+                          ? const Padding(
+                              padding: EdgeInsets.all(14),
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : const Icon(
+                              Icons.access_time_rounded,
+                              color: Color(0xFF475569),
+                              size: 20,
+                            ),
+                    ),
                 child: Text(
                   _timeFieldLabel(),
                   style: TextStyle(
@@ -482,8 +514,10 @@ class _StaffBookAppointmentDialogState
 
   Future<void> _openTimePicker(FormFieldState<String> state) async {
     if (_selectedDate == null) {
-      setState(() => _autoValidateMode = AutovalidateMode.always);
-      _formKey.currentState?.validate();
+      setState(() {
+        _fieldErrors['date'] = 'Required';
+      });
+      state.validate();
       return;
     }
 
@@ -541,54 +575,40 @@ class _StaffBookAppointmentDialogState
     return slot['time_label']?.toString() ?? _selectedTimeSlot!;
   }
 
-  Widget _buildNotesInput() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildFieldLabel('ADDITIONAL NOTES'),
-        TextFormField(
-          controller: _notesController,
-          onChanged: (_) => _clearFieldError('notes'),
-          maxLines: 4,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF1E293B),
-          ),
-          decoration: _inputDecoration(hint: 'Any concerns?'),
-          validator: (value) => _mergeFieldError('notes', null),
-        ),
-      ],
-    );
-  }
-
-  InputDecoration _inputDecoration({String? hint, IconData? suffixIcon}) {
+  InputDecoration _inputDecoration({
+    String? hint,
+    IconData? suffixIcon,
+    Widget? prefixIcon,
+  }) {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(
-        color: Color(0xFF9CA3AF),
-        fontWeight: FontWeight.w500,
+        color: Color(0xFFBFC8D6),
+        fontWeight: FontWeight.w600,
         fontSize: 16,
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      filled: true,
+      fillColor: Colors.white,
+      prefixIcon: prefixIcon,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFF4A769E), width: 1.5),
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: Color(0xFF1A2F64), width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: Colors.redAccent),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(18),
         borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
       ),
       suffixIcon: suffixIcon != null

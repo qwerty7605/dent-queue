@@ -14,7 +14,6 @@ import '../services/patient_record_service.dart';
 import '../widgets/app_empty_state.dart';
 import '../widgets/appointment_success_dialog.dart';
 import '../widgets/appointment_status_badge.dart';
-import '../widgets/dashboard_stat_card.dart';
 import '../widgets/edit_profile_dialog.dart';
 import '../widgets/navigation_chrome.dart';
 import '../widgets/staff_appointment_details_dialog.dart';
@@ -24,7 +23,7 @@ import 'recycle_bin_view.dart';
 import 'staff_patient_records_view.dart';
 import 'staff_walk_in_view.dart';
 
-enum _StaffTab { appointments, walkIn, calendar, records, profile }
+enum _StaffTab { home, appointments, walkIn, calendar, records, profile }
 
 enum _StaffFilter { all, pending, approved, completed, cancelled }
 
@@ -59,9 +58,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   late final NotificationService _notificationService;
   late final PatientRecordService _patientRecordService;
   late Map<String, dynamic> _localUserInfo;
+  bool _hasLoadedMasterListSnapshot = false;
 
   late DateTime _selectedDate;
-  _StaffTab _selectedTab = _StaffTab.appointments;
+  _StaffTab _selectedTab = _StaffTab.home;
   _StaffFilter _selectedFilter = _StaffFilter.all;
 
   List<Map<String, dynamic>> _appointments = [];
@@ -215,7 +215,21 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Future<void> _initializeAppointments() async {
+    await _loadMasterListSnapshot();
     await _loadAppointmentsForSelectedDate();
+  }
+
+  Future<void> _loadMasterListSnapshot() async {
+    if (_hasLoadedMasterListSnapshot) {
+      return;
+    }
+
+    try {
+      await _appointmentService.getAdminMasterList();
+      _hasLoadedMasterListSnapshot = true;
+    } catch (_) {
+      // Keep the dashboard usable even if the wider snapshot call fails.
+    }
   }
 
   Future<void> _loadUnreadNotificationCount() async {
@@ -414,7 +428,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       backgroundColor: AppNavigationTheme.background,
       appBar: _buildAppBar(chipName, profileImage),
       drawer: _buildDrawer(name, profileImage),
-      body: SafeArea(child: _buildSelectedTab(profileImageUrl)),
+      body: _buildSelectedTab(profileImageUrl),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
@@ -431,6 +445,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
   Widget _buildSelectedTab(String? profileImageUrl) {
     return switch (_selectedTab) {
+      _StaffTab.home => _buildHomeTab(),
       _StaffTab.appointments => _buildAppointmentsTab(),
       _StaffTab.walkIn =>
         _isReadOnlyAccount
@@ -464,12 +479,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     String name,
     ImageProvider<Object>? profileImage,
   ) {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final chipWidth = screenWidth < 390 ? 130.0 : 160.0;
-
     return AppHeaderBar(
       titleSpacing: -8,
-      titleWidget: const AppBrandLockup(logoSize: 38, spacing: 4),
+      titleWidget: const AppBrandLockup(logoSize: 40, spacing: 4),
+      showBottomAccent: false,
       actions: <Widget>[
         if (!_isReadOnlyAccount)
           IconButton(
@@ -477,13 +490,18 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             onPressed: _openNotifications,
           ),
         Padding(
-          padding: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
-          child: AppUserChip(
-            width: chipWidth,
-            name: name,
-            roleLabel: _accountRoleTag,
-            profileImage: profileImage,
+          padding: const EdgeInsets.only(right: 14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
             onTap: () => _selectTab(_StaffTab.profile),
+            child: CircleAvatar(
+              radius: 21,
+              backgroundColor: Colors.white.withValues(alpha: 0.20),
+              backgroundImage: profileImage,
+              child: profileImage == null
+                  ? const Icon(Icons.person, color: Colors.white, size: 20)
+                  : null,
+            ),
           ),
         ),
       ],
@@ -504,6 +522,12 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             ),
             const Divider(height: 1, color: AppNavigationTheme.divider),
             const SizedBox(height: 10),
+            AppNavigationDrawerItem(
+              icon: Icons.home_outlined,
+              label: 'Dashboard',
+              selected: _selectedTab == _StaffTab.home,
+              onTap: () => _selectTab(_StaffTab.home, closeDrawer: true),
+            ),
             AppNavigationDrawerItem(
               icon: Icons.event_available_outlined,
               label: 'Appointments',
@@ -635,47 +659,96 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 28, 24, 40),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 96),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 144,
-              height: 144,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF1A2F64), width: 3),
-                color: const Color(0xFFF8FAFC),
-                image: profileImageUrl != null
-                    ? DecorationImage(
-                        image: NetworkImage(profileImageUrl),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
-              ),
-              child: profileImageUrl == null
-                  ? const Icon(Icons.person, size: 80, color: Colors.grey)
-                  : null,
+            _buildStaffPageTitle(
+              title: 'Profile Settings',
+              onBack: () => _selectTab(_StaffTab.home),
             ),
-            const SizedBox(height: 18),
-            Text(
-              displayName,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: Colors.black,
-                letterSpacing: 0.4,
+            const SizedBox(height: 26),
+            Center(
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 146,
+                    height: 146,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                      image: profileImageUrl != null
+                          ? DecorationImage(
+                              image: NetworkImage(profileImageUrl),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: profileImageUrl == null
+                        ? const Icon(
+                            Icons.person,
+                            size: 80,
+                            color: Color(0xFF8E99AB),
+                          )
+                        : null,
+                  ),
+                  if (!_isReadOnlyAccount)
+                    Positioned(
+                      right: 2,
+                      bottom: 6,
+                      child: InkWell(
+                        onTap: _openEditProfileDialog,
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF233D78),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 3),
+                          ),
+                          child: const Icon(
+                            Icons.menu_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
+            Center(
+              child: Text(
+                displayName,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF1F3763),
+                ),
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              '$_accountRoleLabel Account\nID: $accountId',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF64748B),
-                height: 1.35,
+            Center(
+              child: Text(
+                '$_accountRoleLabel Account\nID: $accountId',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF8E99AB),
+                  height: 1.35,
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -850,9 +923,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       builder: (context, constraints) {
         final horizontalPadding = constraints.maxWidth < 420 ? 16.0 : 24.0;
         final maxWidth = constraints.maxWidth > 920 ? 920.0 : double.infinity;
-        final summaryWidth = maxWidth == double.infinity
-            ? constraints.maxWidth
-            : maxWidth;
 
         return RefreshIndicator(
           key: const Key('staff-dashboard-refresh'),
@@ -873,21 +943,13 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _isReadOnlyAccount ? 'INTERN DASHBOARD' : 'STAFF DASHBOARD',
-                      style: TextStyle(
-                        fontSize: MobileTypography.sectionTitle(context),
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                        color: Colors.black87,
-                      ),
+                    _buildStaffPageTitle(
+                      title: 'Appointments',
+                      subtitle: _formatLongDate(_selectedDate),
+                      onBack: () => _selectTab(_StaffTab.home),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
                     _buildDailyQueueHeader(),
-                    const SizedBox(height: 16),
-                    _buildSummaryCards(summaryWidth),
-                    const SizedBox(height: 14),
-                    _buildTodayQueuePanel(),
                     const SizedBox(height: 20),
                     _buildSearchField(),
                     const SizedBox(height: 16),
@@ -920,6 +982,132 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     );
   }
 
+  Widget _buildHomeTab() {
+    final String firstName = _resolveTopBarName(_localUserInfo);
+
+    return RefreshIndicator(
+      key: const Key('staff-dashboard-refresh'),
+      onRefresh: _refreshAppointmentsAndQueue,
+      color: const Color(0xFF1A2F64),
+      child: SingleChildScrollView(
+        key: const Key('staff-home-scroll'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 96),
+        child: Column(
+          children: [
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Hello, $firstName!',
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1A2F64),
+                              height: 1.05,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _isReadOnlyAccount
+                                ? "Here's today's appointment queue."
+                                : "Here's today's clinic queue update.",
+                            style: const TextStyle(
+                              color: Color(0xFF6D7484),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0xFF1A2F64).withValues(alpha: 0.08),
+                            blurRadius: 16,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.calendar_today_outlined,
+                        color: Color(0xFFC5D0E7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildDailyQueueHeader(),
+            ),
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildSummaryCards(MediaQuery.sizeOf(context).width - 32),
+            ),
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildQueueShortcutCard(),
+            ),
+            if (_appointments.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _buildHomeAppointmentsPreview(),
+              ),
+            ],
+            const SizedBox(height: 18),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildTodayQueuePanel(),
+            ),
+            const SizedBox(height: 28),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeAppointmentsPreview() {
+    final List<Map<String, dynamic>> previewAppointments = _appointments
+        .take(2)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Today\'s Appointments',
+          style: TextStyle(
+            color: Color(0xFF1A2F64),
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...previewAppointments.map(_buildAppointmentCard),
+      ],
+    );
+  }
+
   Widget _buildSummaryCards(double availableWidth) {
     final pendingCount = _countByStatus('pending');
     final approvedCount = _countByStatus('approved');
@@ -929,34 +1117,30 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     final cards = [
       {
         'label': 'PENDING',
-        'count': pendingCount.toString(),
-        'icon': Icons.access_time_filled,
-        'color': const Color(0xFF1A2F64),
-        'backgroundColor': Colors.white,
+        'count': pendingCount.toString().padLeft(2, '0'),
+        'icon': Icons.access_time_outlined,
+        'color': const Color(0xFFF0B400),
         'filter': _StaffFilter.pending,
       },
       {
         'label': 'APPROVED',
-        'count': approvedCount.toString(),
-        'icon': Icons.check_circle_outline,
-        'color': const Color(0xFF1A2F64),
-        'backgroundColor': Colors.white,
+        'count': approvedCount.toString().padLeft(2, '0'),
+        'icon': Icons.access_time_outlined,
+        'color': const Color(0xFF2B73F3),
         'filter': _StaffFilter.approved,
       },
       {
         'label': 'COMPLETED',
-        'count': completedCount.toString(),
-        'icon': Icons.medical_services_outlined,
-        'color': const Color(0xFF1A2F64),
-        'backgroundColor': Colors.white,
+        'count': completedCount.toString().padLeft(2, '0'),
+        'icon': Icons.check_circle_outline,
+        'color': const Color(0xFF22C792),
         'filter': _StaffFilter.completed,
       },
       {
         'label': 'CANCELLED',
-        'count': cancelledCount.toString(),
+        'count': cancelledCount.toString().padLeft(2, '0'),
         'icon': Icons.cancel_outlined,
-        'color': const Color(0xFF1A2F64),
-        'backgroundColor': Colors.white,
+        'color': const Color(0xFFF04A5D),
         'filter': _StaffFilter.cancelled,
       },
     ];
@@ -971,7 +1155,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         crossAxisCount: crossAxisCount,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        mainAxisExtent: 148,
+        mainAxisExtent: 104,
       ),
       itemBuilder: (context, index) {
         final card = cards[index];
@@ -979,32 +1163,64 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         final count = card['count']! as String;
         final icon = card['icon']! as IconData;
         final color = card['color']! as Color;
-        final backgroundColor = card['backgroundColor']! as Color;
         final filter = card['filter']! as _StaffFilter;
+        final bool selected = _selectedFilter == filter;
 
-        return DashboardStatCard(
-          title: label,
-          value: count,
-          icon: icon,
-          accentColor: color,
-          backgroundColor: backgroundColor,
-          borderColor: color,
-          isSelected: _selectedFilter == filter,
+        return InkWell(
+          borderRadius: BorderRadius.circular(28),
           onTap: () {
             setState(() {
-              _selectedFilter = filter;
+              _selectedFilter = selected ? _StaffFilter.all : filter;
             });
           },
-          valueStyle: TextStyle(
-            fontSize: MobileTypography.sectionTitle(context) + 4,
-            fontWeight: FontWeight.w900,
-            color: color,
-          ),
-          titleStyle: TextStyle(
-            fontSize: MobileTypography.caption(context),
-            fontWeight: FontWeight.w900,
-            color: color,
-            letterSpacing: 0.4,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(18, 14, 16, 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              border: Border(
+                top: BorderSide(color: color, width: 4),
+                left: BorderSide(color: color, width: 4),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: selected ? 0.18 : 0.10),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: const Color(0xFF9AA3B2),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.4,
+                        ),
+                      ),
+                    ),
+                    Icon(icon, size: 18, color: color.withValues(alpha: 0.7)),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  count,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -1059,58 +1275,141 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   Widget _buildDailyQueueHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.format_list_numbered,
-                size: 18,
-                color: Color(0xFF1A2F64),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F8FE),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.format_list_numbered_rounded,
+              color: Color(0xFF1A2F64),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              'Daily Queue - ${_formatLongDate(_selectedDate)}',
+              style: TextStyle(
+                color: const Color(0xFF1E293B),
+                fontSize: MobileTypography.label(context),
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Daily Queue - ${_formatLongDate(_selectedDate)}',
-                  style: TextStyle(
-                    color: Color(0xFF1E293B),
-                    fontSize: MobileTypography.label(context),
-                    fontWeight: FontWeight.w800,
-                  ),
+            ),
+          ),
+          IconButton(
+            onPressed: _pickDate,
+            icon: const Icon(Icons.calendar_today_outlined, size: 20),
+            color: const Color(0xFF66758F),
+            tooltip: 'Select date',
+            visualDensity: VisualDensity.compact,
+          ),
+          IconButton(
+            onPressed: _isLoadingAppointments
+                ? null
+                : () => _loadAppointmentsForSelectedDate(),
+            icon: const Icon(Icons.refresh_rounded, size: 20),
+            color: const Color(0xFF66758F),
+            tooltip: 'Refresh daily queue',
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQueueShortcutCard() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: () => _selectTab(_StaffTab.appointments),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+            border: Border.all(color: const Color(0xFFF0F3F8)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F8FE),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_outlined,
+                  color: Color(0xFF1A2F64),
                 ),
               ),
-              IconButton(
-                onPressed: _pickDate,
-                icon: const Icon(Icons.calendar_month_outlined, size: 18),
-                color: const Color(0xFF1A2F64),
-                tooltip: 'Select date',
-                visualDensity: VisualDensity.compact,
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Appointments',
+                      style: TextStyle(
+                        color: Color(0xFF1A2F64),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'View and manage patient appointments',
+                      style: TextStyle(
+                        color: Color(0xFF9AA3B2),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              IconButton(
-                onPressed: _isLoadingAppointments
-                    ? null
-                    : () => _loadAppointmentsForSelectedDate(),
-                icon: const Icon(Icons.refresh, size: 18),
-                color: const Color(0xFF1A2F64),
-                tooltip: 'Refresh daily queue',
-                visualDensity: VisualDensity.compact,
+              const SizedBox(width: 12),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFE),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFFD2D8E5),
+                  size: 24,
+                ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1121,31 +1420,54 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Today\'s Queue',
-            style: TextStyle(
-              fontSize: MobileTypography.label(context),
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1E293B),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Today\'s Live Queue',
+                  style: TextStyle(
+                    fontSize: MobileTypography.label(context) + 2,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAFBF0),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Text(
+                  'ACTIVE',
+                  style: TextStyle(
+                    color: Color(0xFF16A34A),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -1153,8 +1475,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   label: 'NOW SERVING',
                   queueNumber: nowServing?['queue_number'],
                   caption: nowServing?['patient_name']?.toString() ?? 'Waiting',
-                  accentColor: const Color(0xFF16A34A),
-                  backgroundColor: const Color(0xFFEFFCF3),
+                  accentColor: const Color(0xFF1A2F64),
+                  backgroundColor: const Color(0xFFF5FAFF),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1164,36 +1486,41 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   queueNumber: nextUp?['queue_number'],
                   caption:
                       nextUp?['patient_name']?.toString() ?? 'No one in line',
-                  accentColor: const Color(0xFF1D4ED8),
-                  backgroundColor: const Color(0xFFEFF5FF),
+                  accentColor: const Color(0xFF6B7280),
+                  backgroundColor: const Color(0xFFF9FAFB),
                 ),
               ),
             ],
           ),
           if (!_isReadOnlyAccount) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 onPressed: (_isCallingNext || _isLoadingAppointments)
                     ? null
                     : _callNextPatient,
-                icon: _isCallingNext
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.campaign_outlined, size: 18),
-                label: Text(_isCallingNext ? 'Calling...' : 'Call Next'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1A2F64),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
+                child: _isCallingNext
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'CALL NEXT PATIENT',
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
               ),
             ),
           ],
@@ -1210,10 +1537,11 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     required Color backgroundColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5EAF3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1230,9 +1558,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           ),
           const SizedBox(height: 4),
           Text(
-            '#${_formatQueueNumber(queueNumber)}',
+            'Q-${_formatQueueNumber(queueNumber)}',
             style: TextStyle(
-              fontSize: MobileTypography.sectionTitle(context),
+              fontSize: 20,
               fontWeight: FontWeight.w900,
               color: accentColor,
               height: 1,
@@ -1244,7 +1572,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: MobileTypography.caption(context),
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               color: Color(0xFF475569),
             ),
@@ -1355,7 +1683,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               ElevatedButton(
                 onPressed: () {
                   setState(() {
-                    _selectedTab = _StaffTab.appointments;
+                    _selectedTab = _StaffTab.home;
                   });
                 },
                 style: ElevatedButton.styleFrom(
@@ -1413,9 +1741,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       side: const BorderSide(color: Color(0xFFD1D5DB)),
       showCheckmark: false,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(999),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
     );
   }
 
@@ -1639,10 +1965,10 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           children: [
             Expanded(
               child: AppBottomNavItem(
-                icon: Icons.event_available_outlined,
-                label: 'Appointments',
-                selected: _selectedTab == _StaffTab.appointments,
-                onTap: () => _selectTab(_StaffTab.appointments),
+                icon: Icons.home_outlined,
+                label: 'Home',
+                selected: _selectedTab == _StaffTab.home,
+                onTap: () => _selectTab(_StaffTab.home),
               ),
             ),
             Expanded(
@@ -1656,8 +1982,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             if (!_isReadOnlyAccount)
               Expanded(
                 child: AppBottomNavItem(
-                  icon: Icons.directions_walk,
-                  label: 'Walk In',
+                  icon: Icons.person_add_alt_1_outlined,
+                  label: 'Walk-in',
                   selected: _selectedTab == _StaffTab.walkIn,
                   onTap: () => _selectTab(_StaffTab.walkIn),
                 ),
@@ -1665,7 +1991,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             if (!_isReadOnlyAccount)
               Expanded(
                 child: AppBottomNavItem(
-                  icon: Icons.search,
+                  icon: Icons.badge_outlined,
                   label: 'Records',
                   selected: _selectedTab == _StaffTab.records,
                   onTap: () => _selectTab(_StaffTab.records),
@@ -1681,6 +2007,69 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStaffPageTitle({
+    required String title,
+    String? subtitle,
+    required VoidCallback onBack,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: IconButton(
+              onPressed: onBack,
+              icon: const Icon(
+                Icons.chevron_left_rounded,
+                color: Color(0xFF1A2F64),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1A2F64),
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Color(0xFF7E8CA0),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

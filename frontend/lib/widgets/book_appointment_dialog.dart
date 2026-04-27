@@ -209,18 +209,20 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
 
     setState(() {
       _currentStep -= 1;
+      _autoValidateMode = AutovalidateMode.disabled;
     });
   }
 
   Future<void> _handlePrimaryAction() async {
-    setState(() {
-      _autoValidateMode = AutovalidateMode.always;
-    });
-
     if (_currentStep < 4) {
       if (_formKey.currentState!.validate() && _canMoveForward) {
         setState(() {
           _currentStep += 1;
+          _autoValidateMode = AutovalidateMode.disabled;
+        });
+      } else {
+        setState(() {
+          _autoValidateMode = AutovalidateMode.always;
         });
       }
       return;
@@ -253,11 +255,12 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      final String serviceName = _services
-          .firstWhere(
-            (s) => s['id'].toString() == _selectedService,
-            orElse: () => <String, dynamic>{'name': 'your service'},
-          )['name'] as String;
+      final String serviceName =
+          _services.firstWhere(
+                (s) => s['id'].toString() == _selectedService,
+                orElse: () => <String, dynamic>{'name': 'your service'},
+              )['name']
+              as String;
 
       await showAppointmentSuccessDialog(
         context,
@@ -286,16 +289,12 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
-    final Color surfaceColor = isDark
-        ? const Color(0xFF101A2C)
-        : Colors.white;
+    final Color surfaceColor = isDark ? const Color(0xFF101A2C) : Colors.white;
     final Color panelColor = isDark ? const Color(0xFF17243A) : Colors.white;
     final Color sectionColor = isDark
         ? const Color(0xFF1C2A43)
         : const Color(0xFFF1F5FF);
-    final Color headlineColor = isDark
-        ? Colors.white
-        : const Color(0xFF1E3763);
+    final Color headlineColor = isDark ? Colors.white : const Color(0xFF1E3763);
     final Color mutedText = isDark
         ? const Color(0xFFAAB7CD)
         : const Color(0xFF8E99AB);
@@ -355,20 +354,16 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
       );
     }
 
-    return Form(
-      key: _formKey,
-      autovalidateMode: _autoValidateMode,
-      child: AppDialogScaffold(
-        maxWidth: 460,
-        maxHeightFactor: 0.92,
-        backgroundColor: surfaceColor,
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-        bodyPadding: const EdgeInsets.only(top: 18),
-        headerContent: _buildStepHeader(headlineColor, mutedText, isDark),
-        onClose: _isLoading ? null : () => Navigator.of(context).pop(),
-        footer: _buildFooterActions(headlineColor, isDark),
-        child: content,
-      ),
+    return AppDialogScaffold(
+      maxWidth: 460,
+      maxHeightFactor: 0.92,
+      backgroundColor: surfaceColor,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      bodyPadding: const EdgeInsets.only(top: 18),
+      headerContent: _buildStepHeader(headlineColor, mutedText, isDark),
+      onClose: _isLoading ? null : () => Navigator.of(context).pop(),
+      footer: _buildFooterActions(headlineColor, isDark),
+      child: content,
     );
   }
 
@@ -440,11 +435,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
     );
   }
 
-  Widget _buildStepHeader(
-    Color headlineColor,
-    Color mutedText,
-    bool isDark,
-  ) {
+  Widget _buildStepHeader(Color headlineColor, Color mutedText, bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -457,7 +448,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF17243A) : const Color(0xFFF9FBFF),
+                  color: isDark
+                      ? const Color(0xFF17243A)
+                      : const Color(0xFFF9FBFF),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: isDark
@@ -746,7 +739,10 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
     Color mutedText,
     bool isDark,
   ) {
-    final DateTime monthStart = DateTime(_visibleMonth.year, _visibleMonth.month);
+    final DateTime monthStart = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month,
+    );
     final DateTime gridStart = monthStart.subtract(
       Duration(days: monthStart.weekday - 1),
     );
@@ -841,7 +837,11 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
             ),
             itemBuilder: (BuildContext context, int index) {
               final DateTime day = days[index];
-              final DateTime normalized = DateTime(day.year, day.month, day.day);
+              final DateTime normalized = DateTime(
+                day.year,
+                day.month,
+                day.day,
+              );
               final bool isInMonth = day.month == monthStart.month;
               final bool isPast = normalized.isBefore(startOfToday);
               final bool isSunday = day.weekday == DateTime.sunday;
@@ -886,7 +886,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
                                   : const Color(0xFFD1D8E4))
                             : headlineColor,
                         fontSize: 18,
-                        fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
+                        fontWeight: isSelected
+                            ? FontWeight.w900
+                            : FontWeight.w700,
                       ),
                     ),
                   ),
@@ -931,9 +933,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
         ),
         child: Icon(
           icon,
-          color: enabled
-              ? const Color(0xFF233D78)
-              : const Color(0xFFA7B2C4),
+          color: enabled ? const Color(0xFF233D78) : const Color(0xFFA7B2C4),
         ),
       ),
     );
@@ -1150,18 +1150,24 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
             hintText: 'Any concerns?',
             hintStyle: TextStyle(color: mutedText, fontSize: 15),
             filled: true,
-            fillColor: isDark ? const Color(0xFF17243A) : const Color(0xFFF9FBFF),
+            fillColor: isDark
+                ? const Color(0xFF17243A)
+                : const Color(0xFFF9FBFF),
             contentPadding: const EdgeInsets.all(18),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(24),
               borderSide: BorderSide(
-                color: isDark ? const Color(0xFF2A3A55) : const Color(0xFFE8ECF4),
+                color: isDark
+                    ? const Color(0xFF2A3A55)
+                    : const Color(0xFFE8ECF4),
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(24),
               borderSide: BorderSide(
-                color: isDark ? const Color(0xFF2A3A55) : const Color(0xFFE8ECF4),
+                color: isDark
+                    ? const Color(0xFF2A3A55)
+                    : const Color(0xFFE8ECF4),
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -1281,8 +1287,9 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   Future<void> _openTimePicker() async {
     _clearFieldError('time');
     if (_selectedDate == null) {
-      setState(() => _autoValidateMode = AutovalidateMode.always);
-      _formKey.currentState?.validate();
+      setState(() {
+        _fieldErrors['date'] = 'Required';
+      });
       return;
     }
 

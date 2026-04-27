@@ -17,7 +17,7 @@ class AdminCalendarAppointmentDetailsApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_calendar_appointments_endpoint_returns_approved_summary_fields(): void
+    public function test_admin_calendar_appointments_endpoint_returns_active_summary_fields(): void
     {
         $staff = $this->createUserWithRole('Staff');
         $service = $this->createService('Teeth Cleaning');
@@ -50,14 +50,21 @@ class AdminCalendarAppointmentDetailsApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('date', $date)
-            ->assertJsonCount(1, 'appointments')
+            ->assertJsonCount(2, 'appointments')
             ->assertJsonPath('appointments.0.id', $approvedAppointment->id)
             ->assertJsonPath('appointments.0.service_type', 'Teeth Cleaning')
             ->assertJsonPath('appointments.0.appointment_date', $date)
             ->assertJsonPath('appointments.0.appointment_time', '15:00')
-            ->assertJsonPath('appointments.0.queue_number', 5)
+            ->assertJsonPath('appointments.0.queue_number', 1)
             ->assertJsonPath('appointments.0.notes', 'Bring previous x-ray.')
-            ->assertJsonPath('appointments.0.status', 'Approved');
+            ->assertJsonPath('appointments.0.status', 'Approved')
+            ->assertJsonPath('appointments.1.id', $pendingAppointment->id)
+            ->assertJsonPath('appointments.1.service_type', 'Teeth Cleaning')
+            ->assertJsonPath('appointments.1.appointment_date', $date)
+            ->assertJsonPath('appointments.1.appointment_time', '16:00')
+            ->assertJsonPath('appointments.1.queue_number', 2)
+            ->assertJsonPath('appointments.1.notes', 'Should not appear.')
+            ->assertJsonPath('appointments.1.status', 'Pending');
     }
 
     public function test_admin_calendar_appointment_details_returns_complete_fields_for_selected_appointment(): void
@@ -90,7 +97,7 @@ class AdminCalendarAppointmentDetailsApiTest extends TestCase
             ->assertJsonPath('appointment.status', 'Approved');
     }
 
-    public function test_admin_calendar_appointment_details_returns_not_found_for_non_approved_appointment(): void
+    public function test_admin_calendar_appointment_details_returns_pending_appointment_details(): void
     {
         $staff = $this->createUserWithRole('Staff');
         $service = $this->createService('Dental Check-up');
@@ -109,8 +116,15 @@ class AdminCalendarAppointmentDetailsApiTest extends TestCase
 
         $response = $this->getJson('/api/v1/admin/calendar/appointments/' . $appointment->id);
 
-        $response->assertNotFound()
-            ->assertJsonPath('message', 'Appointment not found.');
+        $response->assertOk()
+            ->assertJsonPath('appointment.id', $appointment->id)
+            ->assertJsonPath('appointment.patient_name', trim($patient->first_name . ' ' . $patient->last_name))
+            ->assertJsonPath('appointment.service_type', 'Dental Check-up')
+            ->assertJsonPath('appointment.appointment_date', '2026-03-22')
+            ->assertJsonPath('appointment.appointment_time', '11:00')
+            ->assertJsonPath('appointment.queue_number', 7)
+            ->assertJsonPath('appointment.notes', 'Pending review.')
+            ->assertJsonPath('appointment.status', 'Pending');
     }
 
     private function createQueue(int $appointmentId, string $date, int $queueNumber): Queue

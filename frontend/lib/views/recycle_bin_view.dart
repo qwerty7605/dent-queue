@@ -267,21 +267,24 @@ class _RecycleBinViewState extends State<RecycleBinView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            _buildBackButton(isDark),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                'Recycle Bin',
-                style: TextStyle(
-                  color: isDark ? Colors.white : const Color(0xFF1F3763),
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
+        Text(
+          'Recycle Bin',
+          style: TextStyle(
+            color: isDark ? Colors.white : const Color(0xFF1F3763),
+            fontSize: 21,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          widget.role == RecycleBinRole.patient
+              ? 'Cancelled appointments you can still recover'
+              : 'Cancelled appointments that can still be restored',
+          style: TextStyle(
+            color: isDark ? const Color(0xFFAAB7CD) : const Color(0xFF8E99AB),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         if (usingPreviewData && widget.role == RecycleBinRole.staff) ...[
           const SizedBox(height: 12),
@@ -296,7 +299,9 @@ class _RecycleBinViewState extends State<RecycleBinView> {
             child: Text(
               'Preview data is showing the recycle bin layout until the backend retrieval API is connected.',
               style: TextStyle(
-                color: isDark ? const Color(0xFFF9E2A6) : const Color(0xFF7C5A00),
+                color: isDark
+                    ? const Color(0xFFF9E2A6)
+                    : const Color(0xFF7C5A00),
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -322,38 +327,14 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                 label: 'EXPIRED',
                 value: expiredCount.toString(),
                 tint: isDark ? const Color(0xFF17243A) : Colors.white,
-                textColor: isDark ? const Color(0xFFB9C4D8) : const Color(0xFFBFC7D4),
+                textColor: isDark
+                    ? const Color(0xFFB9C4D8)
+                    : const Color(0xFFBFC7D4),
               ),
             ),
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildBackButton(bool isDark) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => Navigator.of(context).maybePop(),
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF17243A) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Icon(
-          Icons.chevron_left_rounded,
-          color: isDark ? Colors.white : const Color(0xFF1F3763),
-        ),
-      ),
     );
   }
 
@@ -447,7 +428,9 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2D2330) : const Color(0xFFFFF4F4),
+                  color: isDark
+                      ? const Color(0xFF2D2330)
+                      : const Color(0xFFFFF4F4),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
@@ -482,7 +465,15 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                key: Key(
+                  entry.isRestorable
+                      ? 'recycle-bin-chip-available-${entry.id}'
+                      : 'recycle-bin-chip-expired-${entry.id}',
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: entry.isRestorable
                       ? (isDark
@@ -541,19 +532,36 @@ class _RecycleBinViewState extends State<RecycleBinView> {
               ],
             ),
           ),
-          if (widget.role == RecycleBinRole.staff && entry.patientName != null) ...[
+          if (widget.role == RecycleBinRole.staff &&
+              entry.patientName != null) ...[
             const SizedBox(height: 10),
-            Text(
-              'Patient: ${entry.patientName!}',
-              style: TextStyle(
-                color: mutedText,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Patient',
+                  style: TextStyle(
+                    color: mutedText,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  entry.patientName!,
+                  style: TextStyle(
+                    color: mutedText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ],
           const SizedBox(height: 16),
           SizedBox(
+            key: Key('recycle-bin-restore-area-${entry.id}'),
             width: double.infinity,
             child: entry.isRestorable
                 ? ElevatedButton(
@@ -583,7 +591,7 @@ class _RecycleBinViewState extends State<RecycleBinView> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    child: const Text('Restore Unavailable'),
+                    child: const Text('Restore expired'),
                   ),
           ),
         ],

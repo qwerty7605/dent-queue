@@ -27,6 +27,7 @@ class _FakeBaseService extends Fake implements BaseService {
   Future<http.Response> getRaw(
     String path, {
     Map<String, String> headers = const <String, String>{},
+    Duration? timeout,
   }) async {
     lastPath = path;
     lastHeaders = headers;
@@ -70,40 +71,43 @@ void main() {
     expect(fakeBaseService.getJsonCallCount, 2);
   });
 
-  test('getStats appends force refresh and bypasses the short-term cache', () async {
-    fakeBaseService.nextResponse = <String, dynamic>{
-      'data': <String, dynamic>{
-        'patients_count': 5,
-        'staff_count': 2,
-        'intern_count': 1,
-        'staff_accounts_count': 3,
-        'appointments_count': 12,
-      },
-    };
+  test(
+    'getStats appends force refresh and bypasses the short-term cache',
+    () async {
+      fakeBaseService.nextResponse = <String, dynamic>{
+        'data': <String, dynamic>{
+          'patients_count': 5,
+          'staff_count': 2,
+          'intern_count': 1,
+          'staff_accounts_count': 3,
+          'appointments_count': 12,
+        },
+      };
 
-    await adminDashboardService.getStats();
+      await adminDashboardService.getStats();
 
-    fakeBaseService.nextResponse = <String, dynamic>{
-      'data': <String, dynamic>{
-        'patients_count': 6,
-        'staff_count': 2,
-        'intern_count': 1,
-        'staff_accounts_count': 3,
-        'appointments_count': 13,
-      },
-    };
+      fakeBaseService.nextResponse = <String, dynamic>{
+        'data': <String, dynamic>{
+          'patients_count': 6,
+          'staff_count': 2,
+          'intern_count': 1,
+          'staff_accounts_count': 3,
+          'appointments_count': 13,
+        },
+      };
 
-    final Map<String, int> refreshed = await adminDashboardService.getStats(
-      forceRefresh: true,
-    );
+      final Map<String, int> refreshed = await adminDashboardService.getStats(
+        forceRefresh: true,
+      );
 
-    expect(
-      fakeBaseService.lastPath,
-      '/api/v1/admin/dashboard/stats?force_refresh=true',
-    );
-    expect(refreshed['patients_count'], 6);
-    expect(fakeBaseService.getJsonCallCount, 2);
-  });
+      expect(
+        fakeBaseService.lastPath,
+        '/api/v1/admin/dashboard/stats?force_refresh=true',
+      );
+      expect(refreshed['patients_count'], 6);
+      expect(fakeBaseService.getJsonCallCount, 2);
+    },
+  );
 
   test('getReportSummary requests the summary endpoint with filters', () async {
     fakeBaseService.nextResponse = <String, dynamic>{
@@ -143,10 +147,9 @@ void main() {
       },
     };
 
-    await adminDashboardService.getReportSummary(
-      <String, String>{'status': 'Approved'},
-      true,
-    );
+    await adminDashboardService.getReportSummary(<String, String>{
+      'status': 'Approved',
+    }, true);
 
     expect(
       fakeBaseService.lastPath,

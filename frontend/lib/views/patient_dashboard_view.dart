@@ -45,7 +45,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     with WidgetsBindingObserver {
   static const Duration _queueRefreshInterval = Duration(seconds: 10);
 
-  int _selectedIndex = 0; // 0 for Home, 1 for Profile, 2 for History, 3 for Appointments
+  int _selectedIndex =
+      0; // 0 for Home, 1 for Profile, 2 for History, 3 for Appointments
 
   late final AppointmentService _appointmentService;
   late final NotificationService _notificationService;
@@ -449,9 +450,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   Future<void> _openBookAppointmentDialog() async {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (BuildContext context) => const BookAppointmentDialog(
-          asPage: true,
-        ),
+        builder: (BuildContext context) =>
+            const BookAppointmentDialog(asPage: true),
       ),
     );
 
@@ -541,7 +541,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                         borderRadius: BorderRadius.circular(18),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+                            color: const Color(
+                              0xFF1A2F64,
+                            ).withValues(alpha: 0.08),
                             blurRadius: 16,
                             offset: const Offset(0, 6),
                           ),
@@ -579,7 +581,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   }
 
   Widget _buildAppointmentsView() {
-    final List<Map<String, dynamic>> visibleAppointments = _visibleAppointments();
+    final List<Map<String, dynamic>> visibleAppointments =
+        _visibleAppointments();
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return RefreshIndicator(
@@ -605,7 +608,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                   children: [
                     _buildAppointmentFilterChip(
                       label: 'All',
-                      selected: _selectedFilter == _PatientAppointmentFilter.all,
+                      selected:
+                          _selectedFilter == _PatientAppointmentFilter.all,
                       onTap: () => setState(
                         () => _selectedFilter = _PatientAppointmentFilter.all,
                       ),
@@ -615,7 +619,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                       selected:
                           _selectedFilter == _PatientAppointmentFilter.pending,
                       onTap: () => setState(
-                        () => _selectedFilter = _PatientAppointmentFilter.pending,
+                        () =>
+                            _selectedFilter = _PatientAppointmentFilter.pending,
                       ),
                     ),
                     _buildAppointmentFilterChip(
@@ -623,23 +628,28 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                       selected:
                           _selectedFilter == _PatientAppointmentFilter.approved,
                       onTap: () => setState(
-                        () => _selectedFilter = _PatientAppointmentFilter.approved,
+                        () => _selectedFilter =
+                            _PatientAppointmentFilter.approved,
                       ),
                     ),
                     _buildAppointmentFilterChip(
                       label: 'Completed',
                       selected:
-                          _selectedFilter == _PatientAppointmentFilter.completed,
+                          _selectedFilter ==
+                          _PatientAppointmentFilter.completed,
                       onTap: () => setState(
-                        () => _selectedFilter = _PatientAppointmentFilter.completed,
+                        () => _selectedFilter =
+                            _PatientAppointmentFilter.completed,
                       ),
                     ),
                     _buildAppointmentFilterChip(
                       label: 'Cancelled',
                       selected:
-                          _selectedFilter == _PatientAppointmentFilter.cancelled,
+                          _selectedFilter ==
+                          _PatientAppointmentFilter.cancelled,
                       onTap: () => setState(
-                        () => _selectedFilter = _PatientAppointmentFilter.cancelled,
+                        () => _selectedFilter =
+                            _PatientAppointmentFilter.cancelled,
                       ),
                     ),
                   ],
@@ -811,7 +821,10 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  _formatHistoryDate(date, appt['appointment_time']),
+                                  _formatHistoryDate(
+                                    date,
+                                    appt['appointment_time'],
+                                  ),
                                   style: const TextStyle(
                                     color: Color(0xFF7D879A),
                                     fontSize: 12,
@@ -1010,6 +1023,14 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   }
 
   Widget _buildAppointmentsShortcutCard() {
+    final Map<String, dynamic>? nextAppointment = _appointments.isEmpty
+        ? null
+        : _appointments.first;
+    final String? nextService =
+        nextAppointment?['service_type']?.toString().trim().isNotEmpty == true
+        ? nextAppointment!['service_type'].toString().trim()
+        : null;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1035,8 +1056,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
+                  children: [
+                    const Text(
                       'My Appointments',
                       style: TextStyle(
                         color: Color(0xFF1A2F64),
@@ -1044,9 +1065,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'View and manage your bookings',
+                      nextService ?? 'View and manage your bookings',
                       style: TextStyle(
                         color: Color(0xFF9AA3B2),
                         fontSize: 13,
@@ -1213,7 +1234,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                       color: isDark ? const Color(0xFF17243A) : Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
+                          color: Colors.black.withValues(
+                            alpha: isDark ? 0.18 : 0.06,
+                          ),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
@@ -1228,11 +1251,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                           : null,
                     ),
                     child: profilePicture == null
-                        ? Icon(
-                            Icons.person,
-                            size: 80,
-                            color: mutedText,
-                          )
+                        ? Icon(Icons.person, size: 80, color: mutedText)
                         : null,
                   ),
                   Positioned(
@@ -1261,7 +1280,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                           color: const Color(0xFF233D78),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isDark ? const Color(0xFF101A2C) : Colors.white,
+                            color: isDark
+                                ? const Color(0xFF101A2C)
+                                : Colors.white,
                             width: 3,
                           ),
                         ),
@@ -1291,12 +1312,19 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
             const SizedBox(height: 12),
             Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF17243A) : const Color(0xFFF8FAFE),
+                  color: isDark
+                      ? const Color(0xFF17243A)
+                      : const Color(0xFFF8FAFE),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
-                    color: isDark ? const Color(0xFF2A3A55) : const Color(0xFFE6EBF5),
+                    color: isDark
+                        ? const Color(0xFF2A3A55)
+                        : const Color(0xFFE6EBF5),
                   ),
                 ),
                 child: Row(
@@ -1349,7 +1377,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                 color: isDark ? const Color(0xFF17243A) : Colors.white,
                 borderRadius: BorderRadius.circular(28),
                 border: Border.all(
-                  color: isDark ? const Color(0xFF2A3A55) : const Color(0xFFE7ECF4),
+                  color: isDark
+                      ? const Color(0xFF2A3A55)
+                      : const Color(0xFFE7ECF4),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -1458,7 +1488,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                 style: TextStyle(
                   fontSize: MobileTypography.caption(context),
                   fontWeight: FontWeight.w900,
-                  color: isDark ? const Color(0xFFAAB7CD) : const Color(0xFF7E8CA0),
+                  color: isDark
+                      ? const Color(0xFFAAB7CD)
+                      : const Color(0xFF7E8CA0),
                   letterSpacing: 0.5,
                 ),
               ),
@@ -1802,7 +1834,6 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     );
   }
 
-
   Widget _buildBottomNavigationBar() {
     return BottomAppBar(
       shape: const CircularNotchedRectangle(),
@@ -1875,8 +1906,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
       _ => mutedText,
     };
     final String statusLabel = appointmentStatusLabel(appt['status']);
-    final String? rescheduleReason =
-        status == 'reschedule_required'
+    final String? rescheduleReason = status == 'reschedule_required'
         ? _normalizeCardReason(appt['reschedule_reason'])
         : null;
 
@@ -1914,7 +1944,9 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                     width: 54,
                     height: 54,
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF22314D) : const Color(0xFFF8FAFE),
+                      color: isDark
+                          ? const Color(0xFF22314D)
+                          : const Color(0xFFF8FAFE),
                       borderRadius: BorderRadius.circular(18),
                     ),
                     child: Icon(
@@ -2060,7 +2092,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                 status == 'approved' ||
                                 status == 'cancelled_by_doctor' ||
                                 status == 'reschedule_required';
-                            final bool stackActions = constraints.maxWidth < 250;
+                            final bool stackActions =
+                                constraints.maxWidth < 250;
 
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2070,7 +2103,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                   children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             'QUEUE\nNUMBER',
@@ -2108,25 +2142,45 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                                   ? const Color(0xFF22314D)
                                                   : const Color(0xFFF8FAFE),
                                               textColor: headlineColor,
-                                              onTap: () => _openRescheduleDialog(appt),
+                                              onTap: () =>
+                                                  _openRescheduleDialog(appt),
                                             ),
                                             const SizedBox(width: 10),
                                             _buildAppointmentAction(
-                                              label: status == 'pending' || status == 'approved'
+                                              label:
+                                                  status == 'pending' ||
+                                                      status == 'approved'
                                                   ? 'Cancel'
                                                   : 'Requires Action',
-                                              color: status == 'pending' || status == 'approved'
+                                              color:
+                                                  status == 'pending' ||
+                                                      status == 'approved'
                                                   ? (isDark
-                                                        ? const Color(0xFF3A1E24)
-                                                        : const Color(0xFFFFF4F4))
+                                                        ? const Color(
+                                                            0xFF3A1E24,
+                                                          )
+                                                        : const Color(
+                                                            0xFFFFF4F4,
+                                                          ))
                                                   : (isDark
-                                                        ? const Color(0xFF22314D)
-                                                        : const Color(0xFFF8FAFC)),
-                                              textColor: status == 'pending' || status == 'approved'
+                                                        ? const Color(
+                                                            0xFF22314D,
+                                                          )
+                                                        : const Color(
+                                                            0xFFF8FAFC,
+                                                          )),
+                                              textColor:
+                                                  status == 'pending' ||
+                                                      status == 'approved'
                                                   ? const Color(0xFFE26B6B)
                                                   : mutedText,
-                                              onTap: status == 'pending' || status == 'approved'
-                                                  ? () => _showCancelConfirmationDialog(appt)
+                                              onTap:
+                                                  status == 'pending' ||
+                                                      status == 'approved'
+                                                  ? () =>
+                                                        _showCancelConfirmationDialog(
+                                                          appt,
+                                                        )
                                                   : null,
                                             ),
                                           ],
@@ -2146,28 +2200,40 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                               ? const Color(0xFF22314D)
                                               : const Color(0xFFF8FAFE),
                                           textColor: headlineColor,
-                                          onTap: () => _openRescheduleDialog(appt),
+                                          onTap: () =>
+                                              _openRescheduleDialog(appt),
                                           expand: true,
                                         ),
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: _buildAppointmentAction(
-                                          label: status == 'pending' || status == 'approved'
+                                          label:
+                                              status == 'pending' ||
+                                                  status == 'approved'
                                               ? 'Cancel'
                                               : 'Requires Action',
-                                          color: status == 'pending' || status == 'approved'
+                                          color:
+                                              status == 'pending' ||
+                                                  status == 'approved'
                                               ? (isDark
                                                     ? const Color(0xFF3A1E24)
                                                     : const Color(0xFFFFF4F4))
                                               : (isDark
                                                     ? const Color(0xFF22314D)
                                                     : const Color(0xFFF8FAFC)),
-                                          textColor: status == 'pending' || status == 'approved'
+                                          textColor:
+                                              status == 'pending' ||
+                                                  status == 'approved'
                                               ? const Color(0xFFE26B6B)
                                               : mutedText,
-                                          onTap: status == 'pending' || status == 'approved'
-                                              ? () => _showCancelConfirmationDialog(appt)
+                                          onTap:
+                                              status == 'pending' ||
+                                                  status == 'approved'
+                                              ? () =>
+                                                    _showCancelConfirmationDialog(
+                                                      appt,
+                                                    )
                                               : null,
                                           expand: true,
                                         ),

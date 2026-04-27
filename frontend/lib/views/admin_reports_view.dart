@@ -2007,44 +2007,44 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   columns: <DataColumn>[
                     DataColumn(
                       label: AdminDataTable.headerLabel(
-                        context,
                         'Date',
+                        context: context,
                         width: 100,
                       ),
                     ),
                     DataColumn(
                       label: AdminDataTable.headerLabel(
-                        context,
                         'Patient',
+                        context: context,
                         width: isPhone ? 160 : 220,
                       ),
                     ),
                     DataColumn(
                       label: AdminDataTable.headerLabel(
-                        context,
                         'Booking Type',
+                        context: context,
                         width: 130,
                       ),
                     ),
                     DataColumn(
                       label: AdminDataTable.headerLabel(
-                        context,
                         'Service',
+                        context: context,
                         width: isPhone ? 150 : 190,
                       ),
                     ),
                     DataColumn(
                       label: AdminDataTable.headerLabel(
-                        context,
                         'Queue No.',
+                        context: context,
                         width: 90,
                         alignment: Alignment.center,
                       ),
                     ),
                     DataColumn(
                       label: AdminDataTable.headerLabel(
-                        context,
                         'Status',
+                        context: context,
                         width: 180,
                         alignment: Alignment.center,
                       ),
@@ -2056,19 +2056,19 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
                     return DataRow.byIndex(
                       index: index,
-                      color: AdminDataTable.rowColor(context, index),
+                      color: AdminDataTable.rowColor(index, context: context),
                       cells: <DataCell>[
                         DataCell(
                           AdminDataTable.cellText(
-                            context,
                             record['date']?.toString() ?? '-',
+                            context: context,
                             width: 100,
                           ),
                         ),
                         DataCell(
                           AdminDataTable.cellText(
-                            context,
                             record['patient_name']?.toString() ?? '-',
+                            context: context,
                             width: isPhone ? 160 : 220,
                             maxLines: 2,
                             fontWeight: FontWeight.w700,
@@ -2076,24 +2076,24 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                         ),
                         DataCell(
                           AdminDataTable.cellText(
-                            context,
                             record['booking_type']?.toString() ?? '-',
+                            context: context,
                             width: 130,
                             maxLines: 2,
                           ),
                         ),
                         DataCell(
                           AdminDataTable.cellText(
-                            context,
                             record['service']?.toString() ?? '-',
+                            context: context,
                             width: isPhone ? 150 : 190,
                             maxLines: 2,
                           ),
                         ),
                         DataCell(
                           AdminDataTable.cellText(
-                            context,
                             record['queue_number']?.toString() ?? '-',
+                            context: context,
                             width: 90,
                             alignment: Alignment.center,
                           ),

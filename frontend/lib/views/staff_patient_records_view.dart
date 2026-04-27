@@ -182,51 +182,54 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final horizontalPadding = constraints.maxWidth < 440 ? 14.0 : 22.0;
-        final maxWidth = constraints.maxWidth > 1024 ? 920.0 : double.infinity;
+        final maxWidth = constraints.maxWidth > 1024 ? 560.0 : double.infinity;
 
         return SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
-            16,
-            horizontalPadding,
             18,
+            horizontalPadding,
+            24,
           ),
           child: Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 10),
-                  const Text(
-                    'Patient Records',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.4,
-                      color: Color(0xFF1E293B),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Patient Records',
+                          style: TextStyle(
+                            fontSize: 27,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1A2F64),
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Manage and review patient clinical history',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF7B8798),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Manage and review patient clinical history',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   _buildSearchBar(),
                   const SizedBox(height: 18),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      child: _buildBodyState(),
-                    ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _buildBodyState(),
                   ),
                 ],
               ),
@@ -273,75 +276,55 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
   }
 
   Widget _buildSearchBar() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              onSubmitted: (_) => _performSearch(),
-              decoration: InputDecoration(
-                hintText: 'Search by name, patient ID, or phone...',
-                hintStyle: const TextStyle(
-                  color: Color(0xFF9CA3AF),
-                  fontWeight: FontWeight.w500,
-                  fontSize: 15,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 18,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search, color: Color(0xFFD1D5DB)),
-                  onPressed: _performSearch,
-                ),
-              ),
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        onSubmitted: (_) => _performSearch(),
+        decoration: InputDecoration(
+          hintText: 'Search by name, ID or phone',
+          hintStyle: const TextStyle(
+            color: Color(0xFFD2D9E6),
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 22,
+            vertical: 20,
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: Color(0xFFB9C3D3),
+            size: 28,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(24),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          suffixIcon: _searchController.text.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Color(0xFFC8D1DF),
+                  ),
+                  onPressed: _clearSearch,
+                ),
         ),
-        const SizedBox(width: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF4A769E),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF4A769E).withValues(alpha: 0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: _performSearch,
-              child: const Padding(
-                padding: EdgeInsets.all(16),
-                child: Icon(Icons.search, color: Colors.white, size: 26),
-              ),
-            ),
-          ),
-        ),
-      ],
+        onChanged: (_) => setState(() {}),
+      ),
     );
   }
 
@@ -412,38 +395,38 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(28),
           onTap: () => _loadPatientDetail(patient),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(18, 18, 16, 18),
             child: Row(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 58,
+                  height: 58,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE8ECE8),
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFFE7EEFF),
+                    borderRadius: BorderRadius.circular(18),
                   ),
                   child: Center(
                     child: Text(
                       patient.initial,
                       style: const TextStyle(
-                        color: Color(0xFF4A769E),
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A2F64),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
@@ -456,20 +439,29 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
                       Text(
                         patient.fullName,
                         style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1E293B),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF1A2F64),
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        patient.patientId,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF8CA0AF),
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.5,
-                        ),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.sell_outlined,
+                            size: 13,
+                            color: Color(0xFFD1D8E5),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            patient.patientId,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFA5B0C2),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Row(
@@ -484,8 +476,8 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
                             patient.contactNumber,
                             style: const TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF7D889B),
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -495,7 +487,7 @@ class _StaffPatientRecordsViewState extends State<StaffPatientRecordsView> {
                 ),
                 const Icon(
                   Icons.chevron_right,
-                  color: Color(0xFFCBD5E1),
+                  color: Color(0xFFE0E6F0),
                   size: 28,
                 ),
               ],
