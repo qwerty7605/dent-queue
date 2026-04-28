@@ -121,6 +121,12 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       _isDarkMode ? const Color(0xFFEAF1FF) : Colors.black87;
   Color get _mutedTextColor =>
       _isDarkMode ? const Color(0xFFAAB8D4) : const Color(0xFF97A6C3);
+  Color get _exportButtonForeground =>
+      _isDarkMode ? const Color(0xFFE6EEFF) : _reportAccent;
+  Color get _exportButtonBackground =>
+      _isDarkMode ? const Color(0xFF1D3369) : _surfaceColor;
+  Color get _exportButtonBorder =>
+      _isDarkMode ? const Color(0xFF4C69A8) : _borderColor;
 
   @override
   void initState() {
@@ -1220,9 +1226,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
               await _exportReport(selectedFormat);
             },
       style: OutlinedButton.styleFrom(
-        foregroundColor: _reportAccent,
-        backgroundColor: _surfaceColor,
-        side: BorderSide(color: _borderColor),
+        foregroundColor: _exportButtonForeground,
+        backgroundColor: _exportButtonBackground,
+        side: BorderSide(color: _exportButtonBorder),
         minimumSize: const Size(220, 40),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1231,10 +1237,13 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (_isExporting)
-            const SizedBox(
+            SizedBox(
               width: 14,
               height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: _exportButtonForeground,
+              ),
             )
           else
             const Icon(Icons.download_outlined, size: 16),

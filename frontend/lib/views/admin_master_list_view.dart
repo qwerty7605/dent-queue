@@ -35,7 +35,7 @@ class AdminMasterListView extends StatefulWidget {
 }
 
 class _AdminMasterListViewState extends State<AdminMasterListView> {
-  static const int _pageSize = 5;
+  static const int _pageSize = 20;
   static const Color _surface = Colors.white;
   static const Color _outline = Color(0xFFE3EAF6);
   static const Color _text = Color(0xFF1D3264);
@@ -72,7 +72,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
   int _currentPage = 1;
   int _totalAppointments = 0;
   String _activeQuery = '';
-  _MasterListFilter _selectedFilter = _MasterListFilter.all;
+  _MasterListFilter _selectedFilter = _MasterListFilter.pending;
   _MasterListDateFilter _selectedDateFilter = _MasterListDateFilter.all;
 
   @override
@@ -170,7 +170,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
         _isSearching = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to load master list')),
+        const SnackBar(content: Text('Failed to load appointments')),
       );
     }
   }
@@ -224,11 +224,11 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
           spacing: 14,
           runSpacing: 14,
           children: <Widget>[
-            _buildFilterButton('ALL', _MasterListFilter.all),
             _buildFilterButton('PENDING', _MasterListFilter.pending),
             _buildFilterButton('APPROVED', _MasterListFilter.approved),
             _buildFilterButton('COMPLETED', _MasterListFilter.completed),
             _buildFilterButton('CANCELLED', _MasterListFilter.cancelled),
+            _buildFilterButton('ALL', _MasterListFilter.all),
           ],
         );
 
@@ -432,7 +432,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'MASTER LIST OVERVIEW',
+              'APPOINTMENTS OVERVIEW',
               style: TextStyle(
                 color: _mutedTextColor(context),
                 fontSize: 11,
@@ -631,7 +631,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
 
   Future<void> _resetFilters() async {
     setState(() {
-      _selectedFilter = _MasterListFilter.all;
+      _selectedFilter = _MasterListFilter.pending;
       _selectedDateFilter = _MasterListDateFilter.all;
       _activeQuery = '';
     });
@@ -652,7 +652,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
   }
 
   bool get _hasActiveFilters {
-    return _selectedFilter != _MasterListFilter.all ||
+    return _selectedFilter != _MasterListFilter.pending ||
         _selectedDateFilter != _MasterListDateFilter.all;
   }
 

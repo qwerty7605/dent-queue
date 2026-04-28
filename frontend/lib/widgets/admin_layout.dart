@@ -204,8 +204,8 @@ class AdminLayout extends StatelessWidget {
                 ),
                 _buildSidebarItem(
                   context,
-                  route: 'Master List',
-                  label: 'Master List',
+                  route: 'Appointments',
+                  label: 'Appointments',
                   icon: Icons.assignment_outlined,
                   compactSidebar: compactSidebar,
                 ),
@@ -395,7 +395,7 @@ class AdminLayout extends StatelessWidget {
       'Patients' => 'PATIENT RECORD MANAGEMENT',
       'Staff' =>
         'PROVISION AND MANAGE CLINICAL PERSONNEL ACCESS AND ACCOUNT DISTRIBUTIONS.',
-      'Master List' => 'REAL-TIME CLINICAL SYNCHRONIZATION',
+      'Appointments' => 'REAL-TIME CLINICAL SYNCHRONIZATION',
       'Reports' =>
         'COMPREHENSIVE ANALYTICS FOR YOUR CLINIC'
             'S GROWTH AND OPERATIONAL HEALTH.',
