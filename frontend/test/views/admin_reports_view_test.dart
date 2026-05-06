@@ -429,7 +429,7 @@ void main() {
       expect(
         baseService.requestedPaths,
         contains(
-          '/api/v1/admin/reports/trends?trend_type=daily&status=Approved&booking_type=Online+Booking',
+          '/api/v1/admin/reports/trends?trend_type=monthly&status=Approved&booking_type=Online+Booking',
         ),
       );
       expect(
@@ -458,8 +458,93 @@ void main() {
     },
   );
 
+  testWidgets('selects report start and end dates from the range picker', (
+    WidgetTester tester,
+  ) async {
+    final _FakeBaseService baseService = _FakeBaseService();
+    final AdminDashboardService adminDashboardService = AdminDashboardService(
+      baseService,
+    );
+    final AppointmentService appointmentService = AppointmentService(
+      baseService,
+    );
+    final DateTime today = DateTime.now();
+    final String todayLabel =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final String dayLabel = today.day.toString();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminReportsView(
+            adminDashboardService: adminDashboardService,
+            appointmentService: appointmentService,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final Finder startDateField = find.byKey(
+      const Key('report-filter-start-date'),
+    );
+    await tester.ensureVisible(startDateField);
+    await tester.tap(startDateField);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select Report Date Range'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('report-start-calendar-empty')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('report-end-calendar-empty')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byKey(
+              const ValueKey<String>('report-start-calendar-empty'),
+            ),
+            matching: find.text(dayLabel),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey<String>('report-end-calendar-empty')),
+            matching: find.text(dayLabel),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('report-date-range-apply')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(todayLabel), findsWidgets);
+
+    final Finder applyButton = find.byKey(const Key('report-filter-apply'));
+    await tester.ensureVisible(applyButton);
+    await tester.tap(applyButton);
+    await tester.pumpAndSettle();
+
+    expect(
+      baseService.requestedPaths,
+      contains(
+        '/api/v1/admin/reports/summary?start_date=$todayLabel&end_date=$todayLabel',
+      ),
+    );
+  });
+
   testWidgets(
-    'loads appointment trends from the api and switches daily weekly monthly views',
+    'loads appointment trends from the api and switches monthly weekly daily views',
     (WidgetTester tester) async {
       final BaseService baseService = _FakeBaseService();
       final AdminDashboardService adminDashboardService = AdminDashboardService(
@@ -484,8 +569,9 @@ void main() {
 
       expect(find.text('Appointment Volume Trends'), findsOneWidget);
       expect(find.byKey(const Key('appointment-trends-chart')), findsOneWidget);
-      expect(find.text('Daily view'), findsOneWidget);
-      expect(find.text('2026-04-01'), findsWidgets);
+      expect(find.text('Monthly view'), findsOneWidget);
+      expect(find.text('Appointments per month'), findsOneWidget);
+      expect(find.text('2026-04'), findsOneWidget);
       expect(find.text('Live'), findsOneWidget);
 
       final Finder weeklyToggle = find.byKey(
@@ -499,20 +585,73 @@ void main() {
       expect(find.text('Appointments per week'), findsOneWidget);
       expect(find.text('2026-W14'), findsOneWidget);
 
-      final Finder monthlyToggle = find.byKey(
-        const Key('appointment-trends-monthly'),
+      final Finder dailyToggle = find.byKey(
+        const Key('appointment-trends-daily'),
       );
-      await tester.ensureVisible(monthlyToggle);
-      await tester.tap(monthlyToggle);
+      await tester.ensureVisible(dailyToggle);
+      await tester.tap(dailyToggle);
       await tester.pumpAndSettle();
 
-      expect(find.text('Monthly view'), findsOneWidget);
-      expect(find.text('Appointments per month'), findsOneWidget);
-      expect(find.text('2026-04'), findsOneWidget);
+      expect(find.text('Daily view'), findsOneWidget);
+      expect(find.text('Appointments per day'), findsOneWidget);
+      expect(find.text('2026-04-24'), findsOneWidget);
+      expect(find.text('2026-05-03'), findsWidgets);
+      expect(find.text('2026-04-23'), findsNothing);
     },
   );
 
-  testWidgets('exports the same filtered report data currently shown on screen', (
+  testWidgets('limits unfiltered appointment trends to the latest 10 buckets', (
+    WidgetTester tester,
+  ) async {
+    final List<Map<String, dynamic>> records =
+        List<Map<String, dynamic>>.generate(12, (int index) {
+          final int month = index + 1;
+          return <String, dynamic>{
+            'date': '2026-${month.toString().padLeft(2, '0')}-01',
+            'status': 'Approved',
+            'booking_type': 'Online Booking',
+            'patient_name': 'Trend Patient $month',
+            'service': 'Dental Checkup',
+            'queue_number': month.toString().padLeft(2, '0'),
+          };
+        });
+    final BaseService baseService = _FakeBaseService(records: records);
+    final AdminDashboardService adminDashboardService = AdminDashboardService(
+      baseService,
+    );
+    final AppointmentService appointmentService = AppointmentService(
+      baseService,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminReportsView(
+            adminDashboardService: adminDashboardService,
+            appointmentService: appointmentService,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Monthly view'), findsOneWidget);
+    expect(find.text('2026-01'), findsNothing);
+    expect(find.text('2026-02'), findsNothing);
+    expect(find.text('2026-03'), findsOneWidget);
+    expect(find.text('2026-04'), findsOneWidget);
+    expect(find.text('2026-05'), findsOneWidget);
+    expect(find.text('2026-06'), findsOneWidget);
+    expect(find.text('2026-07'), findsOneWidget);
+    expect(find.text('2026-08'), findsOneWidget);
+    expect(find.text('2026-09'), findsOneWidget);
+    expect(find.text('2026-10'), findsOneWidget);
+    expect(find.text('2026-11'), findsOneWidget);
+    expect(find.text('2026-12'), findsOneWidget);
+  });
+
+  testWidgets('exports the active default trend window when no dates are set', (
     WidgetTester tester,
   ) async {
     final _FakeBaseService baseService = _FakeBaseService();
@@ -569,15 +708,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Current report filters will be exported'),
+      find.text('Default monthly window will be exported'),
       findsOneWidget,
     );
     expect(
       find.text(
-        'Choose the file format. The export will use the same filters applied to the report table.',
+        'Choose the file format. The export will use the date window and filters listed below.',
       ),
       findsOneWidget,
     );
+    expect(find.textContaining('last 10 months'), findsOneWidget);
 
     final Finder exportDialog = find.byType(AlertDialog);
     await tester.tap(
@@ -592,7 +732,7 @@ void main() {
     expect(
       baseService.rawRequestedPaths,
       contains(
-        '/api/v1/admin/reports/export?status=Approved&booking_type=Online+Booking&format=csv',
+        '/api/v1/admin/reports/export?start_date=2025-07-01&end_date=2026-04-30&status=Approved&booking_type=Online+Booking&format=csv',
       ),
     );
     expect(baseService.lastRawHeaders, <String, String>{'Accept': 'text/csv'});

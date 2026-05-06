@@ -7,7 +7,7 @@ import 'base_service.dart';
 class PatientRecordService {
   PatientRecordService(this._baseService);
 
-  static const Duration _cacheTtl = Duration(seconds: 30);
+  static const Duration _cacheTtl = Duration(minutes: 1);
   static const String _allPatientsCache = 'patient-records-all';
   static const String _patientsPageCache = 'patient-records-page';
   static const String _searchPatientsCache = 'patient-records-search';
@@ -111,6 +111,31 @@ class PatientRecordService {
         );
       },
     );
+  }
+
+  PaginatedResult<Map<String, dynamic>>? getCachedPatientsPage({
+    int page = 1,
+    int perPage = 25,
+    bool allowStale = false,
+  }) {
+    final String cacheKey = _pageCacheKey(page: page, perPage: perPage);
+    final ShortTermCacheHit<dynamic>? cached =
+        ShortTermCache.readEntry<dynamic>(
+          _patientsPageCache,
+          cacheKey,
+          allowStale: allowStale,
+        );
+
+    if (cached?.value is Map<String, dynamic>) {
+      return PaginatedResult<Map<String, dynamic>>.fromResponse(
+        cached!.value as Map<String, dynamic>,
+        (dynamic item) => Map<String, dynamic>.from(item as Map),
+        fallbackPage: page,
+        fallbackPerPage: perPage,
+      );
+    }
+
+    return null;
   }
 
   Future<List<Map<String, dynamic>>> searchPatients(String query) async {

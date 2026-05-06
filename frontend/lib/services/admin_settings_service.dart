@@ -5,12 +5,28 @@ import 'base_service.dart';
 class AdminSettingsService {
   AdminSettingsService(this._baseService);
 
-  static const Duration _cacheTtl = Duration(seconds: 30);
+  static const Duration _clinicSettingsCacheTtl = Duration(minutes: 10);
+  static const Duration _doctorUnavailabilityCacheTtl = Duration(minutes: 2);
   static const String _clinicSettingsCache = 'admin-clinic-settings';
   static const String _doctorUnavailabilityCache =
       'admin-doctor-unavailability';
 
   final BaseService _baseService;
+
+  Map<String, dynamic>? getCachedClinicSettings({bool allowStale = false}) {
+    final ShortTermCacheHit<dynamic>? cached =
+        ShortTermCache.readEntry<dynamic>(
+          _clinicSettingsCache,
+          'current',
+          allowStale: allowStale,
+        );
+
+    if (cached?.value is Map) {
+      return Map<String, dynamic>.from(cached!.value as Map);
+    }
+
+    return null;
+  }
 
   Future<Map<String, dynamic>> getClinicSettings() async {
     final dynamic cached = ShortTermCache.read<dynamic>(
@@ -32,7 +48,7 @@ class AdminSettingsService {
         _clinicSettingsCache,
         'current',
         result,
-        ttl: _cacheTtl,
+        ttl: _clinicSettingsCacheTtl,
       );
       return result;
     }
@@ -42,7 +58,7 @@ class AdminSettingsService {
       _clinicSettingsCache,
       'current',
       result,
-      ttl: _cacheTtl,
+      ttl: _clinicSettingsCacheTtl,
     );
     return result;
   }
@@ -91,7 +107,7 @@ class AdminSettingsService {
         _doctorUnavailabilityCache,
         'all',
         result,
-        ttl: _cacheTtl,
+        ttl: _doctorUnavailabilityCacheTtl,
       );
       return result;
     }
@@ -101,7 +117,7 @@ class AdminSettingsService {
       _doctorUnavailabilityCache,
       'all',
       result,
-      ttl: _cacheTtl,
+      ttl: _doctorUnavailabilityCacheTtl,
     );
     return result;
   }

@@ -17,8 +17,8 @@ class HighVolumeAppointmentSimulationSeeder extends Seeder
         config()->set('bulk_seed.patient_notifications', (int) env('BULK_SEED_PATIENT_NOTIFICATION_COUNT', 0));
         config()->set('bulk_seed.staff_notifications', (int) env('BULK_SEED_STAFF_NOTIFICATION_COUNT', 0));
         config()->set('bulk_seed.reports', (int) env('BULK_SEED_REPORT_COUNT', 0));
-        config()->set('bulk_seed.past_days', (int) env('BULK_SEED_PAST_DAYS', 365));
-        config()->set('bulk_seed.future_days', (int) env('BULK_SEED_FUTURE_DAYS', 180));
+        config()->set('bulk_seed.past_days', (int) env('BULK_SEED_PAST_DAYS', 2500));
+        config()->set('bulk_seed.future_days', (int) env('BULK_SEED_FUTURE_DAYS', 0));
 
         $this->call([
             RoleSeeder::class,
@@ -29,8 +29,9 @@ class HighVolumeAppointmentSimulationSeeder extends Seeder
         ]);
 
         $this->command?->info(sprintf(
-            'High-volume appointment dataset ready: %d appointments, %d patients, %d walk-ins.',
+            'High-volume historical appointment dataset ready: %d appointments across up to %d past days ending today, %d patients, %d walk-ins.',
             (int) config('bulk_seed.appointments'),
+            (int) config('bulk_seed.past_days'),
             (int) config('bulk_seed.patients'),
             (int) config('bulk_seed.walk_in_patients'),
         ));

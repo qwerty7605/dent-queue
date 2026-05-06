@@ -22,7 +22,7 @@ class AdminStaffView extends StatefulWidget {
 }
 
 class _AdminStaffViewState extends State<AdminStaffView> {
-  static const int _pageSize = 5;
+  static const int _pageSize = 10;
   static const Color _surface = Colors.white;
   static const Color _outline = Color(0xFFE3EAF6);
   static const Color _text = Color(0xFF1D3264);
@@ -43,7 +43,8 @@ class _AdminStaffViewState extends State<AdminStaffView> {
   @override
   void initState() {
     super.initState();
-    _loadStaff();
+    final bool showedCachedStaff = _applyCachedStaffPage();
+    unawaited(_loadStaff(showLoader: !showedCachedStaff));
   }
 
   @override
@@ -55,6 +56,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
 
   Future<void> _loadStaff({
     bool forceRefresh = false,
+    bool showLoader = true,
     int page = 1,
     String? query,
   }) async {
@@ -65,8 +67,8 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     }
 
     setState(() {
-      _isLoading = normalizedQuery.isEmpty;
-      _isSearching = normalizedQuery.isNotEmpty;
+      _isLoading = showLoader && normalizedQuery.isEmpty;
+      _isSearching = showLoader && normalizedQuery.isNotEmpty;
       _activeQuery = normalizedQuery;
     });
 
@@ -142,6 +144,28 @@ class _AdminStaffViewState extends State<AdminStaffView> {
         const SnackBar(content: Text('Failed to load staff records')),
       );
     }
+  }
+
+  bool _applyCachedStaffPage({int page = 1}) {
+    final cachedPage = widget.adminStaffService.getCachedStaffPage(
+      page: page,
+      perPage: _pageSize,
+      allowStale: true,
+    );
+
+    if (cachedPage == null || !mounted) {
+      return false;
+    }
+
+    setState(() {
+      _staffMembers = cachedPage.items;
+      _currentPage = cachedPage.currentPage;
+      _totalStaffMembers = cachedPage.totalItems;
+      _isLoading = false;
+      _isSearching = false;
+    });
+
+    return true;
   }
 
   void _handleSearchChanged(String value) {
@@ -353,9 +377,16 @@ class _AdminStaffViewState extends State<AdminStaffView> {
                     _searchController.clear();
                     _loadStaff(page: 1, query: '');
                   },
-                  icon: const Icon(Icons.close_rounded, color: _muted, size: 18),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: _muted,
+                    size: 18,
+                  ),
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+                  constraints: const BoxConstraints.tightFor(
+                    width: 28,
+                    height: 28,
+                  ),
                   splashRadius: 16,
                   tooltip: 'Clear search',
                 ),
@@ -413,9 +444,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF141C2E) : _surface,
         borderRadius: BorderRadius.circular(34),
-        border: Border.all(
-          color: isDark ? const Color(0xFF2B3956) : _outline,
-        ),
+        border: Border.all(color: isDark ? const Color(0xFF2B3956) : _outline),
         boxShadow: const <BoxShadow>[
           BoxShadow(
             color: Color(0x080E1A3A),
@@ -443,54 +472,54 @@ class _AdminStaffViewState extends State<AdminStaffView> {
             ),
             child: _isLoading
                 ? const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 96),
-                        child: Center(
-                          child: CircularProgressIndicator(color: _navy),
-                        ),
-                      )
-                    : _staffMembers.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: AppEmptyState(
-                          key: const Key('admin-staff-empty-state'),
-                          icon: Icons.group_off_outlined,
-                          title: _activeQuery.isEmpty
-                              ? 'No staff accounts yet'
-                              : 'No staff records matched your search',
-                          message: _activeQuery.isEmpty
-                              ? 'Staff and intern accounts will appear here after they are created.'
-                              : 'Try another name, staff ID, or account number.',
-                          actionLabel: 'Register Staff',
-                          actionIcon: Icons.person_add_alt_1_rounded,
-                          onAction: _showAddStaffDialog,
-                        ),
-                      )
+                    padding: EdgeInsets.symmetric(vertical: 96),
+                    child: Center(
+                      child: CircularProgressIndicator(color: _navy),
+                    ),
+                  )
+                : _staffMembers.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: AppEmptyState(
+                      key: const Key('admin-staff-empty-state'),
+                      icon: Icons.group_off_outlined,
+                      title: _activeQuery.isEmpty
+                          ? 'No staff accounts yet'
+                          : 'No staff records matched your search',
+                      message: _activeQuery.isEmpty
+                          ? 'Staff and intern accounts will appear here after they are created.'
+                          : 'Try another name, staff ID, or account number.',
+                      actionLabel: 'Register Staff',
+                      actionIcon: Icons.person_add_alt_1_rounded,
+                      onAction: _showAddStaffDialog,
+                    ),
+                  )
                 : Column(
-                        children: List<Widget>.generate(_staffMembers.length, (
-                          int index,
-                        ) {
-                          final Map<String, dynamic> staffMember =
-                              _staffMembers[index];
-                          return Column(
-                            children: <Widget>[
-                              if (index > 0)
-                                const Divider(
-                                  height: 1,
-                                  thickness: 1,
-                                  color: Color(0xFFF2F5FB),
-                                ),
-                              _StaffRow(
-                                staffMember: staffMember,
-                                isProcessing:
-                                    _processingStaffId != null &&
-                                    _processingStaffId ==
-                                        _readInt(staffMember['id']),
-                                onDelete: () => _confirmDeactivate(staffMember),
-                              ),
-                            ],
-                          );
-                        }),
-                      ),
+                    children: List<Widget>.generate(_staffMembers.length, (
+                      int index,
+                    ) {
+                      final Map<String, dynamic> staffMember =
+                          _staffMembers[index];
+                      return Column(
+                        children: <Widget>[
+                          if (index > 0)
+                            const Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Color(0xFFF2F5FB),
+                            ),
+                          _StaffRow(
+                            staffMember: staffMember,
+                            isProcessing:
+                                _processingStaffId != null &&
+                                _processingStaffId ==
+                                    _readInt(staffMember['id']),
+                            onDelete: () => _confirmDeactivate(staffMember),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
           ),
         ],
       ),
@@ -694,9 +723,7 @@ class _StaffHeaderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final TextStyle style = TextStyle(
-      color: isDark
-          ? const Color(0xFFAAB8D4)
-          : _AdminStaffViewState._muted,
+      color: isDark ? const Color(0xFFAAB8D4) : _AdminStaffViewState._muted,
       fontSize: 9.5,
       fontWeight: FontWeight.w700,
       letterSpacing: 1.4,
@@ -1036,9 +1063,7 @@ class _PageNavButton extends StatelessWidget {
                 : (isDark ? const Color(0xFF162033) : const Color(0xFFF7F8FC)),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark
-                  ? const Color(0xFF2B3956)
-                  : const Color(0xFFE3EAF6),
+              color: isDark ? const Color(0xFF2B3956) : const Color(0xFFE3EAF6),
             ),
           ),
           child: Icon(
@@ -1047,9 +1072,7 @@ class _PageNavButton extends StatelessWidget {
                 ? (isDark
                       ? const Color(0xFFD7E4FF)
                       : _AdminStaffViewState._muted)
-                : (isDark
-                      ? const Color(0xFF5D6C8B)
-                      : const Color(0xFFD4DCEA)),
+                : (isDark ? const Color(0xFF5D6C8B) : const Color(0xFFD4DCEA)),
           ),
         ),
       ),

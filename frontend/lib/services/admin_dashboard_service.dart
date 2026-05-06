@@ -37,12 +37,28 @@ class ReportExportFile {
 class AdminDashboardService {
   AdminDashboardService(this._baseService);
 
-  static const Duration _cacheTtl = Duration(seconds: 30);
+  static const Duration _dashboardCacheTtl = Duration(seconds: 60);
+  static const Duration _reportCacheTtl = Duration(minutes: 2);
   static const String _dashboardStatsCache = 'dashboard-stats';
   static const String _reportSummaryCache = 'report-summary';
   static const String _reportTrendsCache = 'report-trends';
 
   final BaseService _baseService;
+
+  Map<String, int>? getCachedStats({bool allowStale = false}) {
+    final ShortTermCacheHit<dynamic>? cachedStats =
+        ShortTermCache.readEntry<dynamic>(
+          _dashboardStatsCache,
+          'all',
+          allowStale: allowStale,
+        );
+
+    if (cachedStats?.value is Map) {
+      return Map<String, int>.from(cachedStats!.value as Map);
+    }
+
+    return null;
+  }
 
   Future<Map<String, int>> getStats({bool forceRefresh = false}) async {
     final dynamic cachedStats = ShortTermCache.read<dynamic>(
@@ -81,7 +97,7 @@ class AdminDashboardService {
               _dashboardStatsCache,
               'all',
               result,
-              ttl: _cacheTtl,
+              ttl: _dashboardCacheTtl,
             );
             return result;
           }
@@ -98,7 +114,7 @@ class AdminDashboardService {
           _dashboardStatsCache,
           'all',
           result,
-          ttl: _cacheTtl,
+          ttl: _dashboardCacheTtl,
         );
         return result;
       },
@@ -123,7 +139,9 @@ class AdminDashboardService {
       cacheKey,
       () async {
         final response = await _baseService.getJson<dynamic>(
-          Endpoints.adminReportsSummary(_forceRefreshFilters(filters, forceRefresh)),
+          Endpoints.adminReportsSummary(
+            _forceRefreshFilters(filters, forceRefresh),
+          ),
           (data) => data,
         );
 
@@ -147,7 +165,7 @@ class AdminDashboardService {
               _reportSummaryCache,
               cacheKey,
               result,
-              ttl: _cacheTtl,
+              ttl: _reportCacheTtl,
             );
             return result;
           }
@@ -167,11 +185,30 @@ class AdminDashboardService {
           _reportSummaryCache,
           cacheKey,
           result,
-          ttl: _cacheTtl,
+          ttl: _reportCacheTtl,
         );
         return result;
       },
     );
+  }
+
+  Map<String, int>? getCachedReportSummary([
+    Map<String, String> filters = const <String, String>{},
+    bool allowStale = false,
+  ]) {
+    final String cacheKey = _filterCacheKey(filters);
+    final ShortTermCacheHit<dynamic>? cachedSummary =
+        ShortTermCache.readEntry<dynamic>(
+          _reportSummaryCache,
+          cacheKey,
+          allowStale: allowStale,
+        );
+
+    if (cachedSummary?.value is Map) {
+      return Map<String, int>.from(cachedSummary!.value as Map);
+    }
+
+    return null;
   }
 
   Future<List<Map<String, dynamic>>> getAppointmentTrends(
@@ -213,7 +250,7 @@ class AdminDashboardService {
             _reportTrendsCache,
             cacheKey,
             result,
-            ttl: _cacheTtl,
+            ttl: _reportCacheTtl,
           );
           return result;
         }
@@ -223,7 +260,7 @@ class AdminDashboardService {
           _reportTrendsCache,
           cacheKey,
           result,
-          ttl: _cacheTtl,
+          ttl: _reportCacheTtl,
         );
         return result;
       },
@@ -243,9 +280,7 @@ class AdminDashboardService {
     final response = await _baseService.getRaw(
       Endpoints.adminReportsExport(exportFilters),
       headers: <String, String>{'Accept': format.acceptHeader},
-      timeout: Duration(
-        minutes: format == ReportExportFormat.pdf ? 2 : 3,
-      ),
+      timeout: Duration(minutes: format == ReportExportFormat.pdf ? 2 : 3),
     );
 
     return ReportExportFile(

@@ -7,7 +7,7 @@ import 'base_service.dart';
 class AdminStaffService {
   AdminStaffService(this._baseService);
 
-  static const Duration _cacheTtl = Duration(seconds: 30);
+  static const Duration _cacheTtl = Duration(minutes: 2);
   static const String _staffListCache = 'admin-staff-list';
   static const String _staffPageCache = 'admin-staff-page';
 
@@ -102,6 +102,31 @@ class AdminStaffService {
         hasMorePages: false,
       );
     });
+  }
+
+  PaginatedResult<Map<String, dynamic>>? getCachedStaffPage({
+    int page = 1,
+    int perPage = 25,
+    bool allowStale = false,
+  }) {
+    final String cacheKey = _pageCacheKey(page: page, perPage: perPage);
+    final ShortTermCacheHit<dynamic>? cached =
+        ShortTermCache.readEntry<dynamic>(
+          _staffPageCache,
+          cacheKey,
+          allowStale: allowStale,
+        );
+
+    if (cached?.value is Map<String, dynamic>) {
+      return PaginatedResult<Map<String, dynamic>>.fromResponse(
+        cached!.value as Map<String, dynamic>,
+        (dynamic item) => Map<String, dynamic>.from(item as Map),
+        fallbackPage: page,
+        fallbackPerPage: perPage,
+      );
+    }
+
+    return null;
   }
 
   Future<Map<String, dynamic>> createStaff(Map<String, dynamic> data) async {

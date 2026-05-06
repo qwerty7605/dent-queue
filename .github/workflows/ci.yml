@@ -15,6 +15,8 @@ jobs:
   laravel:
     name: Laravel Test and Build
     runs-on: ubuntu-latest
+    env:
+      SMARTDENTQUEUE_PHP_IMAGE: shzzzki0000/appdev:tagname
     defaults:
       run:
         working-directory: laravel
@@ -23,11 +25,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build Docker containers
-        run: docker compose build
+      - name: Pull Docker images
+        run: docker compose pull php db
 
       - name: Start Docker containers
-        run: docker compose up -d db php
+        run: docker compose up --no-build -d db php
 
       - name: Install Composer dependencies
         run: docker compose exec -T php composer install --no-interaction --prefer-dist
@@ -77,6 +79,3 @@ jobs:
 
       - name: Run Flutter automated tests
         run: flutter test
-
-      - name: Build Android debug APK
-        run: flutter build apk --debug

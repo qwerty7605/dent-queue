@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -99,8 +101,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   Map<String, dynamic>? _localUserInfo;
   bool _adminDarkMode = false;
   bool get _isDarkMode => _adminDarkMode;
-  Color get _panelColor =>
-      _isDarkMode ? const Color(0xFF162033) : Colors.white;
+  Color get _panelColor => _isDarkMode ? const Color(0xFF162033) : Colors.white;
   Color get _panelAltColor =>
       _isDarkMode ? const Color(0xFF1B2740) : const Color(0xFFF7F9FE);
   Color get _panelBorderColor =>
@@ -126,11 +127,65 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     _adminSettingsService = AdminSettingsService(baseService);
     _appointmentService = AppointmentService(baseService);
 
-    _loadDashboardSnapshot();
+    final bool showedCachedSnapshot = _applyCachedDashboardSnapshot();
+    unawaited(_loadDashboardSnapshot(showLoader: !showedCachedSnapshot));
   }
 
-  Future<void> _loadDashboardSnapshot({bool forceRefresh = false}) async {
-    if (mounted) {
+  bool _applyCachedDashboardSnapshot() {
+    final Map<String, int>? cachedStats = _adminDashboardService.getCachedStats(
+      allowStale: true,
+    );
+    final Map<String, int>? cachedReportSummary = _adminDashboardService
+        .getCachedReportSummary(const <String, String>{}, true);
+    final List<Map<String, dynamic>>? cachedPendingAppointments =
+        _appointmentService.getCachedAdminMasterList(const <String, String>{
+          'status': 'pending',
+        }, allowStale: true);
+    final Map<String, dynamic>? cachedClinicSettings = _adminSettingsService
+        .getCachedClinicSettings(allowStale: true);
+
+    final bool hasCachedSnapshot =
+        cachedStats != null ||
+        cachedReportSummary != null ||
+        cachedPendingAppointments != null ||
+        cachedClinicSettings != null;
+
+    if (!hasCachedSnapshot) {
+      return false;
+    }
+
+    if (!mounted) {
+      return false;
+    }
+
+    if (cachedPendingAppointments != null) {
+      cachedPendingAppointments.sort(_compareRecentAppointments);
+    }
+
+    setState(() {
+      if (cachedStats != null) {
+        _dashboardStats = cachedStats;
+      }
+      if (cachedReportSummary != null) {
+        _reportSummary = cachedReportSummary;
+      }
+      if (cachedPendingAppointments != null) {
+        _masterListPreview = cachedPendingAppointments.take(10).toList();
+      }
+      if (cachedClinicSettings != null) {
+        _clinicSettings = cachedClinicSettings;
+      }
+      _isLoadingDashboard = false;
+    });
+
+    return true;
+  }
+
+  Future<void> _loadDashboardSnapshot({
+    bool forceRefresh = false,
+    bool showLoader = true,
+  }) async {
+    if (mounted && showLoader) {
       setState(() {
         _isLoadingDashboard = true;
       });
@@ -142,26 +197,28 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         _adminSettingsService.invalidateClinicSettingsCache();
       }
 
-      final List<dynamic> results =
-          await Future.wait<dynamic>(<Future<dynamic>>[
-            _adminDashboardService.getStats(forceRefresh: forceRefresh),
-            _adminDashboardService.getReportSummary(
-              const <String, String>{},
-              forceRefresh,
-            ),
-            _appointmentService.getAdminMasterList(
-              const <String, String>{'status': 'pending'},
-            ),
-            _adminSettingsService.getClinicSettings(),
-          ]);
+      final List<dynamic> results = await Future.wait<dynamic>(
+        <Future<dynamic>>[
+          _adminDashboardService.getStats(forceRefresh: forceRefresh),
+          _adminDashboardService.getReportSummary(
+            const <String, String>{},
+            forceRefresh,
+          ),
+          _appointmentService.getAdminMasterList(const <String, String>{
+            'status': 'pending',
+          }),
+          _adminSettingsService.getClinicSettings(),
+        ],
+      );
 
       if (!mounted) {
         return;
       }
 
       final List<Map<String, dynamic>> pendingAppointments =
-          List<Map<String, dynamic>>.from(results[2] as List<Map<String, dynamic>>)
-            ..sort(_compareRecentAppointments);
+          List<Map<String, dynamic>>.from(
+            results[2] as List<Map<String, dynamic>>,
+          )..sort(_compareRecentAppointments);
 
       setState(() {
         _dashboardStats = Map<String, int>.from(results[0] as Map);
@@ -823,9 +880,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           ),
           const SizedBox(height: 12),
           _SystemLogStat(
-            label: 'Report records',
+            label: 'Reportable appointments',
             value: NumberFormat.compact().format(
-              _reportSummary['report_records'] ?? 0,
+              _reportSummary['total'] ?? 0,
             ),
           ),
           const SizedBox(height: 12),
@@ -861,7 +918,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       case 'Appointments':
         return _compactNumber(_dashboardStats['appointments_count'] ?? 0);
       case 'Reports':
-        return _compactNumber(_reportSummary['report_records'] ?? 0);
+        return _compactNumber(_reportSummary['total'] ?? 0);
       default:
         return '0';
     }
@@ -971,8 +1028,10 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       return byCreated;
     }
 
-    final int leftId = int.tryParse(left['appointment_id']?.toString() ?? '') ?? 0;
-    final int rightId = int.tryParse(right['appointment_id']?.toString() ?? '') ?? 0;
+    final int leftId =
+        int.tryParse(left['appointment_id']?.toString() ?? '') ?? 0;
+    final int rightId =
+        int.tryParse(right['appointment_id']?.toString() ?? '') ?? 0;
     return rightId.compareTo(leftId);
   }
 
@@ -1015,7 +1074,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       return direct;
     }
 
-    return DateFormat('yyyy-MM-dd HH:mm:ss').tryParse(raw.trim(), true)?.toLocal();
+    return DateFormat(
+      'yyyy-MM-dd HH:mm:ss',
+    ).tryParse(raw.trim(), true)?.toLocal();
   }
 
   String _normalizeTimeToken(String raw) {
@@ -1276,9 +1337,7 @@ class _DashboardEmptyState extends StatelessWidget {
       children: [
         Icon(
           icon,
-          color: isDarkMode
-              ? const Color(0xFFAAB8D4)
-              : const Color(0xFF8FA1C5),
+          color: isDarkMode ? const Color(0xFFAAB8D4) : const Color(0xFF8FA1C5),
           size: 34,
         ),
         const SizedBox(height: 14),
@@ -1397,11 +1456,9 @@ class _SystemLogStat extends StatelessWidget {
 
 class _DashboardSectionStyles {
   static TextStyle tableHeading(bool isDarkMode) => TextStyle(
-        color: isDarkMode
-            ? const Color(0xFFAAB8D4)
-            : const Color(0xFF9AA8C4),
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 1.8,
-      );
+    color: isDarkMode ? const Color(0xFFAAB8D4) : const Color(0xFF9AA8C4),
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.8,
+  );
 }

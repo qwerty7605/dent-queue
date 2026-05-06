@@ -34,6 +34,13 @@ class _DaySchedule {
   }
 }
 
+class _UnavailableDateRangeSelection {
+  const _UnavailableDateRangeSelection({this.startDate, this.endDate});
+
+  final DateTime? startDate;
+  final DateTime? endDate;
+}
+
 class _AdminSettingsViewState extends State<AdminSettingsView> {
   static const Color _ink = Color(0xFF1A2F64);
   static const Color _muted = Color(0xFFA3AEC4);
@@ -72,7 +79,8 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
       TextEditingController();
   final TextEditingController _unavailableReasonController =
       TextEditingController();
-  DateTime? _unavailableDate;
+  DateTime? _unavailableStartDate;
+  DateTime? _unavailableEndDate;
   TimeOfDay? _unavailableStartTime;
   TimeOfDay? _unavailableEndTime;
   List<Map<String, dynamic>> _doctorUnavailability = <Map<String, dynamic>>[];
@@ -257,22 +265,224 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     });
   }
 
-  Future<void> _pickUnavailableDate() async {
-    final DateTime now = DateTime.now();
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _unavailableDate ?? now,
-      firstDate: now.subtract(const Duration(days: 1)),
-      lastDate: now.add(const Duration(days: 365)),
-    );
+  Future<void> _pickUnavailableDateRange() async {
+    final _UnavailableDateRangeSelection? selectedRange =
+        await _showUnavailableDateRangePicker();
 
-    if (picked == null || !mounted) {
+    if (selectedRange == null || !mounted) {
       return;
     }
 
     setState(() {
-      _unavailableDate = picked;
+      _unavailableStartDate = selectedRange.startDate;
+      _unavailableEndDate = selectedRange.endDate;
     });
+  }
+
+  Future<_UnavailableDateRangeSelection?> _showUnavailableDateRangePicker() {
+    final DateTime now = _dateOnly(DateTime.now());
+    final DateTime firstDate = now.subtract(const Duration(days: 1));
+    final DateTime lastDate = now.add(const Duration(days: 365));
+    DateTime? selectedStart = _unavailableStartDate;
+    DateTime? selectedEnd = _unavailableEndDate;
+
+    DateTime initialDateFor(DateTime? selectedDate) {
+      if (selectedDate != null) {
+        return selectedDate;
+      }
+
+      if (now.isBefore(firstDate)) {
+        return firstDate;
+      }
+
+      if (now.isAfter(lastDate)) {
+        return lastDate;
+      }
+
+      return now;
+    }
+
+    return showDialog<_UnavailableDateRangeSelection>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            final String startLabel = selectedStart == null
+                ? 'Not selected'
+                : _formatDateForApi(selectedStart!);
+            final String endLabel = selectedEnd == null
+                ? 'Not selected'
+                : _formatDateForApi(selectedEnd!);
+
+            Widget buildCalendarPanel({
+              required Key key,
+              required String title,
+              required String subtitle,
+              required DateTime? selectedDate,
+              required ValueChanged<DateTime> onDateChanged,
+            }) {
+              return Container(
+                width: 330,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                decoration: BoxDecoration(
+                  color: _surfaceAltColor(context),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: _borderColor(context)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: _ink,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: _mutedTextColor(context),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 360,
+                      child: CalendarDatePicker(
+                        key: key,
+                        initialDate: initialDateFor(selectedDate),
+                        firstDate: firstDate,
+                        lastDate: lastDate,
+                        currentDate: selectedDate,
+                        onDateChanged: onDateChanged,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return AlertDialog(
+              title: const Text('Select Doctor Unavailability Range'),
+              content: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: 676,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _surfaceAltColor(context),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: _borderColor(context)),
+                        ),
+                        child: Text(
+                          'Selected range: $startLabel to $endLabel',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: _textColor(context),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildCalendarPanel(
+                            key: ValueKey<String>(
+                              'doctor-unavailability-start-calendar-${selectedStart?.toIso8601String() ?? 'empty'}',
+                            ),
+                            title: 'START DATE',
+                            subtitle: 'Choose the first unavailable day.',
+                            selectedDate: selectedStart,
+                            onDateChanged: (DateTime value) {
+                              final DateTime start = _dateOnly(value);
+                              setDialogState(() {
+                                selectedStart = start;
+                                if (selectedEnd != null &&
+                                    selectedEnd!.isBefore(start)) {
+                                  selectedEnd = start;
+                                }
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 16),
+                          buildCalendarPanel(
+                            key: ValueKey<String>(
+                              'doctor-unavailability-end-calendar-${selectedEnd?.toIso8601String() ?? 'empty'}',
+                            ),
+                            title: 'END DATE',
+                            subtitle: 'Choose the last unavailable day.',
+                            selectedDate: selectedEnd,
+                            onDateChanged: (DateTime value) {
+                              final DateTime end = _dateOnly(value);
+                              setDialogState(() {
+                                selectedEnd = end;
+                                if (selectedStart != null &&
+                                    selectedStart!.isAfter(end)) {
+                                  selectedStart = end;
+                                }
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    setDialogState(() {
+                      selectedStart = null;
+                      selectedEnd = null;
+                    });
+                  },
+                  child: const Text('Clear'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  key: const Key('doctor-unavailability-date-range-apply'),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(
+                      _UnavailableDateRangeSelection(
+                        startDate: selectedStart,
+                        endDate: selectedEnd,
+                      ),
+                    );
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _ink,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Apply Dates'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _pickUnavailableTime({required bool isStart}) async {
@@ -316,15 +526,23 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
   }
 
   Future<void> _saveUnavailableRange() async {
-    if (_unavailableDate == null) {
-      _showSnackBar('Unavailable date is required.', isError: true);
+    if (_unavailableStartDate == null || _unavailableEndDate == null) {
+      _showSnackBar(
+        'Unavailable start and end dates are required.',
+        isError: true,
+      );
+      return;
+    }
+    if (_unavailableEndDate!.isBefore(_unavailableStartDate!)) {
+      _showSnackBar('End date must be on or after start date.', isError: true);
       return;
     }
     if (_unavailableStartTime == null || _unavailableEndTime == null) {
       _showSnackBar('Start and end time are required.', isError: true);
       return;
     }
-    if (_toMinutes(_unavailableEndTime!) <= _toMinutes(_unavailableStartTime!)) {
+    if (_toMinutes(_unavailableEndTime!) <=
+        _toMinutes(_unavailableStartTime!)) {
       _showSnackBar('End time must be later than start time.', isError: true);
       return;
     }
@@ -337,9 +555,8 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
       final List<Map<String, dynamic>> schedules = await widget
           .adminSettingsService
           .createDoctorUnavailability(<String, dynamic>{
-            'unavailable_date': DateFormat('yyyy-MM-dd').format(
-              _unavailableDate!,
-            ),
+            'start_date': _formatDateForApi(_unavailableStartDate!),
+            'end_date': _formatDateForApi(_unavailableEndDate!),
             'start_time': _formatTimeForApi(_unavailableStartTime!),
             'end_time': _formatTimeForApi(_unavailableEndTime!),
             'reason': _nullableControllerValue(_unavailableReasonController),
@@ -351,7 +568,8 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
 
       setState(() {
         _doctorUnavailability = schedules;
-        _unavailableDate = null;
+        _unavailableStartDate = null;
+        _unavailableEndDate = null;
         _unavailableStartTime = null;
         _unavailableEndTime = null;
         _unavailableReasonController.clear();
@@ -608,6 +826,30 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     return '$hour:$minute';
   }
 
+  String _formatDateForApi(DateTime value) {
+    return DateFormat('yyyy-MM-dd').format(value);
+  }
+
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  String _formatUnavailableDateRange() {
+    if (_unavailableStartDate == null && _unavailableEndDate == null) {
+      return 'Select start and end dates';
+    }
+
+    if (_unavailableStartDate != null && _unavailableEndDate == null) {
+      return '${DateFormat('dd/MM/yyyy').format(_unavailableStartDate!)} - end date';
+    }
+
+    if (_unavailableStartDate == null && _unavailableEndDate != null) {
+      return 'start date - ${DateFormat('dd/MM/yyyy').format(_unavailableEndDate!)}';
+    }
+
+    return '${DateFormat('dd/MM/yyyy').format(_unavailableStartDate!)} - ${DateFormat('dd/MM/yyyy').format(_unavailableEndDate!)}';
+  }
+
   int _toMinutes(TimeOfDay value) {
     return value.hour * 60 + value.minute;
   }
@@ -766,11 +1008,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        hoursCard,
-        const SizedBox(width: 20),
-        daysCard,
-      ],
+      children: [hoursCard, const SizedBox(width: 20), daysCard],
     );
   }
 
@@ -904,15 +1142,13 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
           runSpacing: 18,
           children: [
             _buildLabeledInputField(
-              label: 'UNAVAILABLE DATE',
+              label: 'UNAVAILABLE DATE RANGE',
               width: 348,
               child: _buildActionField(
-                text: _unavailableDate == null
-                    ? 'dd/mm/yyyy'
-                    : DateFormat('dd/MM/yyyy').format(_unavailableDate!),
+                text: _formatUnavailableDateRange(),
                 leading: Icons.calendar_month_outlined,
                 trailing: Icons.edit_calendar_outlined,
-                onTap: _pickUnavailableDate,
+                onTap: _pickUnavailableDateRange,
               ),
             ),
             _buildLabeledInputField(
@@ -1228,7 +1464,9 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
 
   _DaySchedule _primaryDaySchedule() {
     final List<String> selectedDays = _orderedSelectedDays();
-    final String day = selectedDays.isEmpty ? _allDays.first : selectedDays.first;
+    final String day = selectedDays.isEmpty
+        ? _allDays.first
+        : selectedDays.first;
     return _daySchedules[day] ?? _defaultDaySchedule();
   }
 
@@ -1253,12 +1491,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
             ),
           ),
           const SizedBox(height: 12),
-          _buildTimePill(
-            context,
-            value: value,
-            enabled: true,
-            onTap: onTap,
-          ),
+          _buildTimePill(context, value: value, enabled: true, onTap: onTap),
           const SizedBox(height: 10),
           Text(
             helper,
@@ -1531,7 +1764,9 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     }
 
     try {
-      return DateFormat('MMM d, yyyy').format(DateTime.parse(value)).toUpperCase();
+      return DateFormat(
+        'MMM d, yyyy',
+      ).format(DateTime.parse(value)).toUpperCase();
     } catch (_) {
       return value.toUpperCase();
     }

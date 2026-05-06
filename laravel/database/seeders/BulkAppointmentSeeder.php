@@ -4,12 +4,12 @@ namespace Database\Seeders;
 
 use App\Models\Appointment;
 use App\Models\PatientRecord;
-use App\Models\Queue;
 use App\Models\Service;
 use Database\Seeders\Concerns\InteractsWithBulkSeedData;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class BulkAppointmentSeeder extends Seeder
 {
@@ -95,6 +95,12 @@ class BulkAppointmentSeeder extends Seeder
         'Monitoring post-treatment sensitivity.',
         'Annual preventive visit.',
         'Requested urgent assessment for pain.',
+        'Doctor unavailable; patient needs schedule coordination.',
+        'Patient requested rescheduling after clinic advisory.',
+        'Cancelled after patient reported a conflict.',
+        'Walk-in triage converted into a clinic queue record.',
+        'Post-procedure recovery follow-up.',
+        'Recurring family dental care visit.',
     ];
 
     public function run(): void
@@ -120,7 +126,7 @@ class BulkAppointmentSeeder extends Seeder
         $slotOptions = $this->appointmentTimeSlots();
         $today = Carbon::today((string) config('app.timezone', 'UTC'));
         $pastDays = max(1, (int) $this->bulkSeedConfig('past_days', 180));
-        $futureDays = max(1, (int) $this->bulkSeedConfig('future_days', 90));
+        $futureDays = max(0, (int) $this->bulkSeedConfig('future_days', 90));
         $requestedCount = max(1, (int) $this->bulkSeedConfig('appointments', 50000));
         $appointmentsPerDay = max(1, (int) $this->bulkSeedConfig('appointments_per_day', 40));
         $maxDailyCapacity = $patients->count() * count($slotOptions);
@@ -164,16 +170,17 @@ class BulkAppointmentSeeder extends Seeder
 
     private function deleteExistingBulkAppointments(): void
     {
-        $this->bulkAppointmentsQuery()->withTrashed()->get()->each(function (Appointment $appointment): void {
-            if ($appointment->trashed()) {
-                $appointment->forceDelete();
+        DB::table('queues')
+            ->whereIn('appointment_id', function ($query): void {
+                $query->select('id')
+                    ->from('appointments')
+                    ->where('notes', 'like', $this->bulkSeedMarker() . '%');
+            })
+            ->delete();
 
-                return;
-            }
-
-            $appointment->delete();
-            $appointment->forceDelete();
-        });
+        DB::table('appointments')
+            ->where('notes', 'like', $this->bulkSeedMarker() . '%')
+            ->delete();
     }
 
     /**
@@ -231,6 +238,7 @@ class BulkAppointmentSeeder extends Seeder
         $usedKeys = [];
         $attempts = 0;
         $maxAttempts = $targetCount * 20;
+        $appointmentRows = [];
 
         while ($createdCount < $targetCount && $attempts < $maxAttempts) {
             $attempts++;
@@ -249,8 +257,11 @@ class BulkAppointmentSeeder extends Seeder
             $status = $this->determineStatus($date, $today);
             $createdAt = $this->determineCreatedAt($date, $timeSlot, $today);
             $isWalkIn = $patient->user_id === null;
+            $deletedAt = $status === 'cancelled' && random_int(1, 100) <= 65
+                ? $createdAt->copy()->addDays(random_int(1, 7))->toDateTimeString()
+                : null;
 
-            $appointment = Appointment::query()->create([
+            $appointmentRows[] = [
                 'patient_id' => (int) $patient->id,
                 'service_id' => (int) $service->id,
                 'appointment_date' => $date,
@@ -262,13 +273,10 @@ class BulkAppointmentSeeder extends Seeder
                     $isWalkIn ? 'walk-in' : 'online',
                     $this->noteFragments[array_rand($this->noteFragments)],
                 ),
-                'created_at' => $createdAt,
-                'updated_at' => $createdAt,
-            ]);
-
-            if ($status === 'cancelled' && random_int(1, 100) <= 65) {
-                $appointment->delete();
-            }
+                'created_at' => $createdAt->toDateTimeString(),
+                'updated_at' => $createdAt->toDateTimeString(),
+                'deleted_at' => $deletedAt,
+            ];
 
             $usedKeys[$key] = true;
             $createdCount++;
@@ -283,6 +291,8 @@ class BulkAppointmentSeeder extends Seeder
                 $attempts,
             ));
         }
+
+        DB::table('appointments')->insert($appointmentRows);
 
         return $createdCount;
     }
@@ -318,19 +328,23 @@ class BulkAppointmentSeeder extends Seeder
 
         if ($appointmentDate->lt($today)) {
             return $this->weightedRandom([
-                'completed' => 45,
-                'confirmed' => 20,
-                'cancelled' => 25,
-                'pending' => 10,
+                'completed' => 56,
+                'confirmed' => 8,
+                'cancelled' => 18,
+                'cancelled_by_doctor' => 7,
+                'reschedule_required' => 6,
+                'pending' => 5,
             ]);
         }
 
         if ($appointmentDate->equalTo($today)) {
             return $this->weightedRandom([
-                'confirmed' => 35,
-                'pending' => 35,
-                'completed' => 15,
-                'cancelled' => 15,
+                'confirmed' => 36,
+                'pending' => 32,
+                'completed' => 12,
+                'cancelled' => 10,
+                'cancelled_by_doctor' => 5,
+                'reschedule_required' => 5,
             ]);
         }
 
@@ -338,7 +352,8 @@ class BulkAppointmentSeeder extends Seeder
             'pending' => 45,
             'confirmed' => 35,
             'cancelled' => 15,
-            'completed' => 5,
+            'cancelled_by_doctor' => 3,
+            'reschedule_required' => 2,
         ]);
     }
 
@@ -358,38 +373,61 @@ class BulkAppointmentSeeder extends Seeder
 
     private function syncQueuesForBulkAppointments(): void
     {
-        Queue::query()
-            ->whereIn(
-                'appointment_id',
-                $this->bulkAppointmentsQuery()->withTrashed()->pluck('id'),
-            )
+        DB::table('queues')
+            ->whereIn('appointment_id', function ($query): void {
+                $query->select('id')
+                    ->from('appointments')
+                    ->where('notes', 'like', $this->bulkSeedMarker() . '%');
+            })
             ->delete();
 
-        $dates = $this->bulkAppointmentsQuery()
+        $queueRows = [];
+        $currentDate = null;
+        $queueNumber = 0;
+        $now = Carbon::now()->toDateTimeString();
+        $existingQueueOffsets = DB::table('queues')
+            ->select('queue_date', DB::raw('MAX(queue_number) as max_queue_number'))
+            ->groupBy('queue_date')
+            ->pluck('max_queue_number', 'queue_date')
+            ->map(fn (mixed $queueNumber): int => (int) $queueNumber)
+            ->all();
+
+        DB::table('appointments')
+            ->select(['id', 'appointment_date', 'status'])
+            ->where('notes', 'like', $this->bulkSeedMarker() . '%')
             ->whereNull('deleted_at')
             ->whereIn('status', ['pending', 'confirmed', 'completed'])
-            ->distinct()
             ->orderBy('appointment_date')
-            ->pluck('appointment_date');
+            ->orderBy('time_slot')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->cursor()
+            ->each(function (object $appointment) use (&$queueRows, &$currentDate, &$queueNumber, $existingQueueOffsets, $now): void {
+                $appointmentDate = (string) $appointment->appointment_date;
 
-        foreach ($dates as $date) {
-            $appointments = $this->bulkAppointmentsQuery()
-                ->whereDate('appointment_date', (string) $date)
-                ->whereNull('deleted_at')
-                ->whereIn('status', ['pending', 'confirmed', 'completed'])
-                ->orderBy('time_slot')
-                ->orderBy('created_at')
-                ->orderBy('id')
-                ->get(['id', 'status']);
+                if ($currentDate !== $appointmentDate) {
+                    $currentDate = $appointmentDate;
+                    $queueNumber = $existingQueueOffsets[$appointmentDate] ?? 0;
+                }
 
-            foreach ($appointments as $index => $appointment) {
-                Queue::query()->create([
+                $queueNumber++;
+                $queueRows[] = [
                     'appointment_id' => (int) $appointment->id,
-                    'queue_date' => (string) $date,
-                    'queue_number' => $index + 1,
-                    'is_called' => in_array($appointment->status, ['completed'], true) && random_int(1, 100) <= 60,
-                ]);
-            }
+                    'queue_date' => $appointmentDate,
+                    'queue_number' => $queueNumber,
+                    'is_called' => (string) $appointment->status === 'completed' && random_int(1, 100) <= 60,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+
+                if (count($queueRows) >= 5000) {
+                    DB::table('queues')->insert($queueRows);
+                    $queueRows = [];
+                }
+            });
+
+        if ($queueRows !== []) {
+            DB::table('queues')->insert($queueRows);
         }
     }
 
