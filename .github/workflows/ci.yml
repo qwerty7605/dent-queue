@@ -16,7 +16,7 @@ jobs:
     name: Laravel Tests
     runs-on: ubuntu-latest
     env:
-      SMARTDENTQUEUE_PHP_IMAGE: qwerty7605/dent-queue-php:latest
+      SMARTDENTQUEUE_PHP_IMAGE: shzzzki0000/appdev:tagname
     defaults:
       run:
         working-directory: laravel
