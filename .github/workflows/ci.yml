@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   laravel:
-    name: Laravel Tests
+    name: Laravel Test and Build
     runs-on: ubuntu-latest
     env:
       SMARTDENTQUEUE_PHP_IMAGE: shzzzki0000/appdev:tagname
@@ -52,7 +52,7 @@ jobs:
         run: docker compose down -v
 
   flutter:
-    name: Flutter Tests
+    name: Flutter Test and Build
     runs-on: ubuntu-latest
     defaults:
       run:
