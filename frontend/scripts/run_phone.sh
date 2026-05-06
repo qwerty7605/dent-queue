@@ -74,7 +74,7 @@ check_http() {
   local url="$1"
 
   if command -v curl >/dev/null 2>&1; then
-    curl --silent --show-error --fail --max-time 2 -o /dev/null "$url"
+    curl --silent --show-error --max-time 2 -o /dev/null "$url"
     return $?
   fi
 
@@ -88,23 +88,13 @@ print_backend_start_hint() {
 
   if [[ -f "$docker_compose_file" ]]; then
     echo "Start the backend containers before launching the phone app:"
-    echo "  cd /home/aldridge/app-dev/laravel"
+    echo "  cd $repo_root/laravel"
     echo "  docker compose up -d"
     return
   fi
 
   echo "Start the backend before launching the phone app."
 }
-
-if [[ -z "$API_HOST" ]]; then
-  API_HOST="$(detect_host_ip || true)"
-fi
-
-if [[ -z "$API_HOST" ]]; then
-  echo "Unable to determine host LAN IP."
-  echo "Set it manually: API_HOST=192.168.x.x ./scripts/run_phone.sh"
-  exit 1
-fi
 
 DEVICE_ARGS=()
 DEVICE_ID=""
@@ -116,6 +106,10 @@ fi
 
 ADB_BIN="${ADB_BIN:-}"
 if [[ "$USE_ADB_REVERSE" == "1" ]]; then
+  if [[ -z "$API_HOST" ]]; then
+    API_HOST="127.0.0.1"
+  fi
+
   if [[ -z "$ADB_BIN" ]]; then
     ADB_BIN="$(find_adb || true)"
   fi
@@ -126,8 +120,9 @@ if [[ "$USE_ADB_REVERSE" == "1" ]]; then
     fi
 
     if [[ -n "$DEVICE_ID" ]]; then
-      if "$ADB_BIN" -s "$DEVICE_ID" reverse "tcp:${API_PORT}" "tcp:${API_PORT}" >/dev/null 2>&1; then
-        echo "adb reverse enabled for ${DEVICE_ID}, but LAN host remains the default."
+      if "$ADB_BIN" -s "$DEVICE_ID" reverse "tcp:${API_PORT}" "tcp:${API_PORT}" >/dev/null 2>&1 || "$ADB_BIN" reverse "tcp:${API_PORT}" "tcp:${API_PORT}" >/dev/null 2>&1; then
+        echo "adb reverse enabled for ${DEVICE_ID}; using localhost tunnel."
+        API_HOST="127.0.0.1"
       else
         echo "Warning: could not enable adb reverse for ${DEVICE_ID}"
       fi
@@ -135,6 +130,16 @@ if [[ "$USE_ADB_REVERSE" == "1" ]]; then
   else
     echo "Warning: adb not found; continuing with detected LAN host ${API_HOST}"
   fi
+fi
+
+if [[ -z "$API_HOST" ]]; then
+  API_HOST="$(detect_host_ip || true)"
+fi
+
+if [[ -z "$API_HOST" ]]; then
+  echo "Unable to determine host LAN IP."
+  echo "Set it manually: API_HOST=192.168.x.x ./scripts/run_phone.sh"
+  exit 1
 fi
 
 BASE_URL="http://${API_HOST}:${API_PORT}"

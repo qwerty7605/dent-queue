@@ -14,7 +14,6 @@ import 'views/start_page_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   if (!kReleaseMode) {
     debugPrint('API env=${AppConfig.env.name} baseUrl=${AppConfig.baseUrl}');
   }
@@ -73,6 +72,8 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
   _AuthPage _page = _AuthPage.loading;
   String? _startupError;
 
+  _AuthPage get _signedOutPage => kIsWeb ? _AuthPage.login : _AuthPage.start;
+
   @override
   void initState() {
     super.initState();
@@ -84,7 +85,7 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
     if (token == null || token.isEmpty) {
       if (!mounted) return;
       setState(() {
-        _page = _AuthPage.start;
+        _page = _signedOutPage;
         _startupError = null;
       });
       return;
@@ -101,8 +102,9 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
       await widget.tokenStorage.clear();
       if (!mounted) return;
       setState(() {
-        _page = _AuthPage.start;
-        _startupError = 'Unable to reconnect to the server. Please sign in again.';
+        _page = _signedOutPage;
+        _startupError =
+            'Unable to reconnect to the server. Please sign in again.';
       });
     } catch (error, stackTrace) {
       debugPrint('Auto-login failed: $error');
@@ -110,7 +112,7 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
       await widget.tokenStorage.clear();
       if (!mounted) return;
       setState(() {
-        _page = _AuthPage.start;
+        _page = _signedOutPage;
         _startupError =
             'Unable to reach the server right now. Check your connection and try again.';
       });
@@ -129,7 +131,7 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
         tokenStorage: widget.tokenStorage,
         onLoggedOut: () {
           setState(() {
-            _page = _AuthPage.start;
+            _page = _signedOutPage;
           });
         },
       );
@@ -150,6 +152,7 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
     if (_page == _AuthPage.login) {
       return LoginView(
         authService: widget.authService,
+        showRegisterPrompt: !kIsWeb,
         onSwitchToRegister: () {
           setState(() {
             _page = _AuthPage.register;

@@ -40,7 +40,9 @@ class DoctorAvailabilityController extends Controller
     public function store(Request $request): JsonResponse
     {
         $payload = $request->validate([
-            'unavailable_date' => ['required', 'date_format:Y-m-d'],
+            'unavailable_date' => ['nullable', 'date_format:Y-m-d', 'required_without:start_date'],
+            'start_date' => ['nullable', 'date_format:Y-m-d', 'required_without:unavailable_date'],
+            'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'start_time' => ['required', 'string'],
             'end_time' => ['required', 'string'],
             'reason' => ['nullable', 'string', 'max:255'],

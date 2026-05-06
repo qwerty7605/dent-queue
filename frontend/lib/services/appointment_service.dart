@@ -8,6 +8,9 @@ class AppointmentService {
   AppointmentService(this._baseService);
 
   static const Duration _cacheTtl = Duration(seconds: 30);
+  static const Duration _referenceCacheTtl = Duration(minutes: 10);
+  static const Duration _queueCacheTtl = Duration(seconds: 10);
+  static const Duration _availabilityCacheTtl = Duration(seconds: 60);
   static const String _adminMasterListCache = 'appointment-admin-master-list';
   static const String _adminMasterListPageCache =
       'appointment-admin-master-list-page';
@@ -48,11 +51,21 @@ class AppointmentService {
         final result = servicesList
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
-        ShortTermCache.write(_servicesCache, 'all', result, ttl: _cacheTtl);
+        ShortTermCache.write(
+          _servicesCache,
+          'all',
+          result,
+          ttl: _referenceCacheTtl,
+        );
         return result;
       }
       const result = <Map<String, dynamic>>[];
-      ShortTermCache.write(_servicesCache, 'all', result, ttl: _cacheTtl);
+      ShortTermCache.write(
+        _servicesCache,
+        'all',
+        result,
+        ttl: _referenceCacheTtl,
+      );
       return result;
     });
   }
@@ -114,7 +127,7 @@ class AppointmentService {
             _availabilitySlotsCache,
             cacheKey,
             result,
-            ttl: _cacheTtl,
+            ttl: _availabilityCacheTtl,
           );
           return result;
         }
@@ -124,11 +137,33 @@ class AppointmentService {
           _availabilitySlotsCache,
           cacheKey,
           result,
-          ttl: _cacheTtl,
+          ttl: _availabilityCacheTtl,
         );
         return result;
       },
     );
+  }
+
+  List<Map<String, dynamic>>? getCachedAdminMasterList(
+    Map<String, String> filters, {
+    bool allowStale = false,
+  }) {
+    final String cacheKey = _filterCacheKey(filters);
+    final ShortTermCacheHit<dynamic>? cachedMasterList =
+        ShortTermCache.readEntry<dynamic>(
+          _adminMasterListCache,
+          cacheKey,
+          allowStale: allowStale,
+        );
+
+    if (cachedMasterList?.value is List) {
+      return (cachedMasterList!.value as List)
+          .whereType<Map>()
+          .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    }
+
+    return null;
   }
 
   Future<List<Map<String, dynamic>>> getAdminMasterList([
@@ -253,6 +288,36 @@ class AppointmentService {
     );
   }
 
+  PaginatedResult<Map<String, dynamic>>? getCachedAdminMasterListPage({
+    Map<String, String> filters = const <String, String>{},
+    int page = 1,
+    int perPage = 25,
+    bool allowStale = false,
+  }) {
+    final String cacheKey = _pagedFilterCacheKey(
+      filters,
+      page: page,
+      perPage: perPage,
+    );
+    final ShortTermCacheHit<dynamic>? cachedMasterListPage =
+        ShortTermCache.readEntry<dynamic>(
+          _adminMasterListPageCache,
+          cacheKey,
+          allowStale: allowStale,
+        );
+
+    if (cachedMasterListPage?.value is Map<String, dynamic>) {
+      return PaginatedResult<Map<String, dynamic>>.fromResponse(
+        cachedMasterListPage!.value as Map<String, dynamic>,
+        (dynamic item) => Map<String, dynamic>.from(item as Map),
+        fallbackPage: page,
+        fallbackPerPage: perPage,
+      );
+    }
+
+    return null;
+  }
+
   Future<List<Map<String, dynamic>>> getPatientAppointments() async {
     const String cacheKey = 'current-user';
     final dynamic cachedPatientList = ShortTermCache.read<dynamic>(
@@ -311,7 +376,9 @@ class AppointmentService {
       return Map<String, dynamic>.from(response['appointment'] as Map);
     }
 
-    throw StateError('Appointment details response is missing appointment data.');
+    throw StateError(
+      'Appointment details response is missing appointment data.',
+    );
   }
 
   Future<List<Map<String, dynamic>>> getMedicalHistory() async {
@@ -638,7 +705,7 @@ class AppointmentService {
           _patientTodayQueueCache,
           'current-user',
           result,
-          ttl: _cacheTtl,
+          ttl: _queueCacheTtl,
         );
         return result;
       },
@@ -686,7 +753,7 @@ class AppointmentService {
           _adminTodayQueueCache,
           cacheKey,
           result,
-          ttl: _cacheTtl,
+          ttl: _queueCacheTtl,
         );
         return result;
       },

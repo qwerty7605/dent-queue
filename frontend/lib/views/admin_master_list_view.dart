@@ -35,7 +35,7 @@ class AdminMasterListView extends StatefulWidget {
 }
 
 class _AdminMasterListViewState extends State<AdminMasterListView> {
-  static const int _pageSize = 20;
+  static const int _pageSize = 25;
   static const Color _surface = Colors.white;
   static const Color _outline = Color(0xFFE3EAF6);
   static const Color _text = Color(0xFF1D3264);
@@ -78,7 +78,8 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
   @override
   void initState() {
     super.initState();
-    _loadMasterList();
+    final bool showedCachedAppointments = _applyCachedMasterListPage();
+    unawaited(_loadMasterList(showLoader: !showedCachedAppointments));
   }
 
   @override
@@ -90,14 +91,15 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
 
   Future<void> _loadMasterList({
     bool forceRefresh = false,
+    bool showLoader = true,
     int page = 1,
     String? query,
   }) async {
     final String normalizedQuery = (query ?? _activeQuery).trim();
 
     setState(() {
-      _isLoading = normalizedQuery.isEmpty;
-      _isSearching = normalizedQuery.isNotEmpty;
+      _isLoading = showLoader && normalizedQuery.isEmpty;
+      _isSearching = showLoader && normalizedQuery.isNotEmpty;
       _activeQuery = normalizedQuery;
     });
 
@@ -173,6 +175,29 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
         const SnackBar(content: Text('Failed to load appointments')),
       );
     }
+  }
+
+  bool _applyCachedMasterListPage({int page = 1}) {
+    final cachedPage = widget.appointmentService.getCachedAdminMasterListPage(
+      filters: _activeMasterListFilters,
+      page: page,
+      perPage: _pageSize,
+      allowStale: true,
+    );
+
+    if (cachedPage == null || !mounted) {
+      return false;
+    }
+
+    setState(() {
+      _appointments = cachedPage.items;
+      _currentPage = cachedPage.currentPage;
+      _totalAppointments = cachedPage.totalItems;
+      _isLoading = false;
+      _isSearching = false;
+    });
+
+    return true;
   }
 
   void _handleSearchChanged(String value) {
@@ -363,59 +388,58 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
             ),
             child: _isLoading
                 ? const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 96),
-                        child: Center(
-                          child: CircularProgressIndicator(color: _navy),
-                        ),
-                      )
-                    : _appointments.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(28),
-                        child: AppEmptyState(
-                          key: const Key('admin-master-list-empty-state'),
-                          icon: Icons.list_alt_outlined,
-                          title: !_hasActiveFilters && _activeQuery.isEmpty
-                              ? 'No appointments yet'
-                              : 'No appointments found',
-                          message: _activeQuery.isNotEmpty
-                              ? 'No appointment records matched your search. Try a different patient, ID, or service.'
-                              : !_hasActiveFilters
-                              ? 'Appointments will appear in the master list once records are available.'
-                              : 'Try clearing the selected status or date filter to view more appointment records.',
-                          actionLabel:
-                              _hasActiveFilters || _activeQuery.isNotEmpty
-                              ? 'Clear Filters'
-                              : null,
-                          actionIcon: Icons.restart_alt_rounded,
-                          onAction: _hasActiveFilters || _activeQuery.isNotEmpty
-                              ? () {
-                                  _searchController.clear();
-                                  _resetFilters();
-                                }
-                              : null,
-                        ),
-                      )
-                    : Column(
-                        children: List<Widget>.generate(_appointments.length, (
-                          int index,
-                        ) {
-                          final Map<String, dynamic> appointment =
-                              _appointments[index];
-                          return Column(
-                            children: <Widget>[
-                              if (index > 0)
-                                Divider(
-                                  height: 1,
-                                  thickness: 1,
-                                  color: _outlineColor(context).withValues(
-                                    alpha: 0.7,
-                                  ),
-                                ),
-                              _MasterListRow(appointment: appointment),
-                            ],
-                          );
-                        }),
-                      ),
+                    padding: EdgeInsets.symmetric(vertical: 96),
+                    child: Center(
+                      child: CircularProgressIndicator(color: _navy),
+                    ),
+                  )
+                : _appointments.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: AppEmptyState(
+                      key: const Key('admin-master-list-empty-state'),
+                      icon: Icons.list_alt_outlined,
+                      title: !_hasActiveFilters && _activeQuery.isEmpty
+                          ? 'No appointments yet'
+                          : 'No appointments found',
+                      message: _activeQuery.isNotEmpty
+                          ? 'No appointment records matched your search. Try a different patient, ID, or service.'
+                          : !_hasActiveFilters
+                          ? 'Appointments will appear in the master list once records are available.'
+                          : 'Try clearing the selected status or date filter to view more appointment records.',
+                      actionLabel: _hasActiveFilters || _activeQuery.isNotEmpty
+                          ? 'Clear Filters'
+                          : null,
+                      actionIcon: Icons.restart_alt_rounded,
+                      onAction: _hasActiveFilters || _activeQuery.isNotEmpty
+                          ? () {
+                              _searchController.clear();
+                              _resetFilters();
+                            }
+                          : null,
+                    ),
+                  )
+                : Column(
+                    children: List<Widget>.generate(_appointments.length, (
+                      int index,
+                    ) {
+                      final Map<String, dynamic> appointment =
+                          _appointments[index];
+                      return Column(
+                        children: <Widget>[
+                          if (index > 0)
+                            Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: _outlineColor(
+                                context,
+                              ).withValues(alpha: 0.7),
+                            ),
+                          _MasterListRow(appointment: appointment),
+                        ],
+                      );
+                    }),
+                  ),
           ),
         ],
       ),
@@ -525,14 +549,10 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 16),
           decoration: BoxDecoration(
-            color: isSelected
-                ? _navy
-                : _surfaceAltColor(context),
+            color: isSelected ? _navy : _surfaceAltColor(context),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isSelected
-                  ? _navy
-                  : _outlineColor(context),
+              color: isSelected ? _navy : _outlineColor(context),
             ),
             boxShadow: const <BoxShadow>[
               BoxShadow(
@@ -1072,9 +1092,7 @@ class _PageNavButton extends StatelessWidget {
                 : (isDark ? const Color(0xFF162033) : const Color(0xFFF7F8FC)),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark
-                  ? const Color(0xFF2B3956)
-                  : const Color(0xFFE3EAF6),
+              color: isDark ? const Color(0xFF2B3956) : const Color(0xFFE3EAF6),
             ),
           ),
           child: Icon(
@@ -1083,9 +1101,7 @@ class _PageNavButton extends StatelessWidget {
                 ? (isDark
                       ? const Color(0xFFD7E4FF)
                       : _AdminMasterListViewState._muted)
-                : (isDark
-                      ? const Color(0xFF5D6C8B)
-                      : const Color(0xFFD4DCEA)),
+                : (isDark ? const Color(0xFF5D6C8B) : const Color(0xFFD4DCEA)),
           ),
         ),
       ),

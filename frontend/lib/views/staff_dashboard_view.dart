@@ -52,7 +52,11 @@ class StaffDashboardView extends StatefulWidget {
 }
 
 class _StaffDashboardViewState extends State<StaffDashboardView> {
+  static const int _appointmentPageSize = 30;
+
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _serviceSearchController =
+      TextEditingController();
   late final BaseService _baseService;
   late final AppointmentService _appointmentService;
   late final NotificationService _notificationService;
@@ -63,6 +67,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   late DateTime _selectedDate;
   _StaffTab _selectedTab = _StaffTab.home;
   _StaffFilter _selectedFilter = _StaffFilter.all;
+  TimeOfDay? _selectedTimeFilter;
+  int _appointmentsPage = 1;
 
   List<Map<String, dynamic>> _appointments = [];
   List<Map<String, dynamic>> _cancelledAppointments = [];
@@ -103,6 +109,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   @override
   void dispose() {
     _searchController.dispose();
+    _serviceSearchController.dispose();
     super.dispose();
   }
 
@@ -165,6 +172,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         _appointments = list;
         _cancelledAppointments = cancelledForSelectedDate;
         _queueStatus = queueStatus;
+        _appointmentsPage = 1;
         _isLoadingAppointments = false;
       });
     } on ApiException catch (e) {
@@ -280,8 +288,22 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
     setState(() {
       _selectedDate = DateTime(picked.year, picked.month, picked.day);
+      _appointmentsPage = 1;
     });
     await _loadAppointmentsForSelectedDate();
+  }
+
+  Future<void> _pickAppointmentTimeFilter() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTimeFilter ?? const TimeOfDay(hour: 9, minute: 0),
+    );
+    if (picked == null) return;
+
+    setState(() {
+      _selectedTimeFilter = picked;
+      _appointmentsPage = 1;
+    });
   }
 
   Future<void> _callNextPatient() async {
@@ -917,7 +939,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Widget _buildAppointmentsTab() {
-    final visibleAppointments = _computeVisibleAppointments();
+    final filteredAppointments = _computeVisibleAppointments();
+    final visibleAppointments = _pagedAppointments(filteredAppointments);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -951,9 +974,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                     const SizedBox(height: 18),
                     _buildDailyQueueHeader(),
                     const SizedBox(height: 20),
-                    _buildSearchField(),
-                    const SizedBox(height: 16),
-                    _buildFilterRow(),
+                    _buildAdvancedSearchPanel(),
                     const SizedBox(height: 16),
                     if (_isLoadingAppointments)
                       _buildLoadingState()
@@ -972,6 +993,12 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                           );
                         },
                       ),
+                    if (!_isLoadingAppointments &&
+                        _appointmentsLoadError == null &&
+                        filteredAppointments.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      _buildAppointmentPagination(filteredAppointments.length),
+                    ],
                   ],
                 ),
               ),
@@ -1227,46 +1254,213 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     );
   }
 
-  Widget _buildSearchField() {
+  Widget _buildAdvancedSearchPanel() {
     return Container(
+      key: const Key('staff-appointments-advanced-search'),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (_) => setState(() {}),
-        decoration: InputDecoration(
-          hintText: 'Search patient name...',
-          hintStyle: const TextStyle(
-            color: Color(0xFF9CA3AF),
-            fontWeight: FontWeight.w600,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F8FE),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.manage_search_rounded,
+                  color: Color(0xFF1A2F64),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Advanced Search',
+                      style: TextStyle(
+                        color: Color(0xFF1A2F64),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Filter the selected day before pagination.',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _hasAdvancedAppointmentFilters
+                    ? _clearAppointmentFilters
+                    : null,
+                icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                label: const Text('Clear'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF1A2F64),
+                  textStyle: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
           ),
-          suffixIcon: const Icon(Icons.search, color: Color(0xFF6B7280)),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
+          const SizedBox(height: 14),
+          _buildAppointmentSearchField(
+            key: const Key('staff-appointment-search-field'),
+            controller: _searchController,
+            hintText: 'Patient, staff/dentist, or queue no.',
+            icon: Icons.search_rounded,
           ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          const SizedBox(height: 10),
+          _buildAppointmentSearchField(
+            key: const Key('staff-appointment-service-filter'),
+            controller: _serviceSearchController,
+            hintText: 'Service type',
+            icon: Icons.medical_services_outlined,
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildAdvancedFilterButton(
+                key: const Key('staff-appointment-date-filter'),
+                icon: Icons.calendar_today_outlined,
+                label: _formatLongDate(_selectedDate),
+                onTap: _pickDate,
+              ),
+              _buildAdvancedFilterButton(
+                key: const Key('staff-appointment-time-filter'),
+                icon: Icons.schedule_rounded,
+                label: _selectedTimeFilter == null
+                    ? 'Any time'
+                    : _formatTimeOfDayFilter(_selectedTimeFilter!),
+                onTap: _pickAppointmentTimeFilter,
+              ),
+              if (_selectedTimeFilter != null)
+                _buildAdvancedFilterButton(
+                  key: const Key('staff-appointment-clear-time-filter'),
+                  icon: Icons.close_rounded,
+                  label: 'Clear time',
+                  onTap: () {
+                    setState(() {
+                      _selectedTimeFilter = null;
+                      _appointmentsPage = 1;
+                    });
+                  },
+                ),
+            ],
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF1A2F64), width: 1.3),
+          const SizedBox(height: 12),
+          _buildFilterRow(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppointmentSearchField({
+    required Key key,
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+  }) {
+    return TextField(
+      key: key,
+      controller: controller,
+      onChanged: (_) {
+        setState(() {
+          _appointmentsPage = 1;
+        });
+      },
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: const TextStyle(
+          color: Color(0xFF9CA3AF),
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+        prefixIcon: Icon(icon, color: const Color(0xFF6B7280), size: 18),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF1A2F64), width: 1.3),
+        ),
+        isDense: true,
+      ),
+    );
+  }
+
+  Widget _buildAdvancedFilterButton({
+    required Key key,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: key,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0xFFD8DEE8)),
           ),
-          isDense: true,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: const Color(0xFF1A2F64)),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFF334155),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1337,6 +1531,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
+        key: const Key('staff-appointments-shortcut-card'),
         borderRadius: BorderRadius.circular(28),
         onTap: () => _selectTab(_StaffTab.appointments),
         child: Container(
@@ -1734,6 +1929,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       onSelected: (_) {
         setState(() {
           _selectedFilter = filter;
+          _appointmentsPage = 1;
         });
       },
       selectedColor: const Color(0xFF1A2F64),
@@ -1746,8 +1942,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   }
 
   Widget _buildEmptyState() {
-    final bool hasSearch = _searchController.text.trim().isNotEmpty;
-    final bool hasFilters = _selectedFilter != _StaffFilter.all;
+    final bool hasFilters = _hasAdvancedAppointmentFilters;
 
     return Container(
       width: double.infinity,
@@ -1755,25 +1950,104 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       child: AppEmptyState(
         key: const Key('staff-appointments-empty-state'),
         icon: Icons.fact_check_outlined,
-        title: hasSearch || hasFilters
+        title: hasFilters
             ? 'No appointments match your view'
             : 'No appointments in queue for this day',
-        message: hasSearch || hasFilters
-            ? 'Clear the current search or status filter to see the full appointment queue.'
+        message: hasFilters
+            ? 'Clear the current search, status, time, or service filters to see the full appointment queue.'
             : 'New bookings for the selected day will appear here once they are available.',
-        actionLabel: hasSearch || hasFilters ? 'Clear Filters' : null,
+        actionLabel: hasFilters ? 'Clear Filters' : null,
         actionIcon: Icons.restart_alt_rounded,
-        onAction: hasSearch || hasFilters ? _clearAppointmentFilters : null,
+        onAction: hasFilters ? _clearAppointmentFilters : null,
       ),
     );
   }
 
   void _clearAppointmentFilters() {
     _searchController.clear();
+    _serviceSearchController.clear();
     setState(() {
       _selectedFilter = _StaffFilter.all;
+      _selectedTimeFilter = null;
+      _appointmentsPage = 1;
     });
     FocusScope.of(context).unfocus();
+  }
+
+  Widget _buildAppointmentPagination(int totalItems) {
+    final int totalPages = _appointmentTotalPages(totalItems);
+    final int page = _effectiveAppointmentPage(totalItems);
+    final int start = ((page - 1) * _appointmentPageSize) + 1;
+    final int end = (start + _appointmentPageSize - 1).clamp(1, totalItems);
+    final bool canGoBack = page > 1;
+    final bool canGoNext = page < totalPages;
+
+    return Container(
+      key: const Key('staff-appointment-pagination'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          Text(
+            'Displaying $start-$end of $totalItems appointments',
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                key: const Key('staff-appointment-prev-page'),
+                onPressed: canGoBack
+                    ? () {
+                        setState(() {
+                          _appointmentsPage = page - 1;
+                        });
+                      }
+                    : null,
+                icon: const Icon(Icons.chevron_left_rounded),
+                tooltip: 'Previous appointments page',
+                visualDensity: VisualDensity.compact,
+              ),
+              Text(
+                'Page $page of $totalPages',
+                style: const TextStyle(
+                  color: Color(0xFF1A2F64),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              IconButton(
+                key: const Key('staff-appointment-next-page'),
+                onPressed: canGoNext
+                    ? () {
+                        setState(() {
+                          _appointmentsPage = page + 1;
+                        });
+                      }
+                    : null,
+                icon: const Icon(Icons.chevron_right_rounded),
+                tooltip: 'Next appointments page',
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildAppointmentCard(Map<String, dynamic> appointment) {
@@ -2109,33 +2383,133 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
 
   List<Map<String, dynamic>> _computeVisibleAppointments() {
     final query = _searchController.text.trim().toLowerCase();
+    final serviceQuery = _serviceSearchController.text.trim().toLowerCase();
+    final timeFilter = _selectedTimeFilter == null
+        ? null
+        : _formatTimeOfDayFilter(_selectedTimeFilter!);
 
     final filtered = _dashboardAppointments().where((appointment) {
       final status = normalizeAppointmentStatus(appointment['status']);
-      final matchesStatus = switch (_selectedFilter) {
-        _StaffFilter.all => true,
-        _StaffFilter.pending => status == 'pending',
-        _StaffFilter.approved => status == 'approved',
-        _StaffFilter.completed => status == 'completed',
-        _StaffFilter.cancelled => status == 'cancelled',
-      };
+      if (!_matchesSelectedAppointmentStatus(status)) return false;
 
-      if (!matchesStatus) return false;
-      if (query.isEmpty) return true;
+      if (query.isNotEmpty &&
+          !_appointmentGeneralSearchText(appointment).contains(query)) {
+        return false;
+      }
 
-      final patientName =
-          appointment['patient_name']?.toString().toLowerCase() ?? '';
-      final serviceType =
-          appointment['service_type']?.toString().toLowerCase() ?? '';
-      final queue = appointment['queue_number']?.toString().toLowerCase() ?? '';
-      return patientName.contains(query) ||
-          serviceType.contains(query) ||
-          queue.contains(query);
+      if (serviceQuery.isNotEmpty &&
+          !_appointmentServiceSearchText(appointment).contains(serviceQuery)) {
+        return false;
+      }
+
+      if (timeFilter != null &&
+          _appointmentTimeFilterValue(appointment) != timeFilter) {
+        return false;
+      }
+
+      return true;
     }).toList();
 
     filtered.sort(compareAppointmentQueueDisplayOrder);
 
     return filtered;
+  }
+
+  List<Map<String, dynamic>> _pagedAppointments(
+    List<Map<String, dynamic>> appointments,
+  ) {
+    if (appointments.length <= _appointmentPageSize) {
+      return appointments;
+    }
+
+    final int page = _effectiveAppointmentPage(appointments.length);
+    final int start = (page - 1) * _appointmentPageSize;
+    final int end = (start + _appointmentPageSize).clamp(
+      0,
+      appointments.length,
+    );
+
+    return appointments.sublist(start, end);
+  }
+
+  int _appointmentTotalPages(int totalItems) {
+    if (totalItems <= 0) {
+      return 1;
+    }
+
+    return ((totalItems + _appointmentPageSize - 1) / _appointmentPageSize)
+        .floor();
+  }
+
+  int _effectiveAppointmentPage(int totalItems) {
+    final int totalPages = _appointmentTotalPages(totalItems);
+    if (_appointmentsPage < 1) {
+      return 1;
+    }
+    if (_appointmentsPage > totalPages) {
+      return totalPages;
+    }
+
+    return _appointmentsPage;
+  }
+
+  bool get _hasAdvancedAppointmentFilters {
+    return _searchController.text.trim().isNotEmpty ||
+        _serviceSearchController.text.trim().isNotEmpty ||
+        _selectedFilter != _StaffFilter.all ||
+        _selectedTimeFilter != null;
+  }
+
+  bool _matchesSelectedAppointmentStatus(String status) {
+    return switch (_selectedFilter) {
+      _StaffFilter.all => true,
+      _StaffFilter.pending => status == 'pending',
+      _StaffFilter.approved => status == 'approved',
+      _StaffFilter.completed => status == 'completed',
+      _StaffFilter.cancelled =>
+        status == 'cancelled' ||
+            status == 'cancelled_by_doctor' ||
+            status == 'reschedule_required',
+    };
+  }
+
+  String _appointmentGeneralSearchText(Map<String, dynamic> appointment) {
+    return _joinSearchValues(<dynamic>[
+      appointment['patient_name'],
+      appointment['queue_number'],
+      appointment['service_type'],
+      appointment['service'],
+      appointment['staff_name'],
+      appointment['dentist_name'],
+      appointment['doctor_name'],
+      appointment['assigned_staff'],
+      appointment['assigned_dentist'],
+      appointment['practitioner_name'],
+    ]);
+  }
+
+  String _appointmentServiceSearchText(Map<String, dynamic> appointment) {
+    return _joinSearchValues(<dynamic>[
+      appointment['service_type'],
+      appointment['service'],
+      appointment['service_name'],
+    ]);
+  }
+
+  String _appointmentTimeFilterValue(Map<String, dynamic> appointment) {
+    final rawTime =
+        appointment['time']?.toString() ??
+        appointment['appointment_time']?.toString() ??
+        '';
+
+    return _formatDisplayTime(rawTime);
+  }
+
+  String _joinSearchValues(Iterable<dynamic> values) {
+    return values
+        .where((dynamic value) => value != null)
+        .map((dynamic value) => value.toString().toLowerCase())
+        .join(' ');
   }
 
   int _parseQueueNumber(dynamic value) {
@@ -2389,6 +2763,12 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     if (parts.length < 2) return trimmed;
     final hour = parts[0].padLeft(2, '0');
     final minute = parts[1].padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  String _formatTimeOfDayFilter(TimeOfDay time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
 

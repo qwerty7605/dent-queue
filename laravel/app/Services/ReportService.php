@@ -7,6 +7,7 @@ use App\Models\Report;
 use App\Support\AppointmentQueueOrder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -161,23 +162,19 @@ class ReportService
     public function getAppointmentTrends(string $trendType, array $filters = [], bool $forceRefresh = false): array
     {
         return $this->cacheService->rememberReportTrends($trendType, $filters, function () use ($trendType, $filters): array {
-            $appointments = $this->newFilteredAppointmentsQuery($filters)
-                ->orderBy('appointments.appointment_date')
-                ->get(['appointments.appointment_date']);
+            $labelExpression = $this->trendLabelExpression($trendType);
 
-            return $appointments
-                ->groupBy(function ($appointment) use ($trendType): string {
-                    return $this->formatTrendLabel(
-                        Carbon::parse((string) $appointment->appointment_date),
-                        $trendType,
-                    );
-                })
-                ->sortKeys()
-                ->map(function ($group, string $label) use ($trendType): array {
+            return $this->newFilteredAppointmentsQuery($filters)
+                ->selectRaw($labelExpression . ' as trend_label')
+                ->selectRaw('COUNT(*) as aggregate_count')
+                ->groupByRaw($labelExpression)
+                ->orderByRaw('MIN(appointments.appointment_date)')
+                ->get()
+                ->map(function (object $row) use ($trendType): array {
                     return [
                         'trend_type' => $trendType,
-                        'label' => $label,
-                        'count' => $group->count(),
+                        'label' => (string) $row->trend_label,
+                        'count' => (int) $row->aggregate_count,
                     ];
                 })
                 ->values()
@@ -454,6 +451,36 @@ class ReportService
                 (int) $date->format('W'),
             ),
             self::TREND_TYPE_MONTHLY => $date->format('Y-m'),
+            default => throw new \InvalidArgumentException('Unsupported trend type.'),
+        };
+    }
+
+    private function trendLabelExpression(string $trendType): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            return match ($trendType) {
+                self::TREND_TYPE_DAILY => "strftime('%Y-%m-%d', appointments.appointment_date)",
+                self::TREND_TYPE_WEEKLY => "strftime('%Y', date(appointments.appointment_date, '-3 days', 'weekday 4')) || '-W' || printf('%02d', ((CAST(strftime('%j', date(appointments.appointment_date, '-3 days', 'weekday 4')) AS INTEGER) - 1) / 7) + 1)",
+                self::TREND_TYPE_MONTHLY => "strftime('%Y-%m', appointments.appointment_date)",
+                default => throw new \InvalidArgumentException('Unsupported trend type.'),
+            };
+        }
+
+        if ($driver === 'pgsql') {
+            return match ($trendType) {
+                self::TREND_TYPE_DAILY => "TO_CHAR(appointments.appointment_date, 'YYYY-MM-DD')",
+                self::TREND_TYPE_WEEKLY => "TO_CHAR(appointments.appointment_date, 'IYYY-\"W\"IW')",
+                self::TREND_TYPE_MONTHLY => "TO_CHAR(appointments.appointment_date, 'YYYY-MM')",
+                default => throw new \InvalidArgumentException('Unsupported trend type.'),
+            };
+        }
+
+        return match ($trendType) {
+            self::TREND_TYPE_DAILY => "DATE_FORMAT(appointments.appointment_date, '%Y-%m-%d')",
+            self::TREND_TYPE_WEEKLY => "DATE_FORMAT(appointments.appointment_date, '%x-W%v')",
+            self::TREND_TYPE_MONTHLY => "DATE_FORMAT(appointments.appointment_date, '%Y-%m')",
             default => throw new \InvalidArgumentException('Unsupported trend type.'),
         };
     }
