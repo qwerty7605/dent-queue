@@ -32,18 +32,14 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       <String, List<String>>{
         'first_name': <String>['first_name'],
         'last_name': <String>['last_name'],
-        'password': <String>['password'],
       };
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
 
-  final TextEditingController _passwordController = TextEditingController();
-
   late AdminProfileService _adminProfileService;
 
-  bool _isEditingPassword = false;
   bool _isEditingProfile = false;
   bool _isLoading = false;
   AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
@@ -61,7 +57,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       _isDarkMode ? const Color(0xFFEAF1FF) : Colors.black87;
   Color get _mutedTextColor =>
       _isDarkMode ? const Color(0xFFAAB8D4) : Colors.black38;
-  bool get _hasPendingEdit => _isEditingProfile || _isEditingPassword;
+  bool get _hasPendingEdit => _isEditingProfile;
   String get _currentUsername {
     final String username =
         widget.activeUser?['username']?.toString().trim() ?? '';
@@ -112,7 +108,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -140,9 +135,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       if (_isEditingProfile && _lastNameController.text.isNotEmpty) {
         payload['last_name'] = _lastNameController.text;
       }
-      if (_isEditingPassword && _passwordController.text.isNotEmpty) {
-        payload['password'] = _passwordController.text;
-      }
 
       final response = await _adminProfileService.updateProfile(payload);
 
@@ -156,8 +148,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
 
       setState(() {
         _isEditingProfile = false;
-        _isEditingPassword = false;
-        _passwordController.clear();
       });
 
       if (widget.onProfileUpdated != null && response['user'] != null) {
@@ -208,16 +198,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     return localError ?? _fieldErrors[fieldKey];
   }
 
-  void _togglePasswordEditing() {
-    setState(() {
-      _fieldErrors.remove('password');
-      _formErrorText = null;
-      _autoValidateMode = AutovalidateMode.disabled;
-      _passwordController.clear();
-      _isEditingPassword = !_isEditingPassword;
-    });
-  }
-
   Future<void> _openChangeUsernameDialog() async {
     final Map<String, dynamic>? updatedUser =
         await showDialog<Map<String, dynamic>>(
@@ -245,6 +225,28 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       ..showSnackBar(
         const SnackBar(
           content: Text('Username updated successfully.'),
+          backgroundColor: Color(0xFF436B46),
+        ),
+      );
+  }
+
+  Future<void> _openChangePasswordDialog() async {
+    final bool? didUpdate = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) =>
+          _ChangePasswordDialog(adminProfileService: _adminProfileService),
+    );
+
+    if (didUpdate != true || !mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Password updated successfully.'),
           backgroundColor: Color(0xFF436B46),
         ),
       );
@@ -613,23 +615,10 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     final Widget passwordCard = _buildSecureAccountCard(
       icon: Icons.lock_outline_rounded,
       title: 'Password',
-      summary: _isEditingPassword
-          ? 'New password required'
-          : 'Hidden credential',
-      buttonLabel: _isEditingPassword ? 'Cancel' : 'Change Password',
-      onPressed: _togglePasswordEditing,
-      editor: _isEditingPassword
-          ? _buildInlineAccountField(
-              controller: _passwordController,
-              fieldKey: 'password',
-              hintText: 'Enter new password',
-              obscureText: true,
-              validator: (value) => _mergeFieldError(
-                'password',
-                AppFormValidators.password(value),
-              ),
-            )
-          : null,
+      summary: 'Hidden credential',
+      buttonLabel: 'Change Password',
+      onPressed: _openChangePasswordDialog,
+      editor: null,
     );
 
     if (isPhone) {
@@ -749,64 +738,292 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       ),
     );
   }
+}
 
-  Widget _buildInlineAccountField({
+class _ChangePasswordDialog extends StatefulWidget {
+  const _ChangePasswordDialog({required this.adminProfileService});
+
+  final AdminProfileService adminProfileService;
+
+  @override
+  State<_ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
+  static const Map<String, List<String>> _apiFieldMappings =
+      <String, List<String>>{
+        'current_password': <String>['current_password'],
+        'password': <String>['password'],
+        'password_confirmation': <String>['password_confirmation'],
+      };
+
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _currentPasswordController =
+      TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
+  bool _isSaving = false;
+  bool _showCurrentPassword = false;
+  bool _showNewPassword = false;
+  bool _showConfirmPassword = false;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+  Map<String, String> _fieldErrors = <String, String>{};
+  String? _formErrorText;
+
+  @override
+  void dispose() {
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_isSaving) {
+      return;
+    }
+
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _autoValidateMode = AutovalidateMode.always;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _fieldErrors = <String, String>{};
+      _formErrorText = null;
+    });
+
+    try {
+      await widget.adminProfileService.updateProfile(<String, dynamic>{
+        'current_password': _currentPasswordController.text,
+        'password': _newPasswordController.text,
+        'password_confirmation': _confirmPasswordController.text,
+      });
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop(true);
+    } on ApiException catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      final Map<String, String> fieldErrors = collectApiFieldErrors(
+        e.errors,
+        _apiFieldMappings,
+      );
+      final String? formError =
+          firstUnhandledApiError(
+            e.errors,
+            handledKeys: flattenApiErrorKeys(_apiFieldMappings),
+          ) ??
+          (fieldErrors.isEmpty ? e.message : null);
+
+      setState(() {
+        _fieldErrors = fieldErrors;
+        _formErrorText = formError;
+        _autoValidateMode = AutovalidateMode.always;
+      });
+      _formKey.currentState?.validate();
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _formErrorText = 'Error: ${e.toString().replaceAll('Exception: ', '')}';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  void _clearFieldError(String fieldKey) {
+    if (!_fieldErrors.containsKey(fieldKey) && _formErrorText == null) {
+      return;
+    }
+
+    setState(() {
+      _fieldErrors.remove(fieldKey);
+      _formErrorText = null;
+    });
+  }
+
+  String? _mergeFieldError(String fieldKey, String? localError) {
+    return localError ?? _fieldErrors[fieldKey];
+  }
+
+  String? _validateCurrentPassword(String? value) {
+    final String password = value ?? '';
+    if (password.isEmpty) {
+      return 'Current password is required';
+    }
+    return _mergeFieldError('current_password', null);
+  }
+
+  String? _validateNewPassword(String? value) {
+    return _mergeFieldError('password', AppFormValidators.password(value));
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    return _mergeFieldError(
+      'password_confirmation',
+      AppFormValidators.confirmPassword(value, _newPasswordController.text),
+    );
+  }
+
+  Widget _buildPasswordField({
+    required Key fieldKey,
+    required Key toggleKey,
     required TextEditingController controller,
-    required String fieldKey,
-    required String hintText,
-    bool obscureText = false,
+    required String labelText,
+    required String fieldErrorKey,
+    required bool isVisible,
+    required VoidCallback onToggle,
     required String? Function(String?) validator,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextFormField(
-          key: Key('admin-profile-$fieldKey-field'),
-          controller: controller,
-          onChanged: (_) => _clearFieldError(fieldKey),
-          obscureText: obscureText,
-          enableSuggestions: !obscureText,
-          autocorrect: !obscureText,
-          validator: validator,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: _surfaceAltColor,
-            hintText: hintText,
-            hintStyle: TextStyle(color: _mutedTextColor),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(
-                color: Color(0xFF436B46),
-                width: 2.0,
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(
-                color: Color(0xFF436B46),
-                width: 2.0,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(
-                color: Color(0xFF4A769E),
-                width: 2.0,
-              ),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.redAccent),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 2.0),
-            ),
+    return TextFormField(
+      key: fieldKey,
+      controller: controller,
+      onChanged: (_) {
+        _clearFieldError(fieldErrorKey);
+        if (fieldErrorKey == 'password') {
+          _clearFieldError('password_confirmation');
+        }
+      },
+      obscureText: !isVisible,
+      enableSuggestions: false,
+      autocorrect: false,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: labelText,
+        border: const OutlineInputBorder(),
+        suffixIcon: IconButton(
+          key: toggleKey,
+          tooltip: isVisible ? 'Hide password' : 'Show password',
+          onPressed: onToggle,
+          icon: Icon(
+            isVisible
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
           ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return AppAlertDialog(
+      scrollable: true,
+      title: const Text('Change Password'),
+      content: SizedBox(
+        width: 440,
+        child: Form(
+          key: _formKey,
+          autovalidateMode: _autoValidateMode,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              if (_formErrorText != null) ...<Widget>[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF3A2026)
+                        : const Color(0xFFFFF1F1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.redAccent.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(
+                    _formErrorText!,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+              _buildPasswordField(
+                fieldKey: const Key('admin-profile-current-password-field'),
+                toggleKey: const Key('admin-profile-current-password-toggle'),
+                controller: _currentPasswordController,
+                labelText: 'Current password',
+                fieldErrorKey: 'current_password',
+                isVisible: _showCurrentPassword,
+                onToggle: () {
+                  setState(() {
+                    _showCurrentPassword = !_showCurrentPassword;
+                  });
+                },
+                validator: _validateCurrentPassword,
+              ),
+              const SizedBox(height: 14),
+              _buildPasswordField(
+                fieldKey: const Key('admin-profile-new-password-field'),
+                toggleKey: const Key('admin-profile-new-password-toggle'),
+                controller: _newPasswordController,
+                labelText: 'New password',
+                fieldErrorKey: 'password',
+                isVisible: _showNewPassword,
+                onToggle: () {
+                  setState(() {
+                    _showNewPassword = !_showNewPassword;
+                  });
+                },
+                validator: _validateNewPassword,
+              ),
+              const SizedBox(height: 14),
+              _buildPasswordField(
+                fieldKey: const Key('admin-profile-confirm-password-field'),
+                toggleKey: const Key('admin-profile-confirm-password-toggle'),
+                controller: _confirmPasswordController,
+                labelText: 'Confirm new password',
+                fieldErrorKey: 'password_confirmation',
+                isVisible: _showConfirmPassword,
+                onToggle: () {
+                  setState(() {
+                    _showConfirmPassword = !_showConfirmPassword;
+                  });
+                },
+                validator: _validateConfirmPassword,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: _isSaving ? null : _submit,
+          icon: _isSaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.lock_reset_outlined, size: 18),
+          label: Text(_isSaving ? 'Saving' : 'Save Password'),
         ),
       ],
     );

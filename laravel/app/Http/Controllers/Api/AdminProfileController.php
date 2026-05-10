@@ -29,7 +29,8 @@ class AdminProfileController extends Controller
 
         $payload = $this->validatePayload($request, $user->id);
         $this->ensureUsernameChangeIsConfirmed($request, $payload, (string) $user->username);
-        unset($payload['current_password']);
+        $this->ensurePasswordChangeIsConfirmed($request, $payload);
+        unset($payload['current_password'], $payload['password_confirmation']);
         $payload = $this->applyAliases($payload);
 
         // Handle password hashing if provided
@@ -61,7 +62,8 @@ class AdminProfileController extends Controller
             'contact_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
             'username' => ['sometimes', 'required', 'string', 'max:255', 'unique:users,username,' . $userId],
             'email' => ['sometimes', 'required', 'email', 'max:255', 'unique:users,email,' . $userId],
-            'password' => ['sometimes', 'required', 'string', 'min:8'],
+            'password' => ['sometimes', 'required', 'string', 'min:8', 'confirmed'],
+            'password_confirmation' => ['required_with:password', 'string'],
             'current_password' => ['sometimes', 'string'],
         ], [
             'phone_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
@@ -80,6 +82,25 @@ class AdminProfileController extends Controller
             'current_password' => ['required', 'string'],
         ], [
             'current_password.required' => 'Confirm your password to change your username.',
+        ]);
+
+        if (! Hash::check((string) $request->input('current_password'), (string) $request->user()->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The password you entered is incorrect.'],
+            ]);
+        }
+    }
+
+    private function ensurePasswordChangeIsConfirmed(Request $request, array $payload): void
+    {
+        if (! array_key_exists('password', $payload)) {
+            return;
+        }
+
+        $request->validate([
+            'current_password' => ['required', 'string'],
+        ], [
+            'current_password.required' => 'Enter your current password to change your password.',
         ]);
 
         if (! Hash::check((string) $request->input('current_password'), (string) $request->user()->password)) {

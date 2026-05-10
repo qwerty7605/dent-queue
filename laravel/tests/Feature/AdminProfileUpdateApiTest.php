@@ -121,12 +121,66 @@ class AdminProfileUpdateApiTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_update_password(): void
+    public function test_admin_password_change_requires_current_password(): void
     {
         $admin = $this->createUserWithRole('Admin');
         Sanctum::actingAs($admin);
 
         $response = $this->putJson('/api/v1/admin/profile', [
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['current_password']);
+
+        $admin->refresh();
+        $this->assertTrue(Hash::check('password123', $admin->password));
+    }
+
+    public function test_admin_password_change_rejects_wrong_current_password(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        Sanctum::actingAs($admin);
+
+        $response = $this->putJson('/api/v1/admin/profile', [
+            'current_password' => 'wrong-password',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'newpassword123',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['current_password']);
+
+        $admin->refresh();
+        $this->assertTrue(Hash::check('password123', $admin->password));
+    }
+
+    public function test_admin_password_change_rejects_mismatched_confirmation(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        Sanctum::actingAs($admin);
+
+        $response = $this->putJson('/api/v1/admin/profile', [
+            'current_password' => 'password123',
+            'password' => 'newpassword123',
+            'password_confirmation' => 'differentpassword123',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['password']);
+
+        $admin->refresh();
+        $this->assertTrue(Hash::check('password123', $admin->password));
+    }
+
+    public function test_admin_can_update_password_with_current_password(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        Sanctum::actingAs($admin);
+
+        $response = $this->putJson('/api/v1/admin/profile', [
+            'current_password' => 'password123',
             'password' => 'newpassword123',
             'password_confirmation' => 'newpassword123',
         ]);
