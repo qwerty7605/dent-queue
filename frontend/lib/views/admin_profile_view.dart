@@ -40,9 +40,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
   final TextEditingController _lastNameController = TextEditingController();
 
   final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController(
-    text: '********',
-  );
+  final TextEditingController _passwordController = TextEditingController();
 
   late AdminProfileService _adminProfileService;
 
@@ -65,6 +63,8 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       _isDarkMode ? const Color(0xFFEAF1FF) : Colors.black87;
   Color get _mutedTextColor =>
       _isDarkMode ? const Color(0xFFAAB8D4) : Colors.black38;
+  bool get _hasPendingEdit =>
+      _isEditingProfile || _isEditingUsername || _isEditingPassword;
 
   @override
   void initState() {
@@ -134,19 +134,17 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     try {
       final payload = <String, dynamic>{};
 
-      if (_firstNameController.text.isNotEmpty) {
+      if (_isEditingProfile && _firstNameController.text.isNotEmpty) {
         payload['first_name'] = _firstNameController.text;
       }
-      if (_lastNameController.text.isNotEmpty) {
+      if (_isEditingProfile && _lastNameController.text.isNotEmpty) {
         payload['last_name'] = _lastNameController.text;
       }
-      if (_usernameController.text.isNotEmpty) {
+      if (_isEditingUsername && _usernameController.text.isNotEmpty) {
         payload['username'] = _usernameController.text;
       }
 
-      if (_isEditingPassword &&
-          _passwordController.text.isNotEmpty &&
-          _passwordController.text != '********') {
+      if (_isEditingPassword && _passwordController.text.isNotEmpty) {
         payload['password'] = _passwordController.text;
       }
 
@@ -164,7 +162,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
         _isEditingProfile = false;
         _isEditingPassword = false;
         _isEditingUsername = false;
-        _passwordController.text = '********';
+        _passwordController.clear();
       });
 
       if (widget.onProfileUpdated != null && response['user'] != null) {
@@ -213,6 +211,30 @@ class _AdminProfileViewState extends State<AdminProfileView> {
 
   String? _mergeFieldError(String fieldKey, String? localError) {
     return localError ?? _fieldErrors[fieldKey];
+  }
+
+  void _toggleUsernameEditing() {
+    setState(() {
+      _fieldErrors.remove('username');
+      _formErrorText = null;
+      _autoValidateMode = AutovalidateMode.disabled;
+      if (_isEditingUsername) {
+        _usernameController.text = widget.activeUser?['username'] ?? '';
+        _isEditingUsername = false;
+      } else {
+        _isEditingUsername = true;
+      }
+    });
+  }
+
+  void _togglePasswordEditing() {
+    setState(() {
+      _fieldErrors.remove('password');
+      _formErrorText = null;
+      _autoValidateMode = AutovalidateMode.disabled;
+      _passwordController.clear();
+      _isEditingPassword = !_isEditingPassword;
+    });
   }
 
   @override
@@ -437,117 +459,51 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildAccountField(
-                                    'Username',
-                                    _usernameController,
-                                    _isEditingUsername
-                                        ? 'LOCK'
-                                        : 'CHANGE USERNAME',
-                                    fieldKey: 'username',
-                                    readOnly: !_isEditingUsername,
-                                    validator: (value) => !_isEditingUsername
-                                        ? null
-                                        : _mergeFieldError(
-                                            'username',
-                                            AppFormValidators.username(value),
-                                          ),
-                                    onActionTap: () {
-                                      setState(() {
-                                        _fieldErrors.remove('username');
-                                        _formErrorText = null;
-                                        _isEditingUsername =
-                                            !_isEditingUsername;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const Spacer(flex: 1),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildAccountField(
-                                    'Password',
-                                    _passwordController,
-                                    _isEditingPassword
-                                        ? 'LOCK'
-                                        : 'CHANGE PASSWORD',
-                                    fieldKey: 'password',
-                                    obscureText: !_isEditingPassword,
-                                    readOnly: !_isEditingPassword,
-                                    validator: (value) => !_isEditingPassword
-                                        ? null
-                                        : _mergeFieldError(
-                                            'password',
-                                            AppFormValidators.password(value),
-                                          ),
-                                    onActionTap: () {
-                                      setState(() {
-                                        _fieldErrors.remove('password');
-                                        _formErrorText = null;
-                                        _isEditingPassword =
-                                            !_isEditingPassword;
-                                        if (_isEditingPassword) {
-                                          _passwordController.clear();
-                                        } else {
-                                          _passwordController.text = '********';
-                                        }
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const Spacer(flex: 1),
-                                if (_isEditingProfile ||
-                                    _isEditingUsername ||
-                                    _isEditingPassword)
-                                  ElevatedButton.icon(
-                                    onPressed: _isLoading ? null : _saveChanges,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF436B46),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 16,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
+                            _buildAccountSecuritySection(isPhone: isPhone),
+                            if (_hasPendingEdit) ...[
+                              const SizedBox(height: 24),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: ElevatedButton.icon(
+                                  onPressed: _isLoading ? null : _saveChanges,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF436B46),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 16,
                                     ),
-                                    label: _isLoading
-                                        ? const SizedBox(
-                                            width: 24,
-                                            height: 24,
-                                            child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : Text(
-                                            'Save Changes',
-                                            style: TextStyle(
-                                              fontSize: MobileTypography.button(
-                                                context,
-                                              ),
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                    icon: _isLoading
-                                        ? const SizedBox.shrink()
-                                        : const Icon(
-                                            Icons.download_for_offline,
-                                            size: 24,
-                                          ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
                                   ),
-                              ],
-                            ),
+                                  label: _isLoading
+                                      ? const SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          'Save Changes',
+                                          style: TextStyle(
+                                            fontSize: MobileTypography.button(
+                                              context,
+                                            ),
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                  icon: _isLoading
+                                      ? const SizedBox.shrink()
+                                      : const Icon(
+                                          Icons.save_rounded,
+                                          size: 22,
+                                        ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -631,53 +587,205 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     );
   }
 
-  Widget _buildAccountField(
-    String label,
-    TextEditingController controller,
-    String actionText, {
+  Widget _buildAccountSecuritySection({required bool isPhone}) {
+    final Widget usernameCard = _buildSecureAccountCard(
+      icon: Icons.account_circle_outlined,
+      title: 'Username',
+      summary: _isEditingUsername ? 'Editing enabled' : 'Hidden until editing',
+      buttonLabel: _isEditingUsername ? 'Cancel' : 'Change Username',
+      onPressed: _toggleUsernameEditing,
+      editor: _isEditingUsername
+          ? _buildInlineAccountField(
+              controller: _usernameController,
+              fieldKey: 'username',
+              hintText: 'Enter username',
+              validator: (value) => _mergeFieldError(
+                'username',
+                AppFormValidators.username(value),
+              ),
+            )
+          : null,
+    );
+
+    final Widget passwordCard = _buildSecureAccountCard(
+      icon: Icons.lock_outline_rounded,
+      title: 'Password',
+      summary: _isEditingPassword
+          ? 'New password required'
+          : 'Hidden credential',
+      buttonLabel: _isEditingPassword ? 'Cancel' : 'Change Password',
+      onPressed: _togglePasswordEditing,
+      editor: _isEditingPassword
+          ? _buildInlineAccountField(
+              controller: _passwordController,
+              fieldKey: 'password',
+              hintText: 'Enter new password',
+              obscureText: true,
+              validator: (value) => _mergeFieldError(
+                'password',
+                AppFormValidators.password(value),
+              ),
+            )
+          : null,
+    );
+
+    if (isPhone) {
+      return Column(
+        children: <Widget>[
+          usernameCard,
+          const SizedBox(height: 14),
+          passwordCard,
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(child: usernameCard),
+        const SizedBox(width: 18),
+        Expanded(child: passwordCard),
+      ],
+    );
+  }
+
+  Widget _buildSecureAccountCard({
+    required IconData icon,
+    required String title,
+    required String summary,
+    required String buttonLabel,
+    required VoidCallback onPressed,
+    required Widget? editor,
+  }) {
+    final Color iconBackground = _isDarkMode
+        ? const Color(0xFF21304B)
+        : const Color(0xFFEAF2FA);
+    final Color cardBackground = _isDarkMode
+        ? const Color(0xFF141C2E)
+        : const Color(0xFFF9FBFE);
+    final Color cardBorder = _isDarkMode
+        ? const Color(0xFF2B3956)
+        : const Color(0xFFE3EAF6);
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 112),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBackground,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: iconBackground,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: const Color(0xFF4A769E), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: _textColor,
+                        fontSize: MobileTypography.label(context),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      summary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _mutedTextColor,
+                        fontSize: MobileTypography.caption(context),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              TextButton.icon(
+                onPressed: onPressed,
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF436B46),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
+                icon: Icon(
+                  editor == null ? Icons.edit_rounded : Icons.close_rounded,
+                  size: 18,
+                ),
+                label: Text(
+                  buttonLabel,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (editor != null) ...<Widget>[const SizedBox(height: 16), editor],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlineAccountField({
+    required TextEditingController controller,
     required String fieldKey,
+    required String hintText,
     bool obscureText = false,
-    bool readOnly = true,
-    String? Function(String?)? validator,
-    required VoidCallback onActionTap,
+    required String? Function(String?) validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: _textColor,
-            fontSize: MobileTypography.label(context),
-          ),
-        ),
-        const SizedBox(height: 8),
         TextFormField(
+          key: Key('admin-profile-$fieldKey-field'),
           controller: controller,
           onChanged: (_) => _clearFieldError(fieldKey),
           obscureText: obscureText,
-          readOnly: readOnly,
+          enableSuggestions: !obscureText,
+          autocorrect: !obscureText,
           validator: validator,
           decoration: InputDecoration(
-            filled: !readOnly,
+            filled: true,
             fillColor: _surfaceAltColor,
+            hintText: hintText,
+            hintStyle: TextStyle(color: _mutedTextColor),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 12,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(
-                color: readOnly ? _borderColor : const Color(0xFF436B46),
-                width: readOnly ? 1.0 : 2.0,
+              borderSide: const BorderSide(
+                color: Color(0xFF436B46),
+                width: 2.0,
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(
-                color: readOnly ? _borderColor : const Color(0xFF436B46),
-                width: readOnly ? 1.0 : 2.0,
+              borderSide: const BorderSide(
+                color: Color(0xFF436B46),
+                width: 2.0,
               ),
             ),
             focusedBorder: OutlineInputBorder(
@@ -694,20 +802,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: const BorderSide(color: Colors.redAccent, width: 2.0),
-            ),
-            suffixIcon: TextButton(
-              onPressed: onActionTap,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-              child: Text(
-                actionText,
-                style: const TextStyle(
-                  color: Color(0xFF436B46),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
             ),
           ),
         ),
