@@ -76,6 +76,10 @@ class AppointmentController extends Controller
     public function masterList(Request $request, ReportService $reportService): JsonResponse
     {
         $filters = $this->validateReportFilters($request);
+        $search = $this->validateMasterListSearch($request);
+        if ($search !== null) {
+            $filters['search'] = $search;
+        }
         $pagination = $this->resolvePagination($request);
 
         if ($pagination !== null) {
@@ -480,6 +484,17 @@ class AppointmentController extends Controller
         }
 
         return $request->validate($rules);
+    }
+
+    private function validateMasterListSearch(Request $request): ?string
+    {
+        $payload = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $search = trim((string) ($payload['search'] ?? ''));
+
+        return $search !== '' ? $search : null;
     }
 
     private function formatAppointmentResponse(Appointment $appointment): array

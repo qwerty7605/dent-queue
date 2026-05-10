@@ -286,10 +286,16 @@ class ReportService
 
     private function detailedRecordsQuery(array $filters): Builder
     {
-        return $this->newFilteredAppointmentsQuery($filters)
+        $query = $this->newFilteredAppointmentsQuery($filters)
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
-            ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id')
-            ->tap(static fn (Builder $query) => AppointmentQueueOrder::apply($query))
+            ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id');
+
+        if (!empty($filters['search'])) {
+            $this->applyDetailedRecordSearch($query, (string) $filters['search']);
+        }
+
+        return $query
+            ->tap(static fn (Builder $query): Builder => AppointmentQueueOrder::apply($query))
             ->select([
                 'appointments.id as appointment_id',
                 'patient_records.first_name',
@@ -305,6 +311,68 @@ class ReportService
                 'patient_records.user_id',
                 'queues.queue_number',
             ]);
+    }
+
+    private function applyDetailedRecordSearch(Builder $query, string $search): void
+    {
+        $normalized = Str::lower(trim($search));
+        if ($normalized === '') {
+            return;
+        }
+
+        $tokens = preg_split('/\s+/', $normalized) ?: [];
+        $tokens = array_values(array_filter(
+            $tokens,
+            static fn (string $token): bool => $token !== '',
+        ));
+        if ($tokens === []) {
+            return;
+        }
+
+        $appointmentIdExpression = $this->textCastExpression('appointments.id');
+        $queueNumberExpression = $this->textCastExpression('queues.queue_number');
+        $patientNameExpression = $this->patientNameSearchExpression();
+
+        foreach ($tokens as $token) {
+            $like = '%' . $token . '%';
+
+            $query->where(function (Builder $builder) use (
+                $appointmentIdExpression,
+                $like,
+                $patientNameExpression,
+                $queueNumberExpression,
+            ): void {
+                $builder
+                    ->whereRaw("LOWER($patientNameExpression) LIKE ?", [$like])
+                    ->orWhereRaw("LOWER(COALESCE(patient_records.first_name, '')) LIKE ?", [$like])
+                    ->orWhereRaw("LOWER(COALESCE(patient_records.middle_name, '')) LIKE ?", [$like])
+                    ->orWhereRaw("LOWER(COALESCE(patient_records.last_name, '')) LIKE ?", [$like])
+                    ->orWhereRaw("LOWER(COALESCE(services.name, '')) LIKE ?", [$like])
+                    ->orWhereRaw("LOWER(COALESCE(patient_records.contact_number, '')) LIKE ?", [$like])
+                    ->orWhereRaw("LOWER(COALESCE($appointmentIdExpression, '')) LIKE ?", [$like])
+                    ->orWhereRaw("LOWER(COALESCE($queueNumberExpression, '')) LIKE ?", [$like]);
+            });
+        }
+    }
+
+    private function patientNameSearchExpression(): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'pgsql' || $driver === 'sqlite') {
+            return "COALESCE(patient_records.first_name, '') || ' ' || COALESCE(patient_records.middle_name, '') || ' ' || COALESCE(patient_records.last_name, '')";
+        }
+
+        return "CONCAT_WS(' ', patient_records.first_name, patient_records.middle_name, patient_records.last_name)";
+    }
+
+    private function textCastExpression(string $column): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        return $driver === 'pgsql'
+            ? "CAST($column AS TEXT)"
+            : "CAST($column AS CHAR)";
     }
 
     private function mapDetailedRecord(object $appointment): array
