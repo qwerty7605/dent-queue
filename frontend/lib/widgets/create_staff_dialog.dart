@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/staff_service.dart';
+import 'terms_acceptance_form_field.dart';
 
 class CreateStaffDialog extends StatefulWidget {
   const CreateStaffDialog({super.key, required this.staffService});
@@ -22,6 +23,7 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
   final _confirmPasswordController = TextEditingController();
 
   bool _isSubmitting = false;
+  bool _acceptedTerms = false;
 
   @override
   void dispose() {
@@ -51,6 +53,7 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
         'username': _usernameController.text,
         'password': _passwordController.text,
         'password_confirmation': _confirmPasswordController.text,
+        'terms_accepted': _acceptedTerms,
       };
 
       await widget.staffService.createStaff(staffData);
@@ -162,6 +165,27 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
                             return 'Passwords do not match';
                           }
                           return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TermsAcceptanceFormField(
+                        value: _acceptedTerms,
+                        textColor: Colors.black87,
+                        linkColor: const Color(0xFF1A2F64),
+                        errorColor: Colors.redAccent,
+                        activeColor: const Color(0xFF1A2F64),
+                        checkboxKey: const Key(
+                          'legacy-staff-registration-terms-checkbox',
+                        ),
+                        linkKey: const Key(
+                          'legacy-staff-registration-terms-link',
+                        ),
+                        prefixText: 'I confirm this user agrees to the ',
+                        suffixText: ' before this account is created.',
+                        onChanged: (bool accepted) {
+                          setState(() {
+                            _acceptedTerms = accepted;
+                          });
                         },
                       ),
 

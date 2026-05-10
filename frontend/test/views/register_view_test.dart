@@ -29,6 +29,20 @@ void _drainExpectedExceptions(WidgetTester tester) {
   while (tester.takeException() != null) {}
 }
 
+void _setRegistrationTermsAccepted(WidgetTester tester, bool accepted) {
+  final Checkbox checkbox = tester.widget<Checkbox>(
+    find.byKey(const Key('registration-terms-checkbox')),
+  );
+  checkbox.onChanged!(accepted);
+}
+
+void _submitRegistration(WidgetTester tester) {
+  final ElevatedButton submitButton = tester.widget<ElevatedButton>(
+    find.widgetWithText(ElevatedButton, 'Sign Up'),
+  );
+  submitButton.onPressed!();
+}
+
 void main() {
   testWidgets(
     'returns to the affected register step and shows inline email errors',
@@ -78,10 +92,9 @@ void main() {
       await tester.enterText(fields.at(0), 'queued-user');
       await tester.enterText(fields.at(1), 'password123');
       await tester.enterText(fields.at(2), 'password123');
-      await tester.ensureVisible(
-        find.widgetWithText(ElevatedButton, 'Sign Up'),
-      );
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Sign Up'));
+      _setRegistrationTermsAccepted(tester, true);
+      await tester.pumpAndSettle();
+      _submitRegistration(tester);
       await tester.pump();
       _drainExpectedExceptions(tester);
 
@@ -94,4 +107,67 @@ void main() {
       expect(stepOneFields[2].controller!.text, 'taken@example.com');
     },
   );
+
+  testWidgets('requires terms acceptance before submitting registration', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    Map<String, dynamic>? submittedPayload;
+    final _FakeAuthService authService = _FakeAuthService()
+      ..onRegister = (Map<String, dynamic> payload) async {
+        submittedPayload = Map<String, dynamic>.from(payload);
+      };
+
+    await tester.pumpWidget(
+      MaterialApp(home: RegisterView(authService: authService)),
+    );
+    await tester.pump();
+    _drainExpectedExceptions(tester);
+
+    Finder fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), 'Jamie');
+    await tester.enterText(fields.at(1), 'M');
+    await tester.enterText(fields.at(2), 'Stone');
+    await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'Next'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
+    await tester.pumpAndSettle();
+    _drainExpectedExceptions(tester);
+
+    fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), '09123456789');
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Male').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(fields.at(1), 'Manila City');
+    await tester.enterText(fields.at(2), 'jamie@example.com');
+    await tester.ensureVisible(find.widgetWithText(ElevatedButton, 'Next'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Next'));
+    await tester.pumpAndSettle();
+    _drainExpectedExceptions(tester);
+
+    fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), 'queued-user');
+    await tester.enterText(fields.at(1), 'password123');
+    await tester.enterText(fields.at(2), 'password123');
+
+    _submitRegistration(tester);
+    await tester.pump();
+
+    expect(submittedPayload, isNull);
+    expect(
+      find.text('You must accept the Terms and Conditions to continue.'),
+      findsOneWidget,
+    );
+
+    _setRegistrationTermsAccepted(tester, true);
+    await tester.pumpAndSettle();
+    _submitRegistration(tester);
+    await tester.pump();
+
+    expect(submittedPayload, isNotNull);
+    expect(submittedPayload!['terms_accepted'], isTrue);
+  });
 }

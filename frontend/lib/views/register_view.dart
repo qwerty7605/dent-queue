@@ -5,6 +5,7 @@ import '../core/api_exception.dart';
 import '../core/form_error_helpers.dart';
 import '../core/mobile_typography.dart';
 import '../services/auth_service.dart';
+import '../widgets/terms_acceptance_form_field.dart';
 
 class RegisterView extends StatefulWidget {
   const RegisterView({
@@ -35,6 +36,7 @@ class _RegisterViewState extends State<RegisterView> {
         'username': <String>['username'],
         'password': <String>['password'],
         'password_confirmation': <String>['password_confirmation'],
+        'terms_accepted': <String>['terms_accepted'],
       };
   static const Map<String, int> _fieldSteps = <String, int>{
     'first_name': 0,
@@ -47,6 +49,7 @@ class _RegisterViewState extends State<RegisterView> {
     'username': 2,
     'password': 2,
     'password_confirmation': 2,
+    'terms_accepted': 2,
   };
 
   final _formKey = GlobalKey<FormState>();
@@ -66,6 +69,7 @@ class _RegisterViewState extends State<RegisterView> {
   bool _submitting = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
+  bool _acceptedTerms = false;
   AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   Map<String, String> _fieldErrors = <String, String>{};
   String? _formErrorText;
@@ -139,6 +143,7 @@ class _RegisterViewState extends State<RegisterView> {
         'username': _usernameController.text.trim(),
         'password': _passwordController.text,
         'password_confirmation': _confirmPasswordController.text,
+        'terms_accepted': _acceptedTerms,
       });
 
       if (!mounted) return;
@@ -754,6 +759,19 @@ class _RegisterViewState extends State<RegisterView> {
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _register(),
           ),
+        ),
+        const SizedBox(height: 16),
+        TermsAcceptanceFormField(
+          value: _acceptedTerms,
+          errorText: _fieldErrors['terms_accepted'],
+          checkboxKey: const Key('registration-terms-checkbox'),
+          linkKey: const Key('registration-terms-link'),
+          onChanged: (bool accepted) {
+            setState(() {
+              _acceptedTerms = accepted;
+            });
+            _clearFieldError('terms_accepted');
+          },
         ),
         const SizedBox(height: 24),
         _buildPrimaryButton(

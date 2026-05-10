@@ -77,13 +77,40 @@ class AuthControllerTest extends TestCase
             'password_confirmation' => 'password123',
             'phone_number' => '09123456789',
             'gender' => 'female',
-            'location' => 'Tester City'
+            'location' => 'Tester City',
+            'terms_accepted' => true,
         ]);
 
         $response->assertStatus(201)
             ->assertJsonPath('user.email', 'jane@example.com');
 
         $this->assertDatabaseHas('users', ['email' => 'jane@example.com']);
+    }
+
+    public function test_registration_requires_terms_acceptance(): void
+    {
+        Role::create(['name' => 'Patient']);
+
+        $response = $this->postJson('/api/v1/auth/register', [
+            'first_name' => 'Jane',
+            'last_name' => 'Smith',
+            'email' => 'jane@example.com',
+            'username' => 'janesmith',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'phone_number' => '09123456789',
+            'gender' => 'female',
+            'location' => 'Tester City',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['terms_accepted'])
+            ->assertJsonPath(
+                'errors.terms_accepted.0',
+                'You must accept the Terms and Conditions before creating an account.'
+            );
+
+        $this->assertDatabaseMissing('users', ['email' => 'jane@example.com']);
     }
 
     public function test_registration_rejects_invalid_contact_number_format(): void
@@ -99,6 +126,7 @@ class AuthControllerTest extends TestCase
             'password_confirmation' => 'password123',
             'contact_number' => '08123456789',
             'gender' => 'female',
+            'terms_accepted' => true,
         ]);
 
         $response->assertStatus(422)
@@ -117,6 +145,7 @@ class AuthControllerTest extends TestCase
             'username' => 'jane smith',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'terms_accepted' => true,
         ]);
 
         $response->assertStatus(422)
