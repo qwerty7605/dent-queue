@@ -48,21 +48,27 @@ void main() {
       expect(find.text('admin.user'), findsNothing);
       expect(find.text('********'), findsNothing);
       expect(
-        find.byKey(const Key('admin-profile-username-field')),
+        find.byKey(const Key('admin-profile-change-username-field')),
         findsNothing,
       );
       expect(
-        find.byKey(const Key('admin-profile-password-field')),
+        find.byKey(const Key('admin-profile-change-username-password-field')),
         findsNothing,
       );
       expect(find.text('Change Username'), findsOneWidget);
       expect(find.text('Change Password'), findsOneWidget);
 
       await tester.tap(find.text('Change Username'));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
+      expect(find.text('Current username'), findsOneWidget);
+      expect(find.text('admin.user'), findsOneWidget);
       expect(
-        find.byKey(const Key('admin-profile-username-field')),
+        find.byKey(const Key('admin-profile-change-username-field')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('admin-profile-change-username-password-field')),
         findsOneWidget,
       );
     },
@@ -111,7 +117,74 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('shows inline admin profile username errors and keeps edits', (
+  testWidgets('submits username change with password without profile fields', (
+    WidgetTester tester,
+  ) async {
+    final InMemoryTokenStorage tokenStorage = InMemoryTokenStorage();
+    await tokenStorage.writeUserInfo(<String, dynamic>{
+      'first_name': 'Admin',
+      'last_name': 'User',
+      'username': 'admin.user',
+    });
+
+    Map<String, dynamic>? submittedPayload;
+    Map<String, dynamic>? updatedProfile;
+    final _FakeAdminProfileService adminProfileService =
+        _FakeAdminProfileService()
+          ..onUpdate = (Map<String, dynamic> data) async {
+            submittedPayload = Map<String, dynamic>.from(data);
+            return <String, dynamic>{
+              'user': <String, dynamic>{
+                'first_name': 'Admin',
+                'last_name': 'User',
+                'username': 'new.admin',
+              },
+            };
+          };
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminProfileView(
+            activeUser: <String, dynamic>{
+              'first_name': 'Admin',
+              'last_name': 'User',
+              'username': 'admin.user',
+            },
+            tokenStorage: tokenStorage,
+            adminProfileService: adminProfileService,
+            onProfileUpdated: (Map<String, dynamic> user) {
+              updatedProfile = user;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Change Username'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('admin-profile-change-username-field')),
+      'new.admin',
+    );
+    await tester.enterText(
+      find.byKey(const Key('admin-profile-change-username-password-field')),
+      'password123',
+    );
+    await tester.tap(find.text('Save Username'));
+    await tester.pumpAndSettle();
+
+    expect(submittedPayload, isNotNull);
+    expect(submittedPayload!['username'], 'new.admin');
+    expect(submittedPayload!['current_password'], 'password123');
+    expect(submittedPayload!.containsKey('first_name'), isFalse);
+    expect(submittedPayload!.containsKey('last_name'), isFalse);
+    expect(updatedProfile?['username'], 'new.admin');
+    expect(find.text('Username updated successfully.'), findsOneWidget);
+  });
+
+  testWidgets('shows change username modal errors and keeps edits', (
     WidgetTester tester,
   ) async {
     final InMemoryTokenStorage tokenStorage = InMemoryTokenStorage();
@@ -149,24 +222,25 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Edit Profile'));
-    await tester.pump();
     await tester.tap(find.text('Change Username'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     final Finder usernameField = find.byKey(
-      const Key('admin-profile-username-field'),
+      const Key('admin-profile-change-username-field'),
     );
     await tester.enterText(usernameField, 'taken-name');
-    await tester.ensureVisible(find.text('Save Changes'));
-    await tester.tap(find.text('Save Changes'));
+    await tester.enterText(
+      find.byKey(const Key('admin-profile-change-username-password-field')),
+      'password123',
+    );
+    await tester.tap(find.text('Save Username'));
     await tester.pump();
 
     expect(find.text('Username is already taken'), findsOneWidget);
     expect(
       tester
           .widget<TextFormField>(
-            find.byKey(const Key('admin-profile-username-field')),
+            find.byKey(const Key('admin-profile-change-username-field')),
           )
           .controller!
           .text,
