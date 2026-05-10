@@ -13,6 +13,27 @@ API_PORT="${API_PORT:-8080}"
 API_HOST="${API_HOST:-}"
 USE_ADB_REVERSE="${USE_ADB_REVERSE:-0}"
 
+usage() {
+  cat <<'EOF'
+Usage: run_phone.sh [device-id] [flutter-run-args...]
+       run_phone.sh -d <device-id> [flutter-run-args...]
+       run_phone.sh --device <device-id> [flutter-run-args...]
+
+Runs the Flutter app from the frontend project directory with API_BASE_URL set.
+The script can be launched from any working directory.
+
+Examples:
+  ./scripts/run_phone.sh -d emulator-5554
+  ./scripts/run_phone.sh --device adb-XKAES86TEUNBQOPN-U38ttB._adb-tls-connect._tcp
+  ./scripts/run_phone.sh emulator-5554 --release
+
+Environment overrides:
+  API_HOST          Force a specific LAN IP or hostname.
+  API_PORT          Backend port. Defaults to 8080.
+  USE_ADB_REVERSE   Set to 1 to tunnel Android device traffic to localhost.
+EOF
+}
+
 find_adb() {
   if command -v adb >/dev/null 2>&1; then
     command -v adb
@@ -98,11 +119,52 @@ print_backend_start_hint() {
 
 DEVICE_ARGS=()
 DEVICE_ID=""
-if [[ "${1:-}" != "" ]] && [[ "${1:-}" != --* ]]; then
-  DEVICE_ID="$1"
-  DEVICE_ARGS=(-d "$1")
-  shift
-fi
+FLUTTER_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -d|--device)
+      if [[ $# -lt 2 ]]; then
+        echo "$1 requires a device id"
+        exit 1
+      fi
+      DEVICE_ID="$2"
+      DEVICE_ARGS=(-d "$2")
+      shift 2
+      ;;
+    -d=*|--device=*)
+      DEVICE_ID="${1#*=}"
+      if [[ -z "$DEVICE_ID" ]]; then
+        echo "$1 requires a device id"
+        exit 1
+      fi
+      DEVICE_ARGS=(-d "$DEVICE_ID")
+      shift
+      ;;
+    --)
+      shift
+      FLUTTER_ARGS+=("$@")
+      break
+      ;;
+    --*)
+      FLUTTER_ARGS+=("$1")
+      shift
+      ;;
+    *)
+      if [[ -z "$DEVICE_ID" && "${#FLUTTER_ARGS[@]}" -eq 0 ]]; then
+        DEVICE_ID="$1"
+        DEVICE_ARGS=(-d "$1")
+      else
+        FLUTTER_ARGS+=("$1")
+      fi
+      shift
+      ;;
+  esac
+done
 
 ADB_BIN="${ADB_BIN:-}"
 if [[ "$USE_ADB_REVERSE" == "1" ]]; then
@@ -158,4 +220,4 @@ else
 fi
 
 echo "Running with API_BASE_URL=${BASE_URL}"
-flutter run "${DEVICE_ARGS[@]}" --dart-define=API_BASE_URL="$BASE_URL" "$@"
+flutter run "${DEVICE_ARGS[@]}" --dart-define=API_BASE_URL="$BASE_URL" "${FLUTTER_ARGS[@]}"
