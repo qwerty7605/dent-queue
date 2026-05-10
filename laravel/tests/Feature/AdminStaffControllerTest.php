@@ -195,4 +195,80 @@ class AdminStaffControllerTest extends TestCase
             ->assertJsonPath('meta.total', 3)
             ->assertJsonPath('meta.has_more_pages', true);
     }
+
+    public function test_admin_can_search_paginated_staff_listing(): void
+    {
+        $staffMatchOne = User::create([
+            'first_name' => 'Alpha',
+            'last_name' => 'Staff',
+            'email' => 'alpha-staff-one@test.com',
+            'username' => 'alphastaffone',
+            'password' => bcrypt('password'),
+            'role_id' => $this->staffRole->id,
+            'phone_number' => '09123456101',
+            'gender' => 'female',
+            'is_active' => true,
+        ]);
+        $staffMatchTwo = User::create([
+            'first_name' => 'Alpha',
+            'last_name' => 'Support',
+            'email' => 'alpha-staff-two@test.com',
+            'username' => 'alphastafftwo',
+            'password' => bcrypt('password'),
+            'role_id' => $this->staffRole->id,
+            'phone_number' => '09123456102',
+            'gender' => 'male',
+            'is_active' => true,
+        ]);
+        $otherStaff = User::create([
+            'first_name' => 'Morgan',
+            'last_name' => 'Staff',
+            'email' => 'morgan-staff@test.com',
+            'username' => 'morganstaff',
+            'password' => bcrypt('password'),
+            'role_id' => $this->staffRole->id,
+            'phone_number' => '09123456103',
+            'gender' => 'other',
+            'is_active' => true,
+        ]);
+        $inactiveStaff = User::create([
+            'first_name' => 'Alpha',
+            'last_name' => 'Inactive',
+            'email' => 'alpha-inactive@test.com',
+            'username' => 'alphainactive',
+            'password' => bcrypt('password'),
+            'role_id' => $this->staffRole->id,
+            'phone_number' => '09123456104',
+            'gender' => 'female',
+            'is_active' => false,
+        ]);
+
+        StaffRecord::syncFromUser($staffMatchOne);
+        StaffRecord::syncFromUser($staffMatchTwo);
+        StaffRecord::syncFromUser($otherStaff);
+        StaffRecord::syncFromUser($inactiveStaff);
+
+        $response = $this->actingAs($this->admin)
+            ->getJson('/api/v1/admin/staff?page=1&per_page=1&search=Alpha');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.per_page', 1)
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.has_more_pages', true);
+
+        $this->assertSame('Alpha', $response->json('data.0.first_name'));
+
+        $secondPage = $this->actingAs($this->admin)
+            ->getJson('/api/v1/admin/staff?page=2&per_page=1&search=Alpha');
+
+        $secondPage->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.has_more_pages', false);
+
+        $this->assertSame('Alpha', $secondPage->json('data.0.first_name'));
+    }
 }

@@ -49,6 +49,33 @@ void main() {
     expect(fakeBaseService.lastPath, '/api/v1/admin/staff?page=1&per_page=25');
   });
 
+  test('getStaffPage includes search in paginated request', () async {
+    fakeBaseService.nextResponse = {
+      'data': [
+        {'id': 12, 'first_name': 'Avery', 'last_name': 'Staff'},
+      ],
+      'meta': {
+        'current_page': 2,
+        'per_page': 10,
+        'total': 14,
+        'has_more_pages': false,
+      },
+    };
+
+    final page = await adminStaffService.getStaffPage(
+      page: 2,
+      perPage: 10,
+      search: 'Avery Staff',
+    );
+
+    expect(page.items, hasLength(1));
+    expect(page.totalItems, 14);
+    expect(
+      fakeBaseService.lastPath,
+      '/api/v1/admin/staff?page=2&per_page=10&search=Avery+Staff',
+    );
+  });
+
   test('getStaffPage uses cache until invalidated', () async {
     fakeBaseService.nextResponse = {
       'data': [

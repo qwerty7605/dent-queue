@@ -71,27 +71,10 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
         widget.patientRecordService.invalidatePatientCaches();
       }
 
-      if (normalizedQuery.isNotEmpty) {
-        final List<Map<String, dynamic>> results = await widget
-            .patientRecordService
-            .searchPatients(normalizedQuery);
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _patients = results;
-          _currentPage = 1;
-          _totalPatients = results.length;
-          _hasMorePages = false;
-          _isLoading = false;
-          _isSearching = false;
-        });
-        return;
-      }
-
       final patientsPage = await widget.patientRecordService.getPatientsPage(
         page: page,
         perPage: _pageSize,
+        search: normalizedQuery,
       );
       if (!mounted) {
         return;
@@ -118,10 +101,12 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
     }
   }
 
-  bool _applyCachedPatientsPage({int page = 1}) {
+  bool _applyCachedPatientsPage({int page = 1, String query = ''}) {
+    final String normalizedQuery = query.trim();
     final cachedPage = widget.patientRecordService.getCachedPatientsPage(
       page: page,
       perPage: _pageSize,
+      search: normalizedQuery,
       allowStale: true,
     );
 
@@ -134,6 +119,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
       _currentPage = cachedPage.currentPage;
       _totalPatients = cachedPage.totalItems;
       _hasMorePages = cachedPage.hasMorePages;
+      _activeQuery = normalizedQuery;
       _isLoading = false;
       _isSearching = false;
     });
@@ -468,7 +454,6 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
     final bool searching = _activeQuery.isNotEmpty;
     final int totalPages = ((_totalPatients + _pageSize - 1) / _pageSize)
         .floor();
-    final int currentVisibleCount = _patients.length;
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -487,7 +472,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
             const SizedBox(height: 8),
             Text(
               searching
-                  ? 'Showing $currentVisibleCount matching account${currentVisibleCount == 1 ? '' : 's'}'
+                  ? 'Displaying ${_rangeStart()}-${_rangeEnd()} of $_totalPatients matching accounts'
                   : 'Displaying ${_rangeStart()}-${_rangeEnd()} of $_totalPatients validated records',
               style: const TextStyle(
                 color: _text,
@@ -498,7 +483,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
           ],
         );
 
-        final Widget? pagination = !searching && totalPages > 0
+        final Widget? pagination = totalPages > 0
             ? Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -507,20 +492,27 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                   _PageNavButton(
                     icon: Icons.chevron_left_rounded,
                     enabled: _currentPage > 1,
-                    onTap: () => _loadPatients(page: _currentPage - 1),
+                    onTap: () => _loadPatients(
+                      page: _currentPage - 1,
+                      query: _activeQuery,
+                    ),
                   ),
                   ..._visiblePages(totalPages).map((int page) {
                     final bool active = page == _currentPage;
                     return _PageNumberButton(
                       label: page.toString(),
                       active: active,
-                      onTap: () => _loadPatients(page: page),
+                      onTap: () =>
+                          _loadPatients(page: page, query: _activeQuery),
                     );
                   }),
                   _PageNavButton(
                     icon: Icons.chevron_right_rounded,
                     enabled: _hasMorePages,
-                    onTap: () => _loadPatients(page: _currentPage + 1),
+                    onTap: () => _loadPatients(
+                      page: _currentPage + 1,
+                      query: _activeQuery,
+                    ),
                   ),
                 ],
               )
