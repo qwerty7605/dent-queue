@@ -8,6 +8,7 @@ import '../core/config.dart';
 import '../core/mobile_typography.dart';
 import '../core/token_storage.dart';
 import '../services/appointment_service.dart';
+import '../services/admin_dashboard_service.dart';
 import '../services/base_service.dart';
 import '../services/notification_service.dart';
 import '../services/patient_record_service.dart';
@@ -20,10 +21,19 @@ import '../widgets/staff_appointment_details_dialog.dart';
 import 'staff_calendar_view.dart';
 import 'notifications_view.dart';
 import 'recycle_bin_view.dart';
+import 'admin_reports_view.dart';
 import 'staff_patient_records_view.dart';
 import 'staff_walk_in_view.dart';
 
-enum _StaffTab { home, appointments, walkIn, calendar, records, profile }
+enum _StaffTab {
+  home,
+  appointments,
+  walkIn,
+  calendar,
+  records,
+  reports,
+  profile,
+}
 
 enum _StaffFilter { all, pending, approved, completed, cancelled }
 
@@ -36,6 +46,7 @@ class StaffDashboardView extends StatefulWidget {
     required this.loggingOut,
     this.readOnly = false,
     this.appointmentService,
+    this.adminDashboardService,
     this.notificationService,
   });
 
@@ -45,6 +56,7 @@ class StaffDashboardView extends StatefulWidget {
   final bool loggingOut;
   final bool readOnly;
   final AppointmentService? appointmentService;
+  final AdminDashboardService? adminDashboardService;
   final NotificationService? notificationService;
 
   @override
@@ -55,6 +67,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
   final TextEditingController _searchController = TextEditingController();
   late final BaseService _baseService;
   late final AppointmentService _appointmentService;
+  late final AdminDashboardService _adminDashboardService;
   late final NotificationService _notificationService;
   late final PatientRecordService _patientRecordService;
   late Map<String, dynamic> _localUserInfo;
@@ -85,6 +98,8 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
     _baseService = BaseService(ApiClient(tokenStorage: widget.tokenStorage));
     _appointmentService =
         widget.appointmentService ?? AppointmentService(_baseService);
+    _adminDashboardService =
+        widget.adminDashboardService ?? AdminDashboardService(_baseService);
     _notificationService =
         widget.notificationService ??
         NotificationService(_baseService, tokenStorage: widget.tokenStorage);
@@ -471,6 +486,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                 patientRecordService: _patientRecordService,
                 appointmentService: _appointmentService,
               ),
+      _StaffTab.reports => _buildReportsTab(),
       _StaffTab.profile => _buildProfileTab(profileImageUrl),
     };
   }
@@ -521,82 +537,101 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               fallbackInitial: name.isNotEmpty ? name[0].toUpperCase() : 'S',
             ),
             const Divider(height: 1, color: AppNavigationTheme.divider),
-            const SizedBox(height: 10),
-            AppNavigationDrawerItem(
-              icon: Icons.home_outlined,
-              label: 'Dashboard',
-              selected: _selectedTab == _StaffTab.home,
-              onTap: () => _selectTab(_StaffTab.home, closeDrawer: true),
-            ),
-            AppNavigationDrawerItem(
-              icon: Icons.event_available_outlined,
-              label: 'Appointments',
-              selected: _selectedTab == _StaffTab.appointments,
-              onTap: () =>
-                  _selectTab(_StaffTab.appointments, closeDrawer: true),
-            ),
-            AppNavigationDrawerItem(
-              icon: Icons.calendar_month_outlined,
-              label: 'Calendar',
-              selected: _selectedTab == _StaffTab.calendar,
-              onTap: () => _selectTab(_StaffTab.calendar, closeDrawer: true),
-            ),
-            if (!_isReadOnlyAccount)
-              AppNavigationDrawerItem(
-                icon: Icons.directions_walk,
-                label: 'Walk-in',
-                selected: _selectedTab == _StaffTab.walkIn,
-                onTap: () => _selectTab(_StaffTab.walkIn, closeDrawer: true),
-              ),
-            if (!_isReadOnlyAccount)
-              AppNavigationDrawerItem(
-                icon: Icons.search,
-                label: 'Records',
-                selected: _selectedTab == _StaffTab.records,
-                onTap: () => _selectTab(_StaffTab.records, closeDrawer: true),
-              ),
-            AppNavigationDrawerItem(
-              icon: Icons.person_outline,
-              label: 'Profile',
-              selected: _selectedTab == _StaffTab.profile,
-              onTap: () => _selectTab(_StaffTab.profile, closeDrawer: true),
-            ),
-            if (!_isReadOnlyAccount)
-              AppNavigationDrawerItem(
-                icon: Icons.notifications_none,
-                label: 'Notifications',
-                selected: false,
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationsView(),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(top: 10, bottom: 10),
+                children: [
+                  AppNavigationDrawerItem(
+                    icon: Icons.home_outlined,
+                    label: 'Dashboard',
+                    selected: _selectedTab == _StaffTab.home,
+                    onTap: () => _selectTab(_StaffTab.home, closeDrawer: true),
+                  ),
+                  AppNavigationDrawerItem(
+                    icon: Icons.event_available_outlined,
+                    label: 'Appointments',
+                    selected: _selectedTab == _StaffTab.appointments,
+                    onTap: () =>
+                        _selectTab(_StaffTab.appointments, closeDrawer: true),
+                  ),
+                  AppNavigationDrawerItem(
+                    icon: Icons.calendar_month_outlined,
+                    label: 'Calendar',
+                    selected: _selectedTab == _StaffTab.calendar,
+                    onTap: () =>
+                        _selectTab(_StaffTab.calendar, closeDrawer: true),
+                  ),
+                  if (!_isReadOnlyAccount)
+                    AppNavigationDrawerItem(
+                      icon: Icons.directions_walk,
+                      label: 'Walk-in',
+                      selected: _selectedTab == _StaffTab.walkIn,
+                      onTap: () =>
+                          _selectTab(_StaffTab.walkIn, closeDrawer: true),
                     ),
-                  );
-                },
-              ),
-            if (!_isReadOnlyAccount)
-              AppNavigationDrawerItem(
-                icon: Icons.restore_from_trash_outlined,
-                label: 'Recycle Bin',
-                selected: false,
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RecycleBinView(
-                        role: RecycleBinRole.staff,
-                        appointmentService: _appointmentService,
-                      ),
+                  if (!_isReadOnlyAccount)
+                    AppNavigationDrawerItem(
+                      icon: Icons.search,
+                      label: 'Records',
+                      selected: _selectedTab == _StaffTab.records,
+                      onTap: () =>
+                          _selectTab(_StaffTab.records, closeDrawer: true),
                     ),
-                  ).then(
-                    (_) => _loadAppointmentsForSelectedDate(showLoader: false),
-                  );
-                },
+                  AppNavigationDrawerItem(
+                    key: const Key('staff-nav-reports'),
+                    icon: Icons.bar_chart_outlined,
+                    label: 'Reports',
+                    selected: _selectedTab == _StaffTab.reports,
+                    onTap: () =>
+                        _selectTab(_StaffTab.reports, closeDrawer: true),
+                  ),
+                  AppNavigationDrawerItem(
+                    icon: Icons.person_outline,
+                    label: 'Profile',
+                    selected: _selectedTab == _StaffTab.profile,
+                    onTap: () =>
+                        _selectTab(_StaffTab.profile, closeDrawer: true),
+                  ),
+                  if (!_isReadOnlyAccount)
+                    AppNavigationDrawerItem(
+                      icon: Icons.notifications_none,
+                      label: 'Notifications',
+                      selected: false,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationsView(),
+                          ),
+                        );
+                      },
+                    ),
+                  if (!_isReadOnlyAccount)
+                    AppNavigationDrawerItem(
+                      icon: Icons.restore_from_trash_outlined,
+                      label: 'Recycle Bin',
+                      selected: false,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => RecycleBinView(
+                              role: RecycleBinRole.staff,
+                              appointmentService: _appointmentService,
+                            ),
+                          ),
+                        ).then(
+                          (_) => _loadAppointmentsForSelectedDate(
+                            showLoader: false,
+                          ),
+                        );
+                      },
+                    ),
+                ],
               ),
-            const Spacer(),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
               child: Material(
@@ -874,6 +909,31 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildReportsTab() {
+    return Column(
+      key: const Key('staff-reports-tab'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+          child: _buildStaffPageTitle(
+            title: 'Reports',
+            subtitle: 'Clinic operations analytics',
+            onBack: () => _selectTab(_StaffTab.home),
+          ),
+        ),
+        Expanded(
+          child: AdminReportsView(
+            adminDashboardService: _adminDashboardService,
+            appointmentService: _appointmentService,
+            showDetailedRecords: false,
+            canExport: false,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1997,6 +2057,15 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                   onTap: () => _selectTab(_StaffTab.records),
                 ),
               ),
+            Expanded(
+              child: AppBottomNavItem(
+                key: const Key('staff-bottom-nav-reports'),
+                icon: Icons.bar_chart_outlined,
+                label: 'Reports',
+                selected: _selectedTab == _StaffTab.reports,
+                onTap: () => _selectTab(_StaffTab.reports),
+              ),
+            ),
             Expanded(
               child: AppBottomNavItem(
                 icon: Icons.person_outline,

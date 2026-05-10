@@ -35,12 +35,14 @@ class AdminReportsView extends StatefulWidget {
     required this.appointmentService,
     this.embedded = false,
     this.showDetailedRecords = true,
+    this.canExport = true,
   });
 
   final AdminDashboardService adminDashboardService;
   final AppointmentService appointmentService;
   final bool embedded;
   final bool showDetailedRecords;
+  final bool canExport;
 
   @override
   State<AdminReportsView> createState() => _AdminReportsViewState();
@@ -445,6 +447,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   }
 
   Widget _buildExportButton() {
+    if (!widget.canExport) {
+      return const SizedBox.shrink();
+    }
+
     if (_isExporting) {
       return FilledButton.icon(
         onPressed: null,
@@ -1036,8 +1042,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                       child: Row(
                         children: [
                           primaryActions,
-                          const SizedBox(width: 18),
-                          _buildReportExportAction(),
+                          if (widget.canExport) ...[
+                            const SizedBox(width: 18),
+                            _buildReportExportAction(),
+                          ],
                         ],
                       ),
                     ),
@@ -1213,6 +1221,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   }
 
   Widget _buildReportExportAction() {
+    if (!widget.canExport) {
+      return const SizedBox.shrink();
+    }
+
     return OutlinedButton(
       key: const Key('report-export-button'),
       onPressed: _isExporting
