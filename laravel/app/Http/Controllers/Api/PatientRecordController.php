@@ -26,7 +26,12 @@ class PatientRecordController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = $this->patientRecordsQuery();
+        $search = $this->resolveSearchQuery($request);
         $pagination = $this->resolvePagination($request);
+
+        if ($search !== null) {
+            $this->applyPatientSearch($query, $search);
+        }
 
         if ($pagination !== null) {
             $patients = $query->paginate(
@@ -281,6 +286,51 @@ class PatientRecordController extends Controller
             'page' => (int) ($payload['page'] ?? 1),
             'per_page' => (int) ($payload['per_page'] ?? 25),
         ];
+    }
+
+    private function resolveSearchQuery(Request $request): ?string
+    {
+        $payload = $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $search = trim((string) ($payload['search'] ?? ''));
+
+        return $search === '' ? null : $search;
+    }
+
+    private function applyPatientSearch(Builder $query, string $search): void
+    {
+        $terms = preg_split('/\s+/', trim($search)) ?: [];
+
+        $query->where(function (Builder $searchQuery) use ($terms) {
+            foreach ($terms as $term) {
+                $term = trim($term);
+
+                if ($term === '') {
+                    continue;
+                }
+
+                $termLike = '%' . $term . '%';
+
+                $searchQuery->where(
+                    function (Builder $termQuery) use ($termLike) {
+                        $termQuery
+                            ->where('first_name', 'LIKE', $termLike)
+                            ->orWhere('middle_name', 'LIKE', $termLike)
+                            ->orWhere('last_name', 'LIKE', $termLike)
+                            ->orWhere('patient_id', 'LIKE', $termLike)
+                            ->orWhere('contact_number', 'LIKE', $termLike)
+                            ->orWhereHas('user', function (Builder $userQuery) use ($termLike) {
+                                $userQuery
+                                    ->where('email', 'LIKE', $termLike)
+                                    ->orWhere('username', 'LIKE', $termLike)
+                                    ->orWhere('phone_number', 'LIKE', $termLike);
+                            });
+                    },
+                );
+            }
+        });
     }
 
     private function paginationMeta(LengthAwarePaginator $paginator): array

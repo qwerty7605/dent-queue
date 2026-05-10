@@ -77,47 +77,10 @@ class _AdminStaffViewState extends State<AdminStaffView> {
         widget.adminStaffService.invalidateStaffCache();
       }
 
-      if (normalizedQuery.isNotEmpty) {
-        final List<Map<String, dynamic>> allStaff = await widget
-            .adminStaffService
-            .getAllStaff();
-        final String search = normalizedQuery.toLowerCase();
-        final List<Map<String, dynamic>> filtered = allStaff.where((
-          Map<String, dynamic> staffMember,
-        ) {
-          final String haystack = <String>[
-            _resolveStaffName(staffMember),
-            _resolveStaffRecordId(staffMember),
-            _resolveAccountNumber(staffMember),
-            _resolveContact(staffMember),
-            _resolveRoleLabel(staffMember),
-          ].join(' ').toLowerCase();
-          return haystack.contains(search);
-        }).toList();
-
-        final int start = (page - 1) * _pageSize;
-        final int end = (start + _pageSize).clamp(0, filtered.length);
-        final List<Map<String, dynamic>> visible = start >= filtered.length
-            ? <Map<String, dynamic>>[]
-            : filtered.sublist(start, end);
-
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _staffMembers = visible;
-          _currentPage = page;
-          _totalStaffMembers = filtered.length;
-          _isLoading = false;
-          _isSearching = false;
-        });
-        return;
-      }
-
       final staffPage = await widget.adminStaffService.getStaffPage(
         page: page,
         perPage: _pageSize,
+        search: normalizedQuery,
       );
       if (!mounted) {
         return;
@@ -146,10 +109,12 @@ class _AdminStaffViewState extends State<AdminStaffView> {
     }
   }
 
-  bool _applyCachedStaffPage({int page = 1}) {
+  bool _applyCachedStaffPage({int page = 1, String query = ''}) {
+    final String normalizedQuery = query.trim();
     final cachedPage = widget.adminStaffService.getCachedStaffPage(
       page: page,
       perPage: _pageSize,
+      search: normalizedQuery,
       allowStale: true,
     );
 
@@ -161,6 +126,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
       _staffMembers = cachedPage.items;
       _currentPage = cachedPage.currentPage;
       _totalStaffMembers = cachedPage.totalItems;
+      _activeQuery = normalizedQuery;
       _isLoading = false;
       _isSearching = false;
     });
@@ -547,7 +513,7 @@ class _AdminStaffViewState extends State<AdminStaffView> {
             const SizedBox(height: 8),
             Text(
               _activeQuery.isNotEmpty
-                  ? 'Showing ${_staffMembers.length} of $_totalStaffMembers matching accounts'
+                  ? 'Displaying ${_rangeStart()}-${_rangeEnd()} of $_totalStaffMembers matching accounts'
                   : 'Displaying ${_rangeStart()}-${_rangeEnd()} of $_totalStaffMembers active staff accounts',
               style: const TextStyle(
                 color: _text,

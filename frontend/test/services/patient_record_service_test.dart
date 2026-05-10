@@ -99,6 +99,33 @@ void main() {
     expect(fakeBaseService.lastPath, contains('Queried'));
   });
 
+  test('getPatientsPage includes search in paginated request', () async {
+    fakeBaseService.nextResponse = {
+      'data': [
+        {'patient_id': 'PAT-0000000000002', 'full_name': 'Queried Patient'},
+      ],
+      'meta': {
+        'current_page': 3,
+        'per_page': 10,
+        'total': 22,
+        'has_more_pages': false,
+      },
+    };
+
+    final page = await patientRecordService.getPatientsPage(
+      page: 3,
+      perPage: 10,
+      search: 'Queried Patient',
+    );
+
+    expect(page.items, hasLength(1));
+    expect(page.totalItems, 22);
+    expect(
+      fakeBaseService.lastPath,
+      '/api/v1/admin/patients?page=3&per_page=10&search=Queried+Patient',
+    );
+  });
+
   test('getAllPatients uses cache until invalidated', () async {
     fakeBaseService.nextResponse = {
       'data': [

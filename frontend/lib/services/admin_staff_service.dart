@@ -44,8 +44,14 @@ class AdminStaffService {
   Future<PaginatedResult<Map<String, dynamic>>> getStaffPage({
     int page = 1,
     int perPage = 25,
+    String search = '',
   }) async {
-    final String cacheKey = _pageCacheKey(page: page, perPage: perPage);
+    final String normalizedSearch = search.trim();
+    final String cacheKey = _pageCacheKey(
+      page: page,
+      perPage: perPage,
+      search: normalizedSearch,
+    );
     final dynamic cached = ShortTermCache.read<dynamic>(
       _staffPageCache,
       cacheKey,
@@ -60,11 +66,14 @@ class AdminStaffService {
     }
 
     return ShortTermCache.runSingleFlight(_staffPageCache, cacheKey, () async {
+      final Map<String, String> queryParameters = <String, String>{
+        'page': page.toString(),
+        'per_page': perPage.toString(),
+        if (normalizedSearch.isNotEmpty) 'search': normalizedSearch,
+      };
+
       final response = await _baseService.getJson<dynamic>(
-        Endpoints.adminStaffList(<String, String>{
-          'page': page.toString(),
-          'per_page': perPage.toString(),
-        }),
+        Endpoints.adminStaffList(queryParameters),
         (data) => data,
       );
 
@@ -107,9 +116,14 @@ class AdminStaffService {
   PaginatedResult<Map<String, dynamic>>? getCachedStaffPage({
     int page = 1,
     int perPage = 25,
+    String search = '',
     bool allowStale = false,
   }) {
-    final String cacheKey = _pageCacheKey(page: page, perPage: perPage);
+    final String cacheKey = _pageCacheKey(
+      page: page,
+      perPage: perPage,
+      search: search.trim(),
+    );
     final ShortTermCacheHit<dynamic>? cached =
         ShortTermCache.readEntry<dynamic>(
           _staffPageCache,
@@ -165,7 +179,17 @@ class AdminStaffService {
     AdminDashboardService.invalidateSharedDashboardStatsCache();
   }
 
-  String _pageCacheKey({required int page, required int perPage}) {
-    return 'page=$page&per_page=$perPage';
+  String _pageCacheKey({
+    required int page,
+    required int perPage,
+    String search = '',
+  }) {
+    final String normalizedSearch = search.trim().toLowerCase();
+
+    if (normalizedSearch.isEmpty) {
+      return 'page=$page&per_page=$perPage';
+    }
+
+    return 'page=$page&per_page=$perPage&search=$normalizedSearch';
   }
 }
