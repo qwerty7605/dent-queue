@@ -107,6 +107,68 @@ class AdminMasterListApiTest extends TestCase
             ->assertJsonPath('data.0.status', 'Approved');
     }
 
+    public function test_admin_master_list_searches_before_paginating_results(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        $cleaning = Service::create(['name' => 'Dental Cleaning', 'is_active' => true]);
+        $extraction = Service::create(['name' => 'Tooth Extraction', 'is_active' => true]);
+
+        $miaUser = $this->createUserWithRole('Patient');
+        $miaUser->load('patientRecord');
+        $miaUser->patientRecord->update([
+            'first_name' => 'Mia',
+            'middle_name' => 'Luna',
+            'last_name' => 'Cruz',
+            'contact_number' => '09120000001',
+        ]);
+
+        $leoUser = $this->createUserWithRole('Patient');
+        $leoUser->load('patientRecord');
+        $leoUser->patientRecord->update([
+            'first_name' => 'Leo',
+            'middle_name' => null,
+            'last_name' => 'Hart',
+            'contact_number' => '09120000002',
+        ]);
+
+        Appointment::create([
+            'patient_id' => $miaUser->patientRecord->id,
+            'service_id' => $cleaning->id,
+            'appointment_date' => '2026-04-01',
+            'time_slot' => '08:00',
+            'status' => 'pending',
+            'contact' => '09120000001',
+        ]);
+        Appointment::create([
+            'patient_id' => $miaUser->patientRecord->id,
+            'service_id' => $extraction->id,
+            'appointment_date' => '2026-04-02',
+            'time_slot' => '09:00',
+            'status' => 'pending',
+            'contact' => '09120000001',
+        ]);
+        Appointment::create([
+            'patient_id' => $leoUser->patientRecord->id,
+            'service_id' => $cleaning->id,
+            'appointment_date' => '2026-04-03',
+            'time_slot' => '10:00',
+            'status' => 'pending',
+            'contact' => '09120000002',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $response = $this->getJson('/api/v1/admin/appointments/master-list?status=pending&search=Mia+Cruz&page=1&per_page=1');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.per_page', 1)
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.has_more_pages', true)
+            ->assertJsonPath('data.0.patient_name', 'Mia L. Cruz');
+    }
+
     private function createUserWithRole(string $roleName): User
     {
         $role = Role::firstOrCreate(['name' => $roleName]);

@@ -108,46 +108,13 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
         widget.appointmentService.invalidateAppointmentCaches();
       }
 
+      final Map<String, String> filters = _activeMasterListFilters;
       if (normalizedQuery.isNotEmpty) {
-        final List<Map<String, dynamic>> allAppointments = await widget
-            .appointmentService
-            .getAdminMasterList(_activeMasterListFilters);
-        final List<Map<String, dynamic>> filtered = allAppointments.where((
-          Map<String, dynamic> appointment,
-        ) {
-          final String haystack = <String>[
-            appointment['patient_name']?.toString() ?? '',
-            appointment['service']?.toString() ?? '',
-            appointment['service_type']?.toString() ?? '',
-            appointment['contact']?.toString() ?? '',
-            appointment['appointment_id']?.toString() ?? '',
-            appointment['queue_number']?.toString() ?? '',
-          ].join(' ').toLowerCase();
-          return haystack.contains(normalizedQuery.toLowerCase());
-        }).toList();
-
-        final int start = (page - 1) * _pageSize;
-        final int end = (start + _pageSize).clamp(0, filtered.length);
-        final List<Map<String, dynamic>> visible = start >= filtered.length
-            ? <Map<String, dynamic>>[]
-            : filtered.sublist(start, end);
-
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _appointments = visible;
-          _currentPage = page;
-          _totalAppointments = filtered.length;
-          _isLoading = false;
-          _isSearching = false;
-        });
-        return;
+        filters['search'] = normalizedQuery;
       }
-
       final appointmentsPage = await widget.appointmentService
           .getAdminMasterListPage(
-            filters: _activeMasterListFilters,
+            filters: filters,
             page: page,
             perPage: _pageSize,
           );

@@ -184,6 +184,42 @@ void main() {
     },
   );
 
+  test(
+    'getAdminMasterListPage includes search with filters in paginated requests',
+    () async {
+      fakeBaseService.nextResponse = {
+        'data': [
+          {
+            'patient_name': 'Mia Cruz',
+            'service': 'Dental Cleaning',
+            'status': 'Pending',
+            'date': '2026-04-04',
+          },
+        ],
+        'meta': {
+          'current_page': 1,
+          'per_page': 25,
+          'total': 1,
+          'has_more_pages': false,
+        },
+      };
+
+      final page = await appointmentService.getAdminMasterListPage(
+        filters: <String, String>{'status': 'pending', 'search': 'Mia Cruz'},
+        page: 1,
+        perPage: 25,
+      );
+
+      expect(page.items, hasLength(1));
+      expect(page.items.first['patient_name'], 'Mia Cruz');
+      expect(page.totalItems, 1);
+      expect(
+        fakeBaseService.lastPath,
+        '/api/v1/admin/appointments/master-list?status=pending&search=Mia+Cruz&page=1&per_page=25',
+      );
+    },
+  );
+
   test('cancelAppointment invalidates cached appointment lists', () async {
     fakeBaseService.nextResponse = {
       'data': [
