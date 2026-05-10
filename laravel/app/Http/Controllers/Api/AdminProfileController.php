@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AdminProfileController extends Controller
 {
@@ -27,6 +28,8 @@ class AdminProfileController extends Controller
         }
 
         $payload = $this->validatePayload($request, $user->id);
+        $this->ensureUsernameChangeIsConfirmed($request, $payload, (string) $user->username);
+        unset($payload['current_password']);
         $payload = $this->applyAliases($payload);
 
         // Handle password hashing if provided
@@ -59,11 +62,31 @@ class AdminProfileController extends Controller
             'username' => ['sometimes', 'required', 'string', 'max:255', 'unique:users,username,' . $userId],
             'email' => ['sometimes', 'required', 'email', 'max:255', 'unique:users,email,' . $userId],
             'password' => ['sometimes', 'required', 'string', 'min:8'],
+            'current_password' => ['sometimes', 'string'],
         ], [
             'phone_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'username.unique' => 'The requested username is already taken. Please choose another one.',
         ]);
+    }
+
+    private function ensureUsernameChangeIsConfirmed(Request $request, array $payload, string $currentUsername): void
+    {
+        if (! array_key_exists('username', $payload) || $payload['username'] === $currentUsername) {
+            return;
+        }
+
+        $request->validate([
+            'current_password' => ['required', 'string'],
+        ], [
+            'current_password.required' => 'Confirm your password to change your username.',
+        ]);
+
+        if (! Hash::check((string) $request->input('current_password'), (string) $request->user()->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The password you entered is incorrect.'],
+            ]);
+        }
     }
 
     private function applyAliases(array $payload): array

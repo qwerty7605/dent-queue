@@ -22,7 +22,6 @@ class AdminProfileUpdateApiTest extends TestCase
         $response = $this->putJson('/api/v1/admin/profile', [
             'first_name' => 'Wayne',
             'last_name' => 'Admin',
-            'username' => 'wayneadmin',
             'email' => 'wayne@example.com',
         ]);
 
@@ -30,14 +29,95 @@ class AdminProfileUpdateApiTest extends TestCase
             ->assertJsonPath('message', 'Profile updated successfully.')
             ->assertJsonPath('user.first_name', 'Wayne')
             ->assertJsonPath('user.last_name', 'Admin')
-            ->assertJsonPath('user.username', 'wayneadmin')
+            ->assertJsonPath('user.username', $admin->username)
             ->assertJsonPath('user.email', 'wayne@example.com');
 
         $this->assertDatabaseHas('users', [
             'id' => $admin->id,
             'first_name' => 'Wayne',
             'last_name' => 'Admin',
-            'username' => 'wayneadmin',
+            'username' => $admin->username,
+        ]);
+    }
+
+    public function test_admin_username_change_requires_current_password(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        Sanctum::actingAs($admin);
+
+        $response = $this->putJson('/api/v1/admin/profile', [
+            'username' => 'secureadmin',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['current_password']);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $admin->id,
+            'username' => $admin->username,
+        ]);
+    }
+
+    public function test_admin_username_change_rejects_wrong_current_password(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        Sanctum::actingAs($admin);
+
+        $response = $this->putJson('/api/v1/admin/profile', [
+            'username' => 'secureadmin',
+            'current_password' => 'wrong-password',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['current_password']);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $admin->id,
+            'username' => $admin->username,
+        ]);
+    }
+
+    public function test_admin_can_change_username_with_current_password_only(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        Sanctum::actingAs($admin);
+
+        $response = $this->putJson('/api/v1/admin/profile', [
+            'username' => 'secureadmin',
+            'current_password' => 'password123',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Profile updated successfully.')
+            ->assertJsonPath('user.username', 'secureadmin')
+            ->assertJsonPath('user.first_name', 'Admin')
+            ->assertJsonPath('user.last_name', 'User');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $admin->id,
+            'username' => 'secureadmin',
+            'first_name' => 'Admin',
+            'last_name' => 'User',
+        ]);
+    }
+
+    public function test_admin_username_change_rejects_duplicate_username(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        $existingUser = $this->createUserWithRole('Admin');
+        Sanctum::actingAs($admin);
+
+        $response = $this->putJson('/api/v1/admin/profile', [
+            'username' => $existingUser->username,
+            'current_password' => 'password123',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['username']);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $admin->id,
+            'username' => $admin->username,
         ]);
     }
 

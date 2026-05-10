@@ -7,6 +7,7 @@ import '../core/token_storage.dart';
 import '../core/api_client.dart';
 import '../services/base_service.dart';
 import '../services/admin_profile_service.dart';
+import '../widgets/app_alert_dialog.dart';
 
 class AdminProfileView extends StatefulWidget {
   const AdminProfileView({
@@ -31,7 +32,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       <String, List<String>>{
         'first_name': <String>['first_name'],
         'last_name': <String>['last_name'],
-        'username': <String>['username'],
         'password': <String>['password'],
       };
 
@@ -39,12 +39,10 @@ class _AdminProfileViewState extends State<AdminProfileView> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
 
-  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   late AdminProfileService _adminProfileService;
 
-  bool _isEditingUsername = false;
   bool _isEditingPassword = false;
   bool _isEditingProfile = false;
   bool _isLoading = false;
@@ -63,8 +61,12 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       _isDarkMode ? const Color(0xFFEAF1FF) : Colors.black87;
   Color get _mutedTextColor =>
       _isDarkMode ? const Color(0xFFAAB8D4) : Colors.black38;
-  bool get _hasPendingEdit =>
-      _isEditingProfile || _isEditingUsername || _isEditingPassword;
+  bool get _hasPendingEdit => _isEditingProfile || _isEditingPassword;
+  String get _currentUsername {
+    final String username =
+        widget.activeUser?['username']?.toString().trim() ?? '';
+    return username.isEmpty ? 'Not set' : username;
+  }
 
   @override
   void initState() {
@@ -103,7 +105,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     if (widget.activeUser != null) {
       _firstNameController.text = widget.activeUser!['first_name'] ?? '';
       _lastNameController.text = widget.activeUser!['last_name'] ?? '';
-      _usernameController.text = widget.activeUser!['username'] ?? '';
     }
   }
 
@@ -111,7 +112,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -140,10 +140,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       if (_isEditingProfile && _lastNameController.text.isNotEmpty) {
         payload['last_name'] = _lastNameController.text;
       }
-      if (_isEditingUsername && _usernameController.text.isNotEmpty) {
-        payload['username'] = _usernameController.text;
-      }
-
       if (_isEditingPassword && _passwordController.text.isNotEmpty) {
         payload['password'] = _passwordController.text;
       }
@@ -161,7 +157,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       setState(() {
         _isEditingProfile = false;
         _isEditingPassword = false;
-        _isEditingUsername = false;
         _passwordController.clear();
       });
 
@@ -213,20 +208,6 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     return localError ?? _fieldErrors[fieldKey];
   }
 
-  void _toggleUsernameEditing() {
-    setState(() {
-      _fieldErrors.remove('username');
-      _formErrorText = null;
-      _autoValidateMode = AutovalidateMode.disabled;
-      if (_isEditingUsername) {
-        _usernameController.text = widget.activeUser?['username'] ?? '';
-        _isEditingUsername = false;
-      } else {
-        _isEditingUsername = true;
-      }
-    });
-  }
-
   void _togglePasswordEditing() {
     setState(() {
       _fieldErrors.remove('password');
@@ -235,6 +216,38 @@ class _AdminProfileViewState extends State<AdminProfileView> {
       _passwordController.clear();
       _isEditingPassword = !_isEditingPassword;
     });
+  }
+
+  Future<void> _openChangeUsernameDialog() async {
+    final Map<String, dynamic>? updatedUser =
+        await showDialog<Map<String, dynamic>>(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) => _ChangeUsernameDialog(
+            currentUsername: _currentUsername,
+            adminProfileService: _adminProfileService,
+          ),
+        );
+
+    if (updatedUser == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      widget.activeUser?.addAll(updatedUser);
+      _populateFields();
+    });
+
+    widget.onProfileUpdated?.call(updatedUser);
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Username updated successfully.'),
+          backgroundColor: Color(0xFF436B46),
+        ),
+      );
   }
 
   @override
@@ -591,20 +604,10 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     final Widget usernameCard = _buildSecureAccountCard(
       icon: Icons.account_circle_outlined,
       title: 'Username',
-      summary: _isEditingUsername ? 'Editing enabled' : 'Hidden until editing',
-      buttonLabel: _isEditingUsername ? 'Cancel' : 'Change Username',
-      onPressed: _toggleUsernameEditing,
-      editor: _isEditingUsername
-          ? _buildInlineAccountField(
-              controller: _usernameController,
-              fieldKey: 'username',
-              hintText: 'Enter username',
-              validator: (value) => _mergeFieldError(
-                'username',
-                AppFormValidators.username(value),
-              ),
-            )
-          : null,
+      summary: 'Hidden until confirmed',
+      buttonLabel: 'Change Username',
+      onPressed: _openChangeUsernameDialog,
+      editor: null,
     );
 
     final Widget passwordCard = _buildSecureAccountCard(
@@ -804,6 +807,284 @@ class _AdminProfileViewState extends State<AdminProfileView> {
               borderSide: const BorderSide(color: Colors.redAccent, width: 2.0),
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChangeUsernameDialog extends StatefulWidget {
+  const _ChangeUsernameDialog({
+    required this.currentUsername,
+    required this.adminProfileService,
+  });
+
+  final String currentUsername;
+  final AdminProfileService adminProfileService;
+
+  @override
+  State<_ChangeUsernameDialog> createState() => _ChangeUsernameDialogState();
+}
+
+class _ChangeUsernameDialogState extends State<_ChangeUsernameDialog> {
+  static const Map<String, List<String>> _apiFieldMappings =
+      <String, List<String>>{
+        'username': <String>['username'],
+        'current_password': <String>['current_password'],
+      };
+
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _newUsernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  bool _isSaving = false;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+  Map<String, String> _fieldErrors = <String, String>{};
+  String? _formErrorText;
+
+  @override
+  void dispose() {
+    _newUsernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_isSaving) {
+      return;
+    }
+
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _autoValidateMode = AutovalidateMode.always;
+      });
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _fieldErrors = <String, String>{};
+      _formErrorText = null;
+    });
+
+    try {
+      final Map<String, dynamic> response = await widget.adminProfileService
+          .updateProfile(<String, dynamic>{
+            'username': _newUsernameController.text.trim(),
+            'current_password': _passwordController.text,
+          });
+
+      if (!mounted) {
+        return;
+      }
+
+      final dynamic user = response['user'];
+      Navigator.of(context).pop(
+        user is Map ? Map<String, dynamic>.from(user) : <String, dynamic>{},
+      );
+    } on ApiException catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      final Map<String, String> fieldErrors = collectApiFieldErrors(
+        e.errors,
+        _apiFieldMappings,
+      );
+      final String? formError =
+          firstUnhandledApiError(
+            e.errors,
+            handledKeys: flattenApiErrorKeys(_apiFieldMappings),
+          ) ??
+          (fieldErrors.isEmpty ? e.message : null);
+
+      setState(() {
+        _fieldErrors = fieldErrors;
+        _formErrorText = formError;
+        _autoValidateMode = AutovalidateMode.always;
+      });
+      _formKey.currentState?.validate();
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _formErrorText = 'Error: ${e.toString().replaceAll('Exception: ', '')}';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  void _clearFieldError(String fieldKey) {
+    if (!_fieldErrors.containsKey(fieldKey) && _formErrorText == null) {
+      return;
+    }
+
+    setState(() {
+      _fieldErrors.remove(fieldKey);
+      _formErrorText = null;
+    });
+  }
+
+  String? _mergeFieldError(String fieldKey, String? localError) {
+    return localError ?? _fieldErrors[fieldKey];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color cardColor = isDark
+        ? const Color(0xFF1B2740)
+        : const Color(0xFFF6F9FD);
+    final Color borderColor = isDark
+        ? const Color(0xFF2B3956)
+        : const Color(0xFFE3EAF6);
+    final Color textColor = isDark
+        ? const Color(0xFFEAF1FF)
+        : const Color(0xFF1D3264);
+    final Color mutedColor = isDark
+        ? const Color(0xFFAAB8D4)
+        : const Color(0xFF667792);
+
+    return AppAlertDialog(
+      scrollable: true,
+      title: const Text('Change Username'),
+      content: SizedBox(
+        width: 440,
+        child: Form(
+          key: _formKey,
+          autovalidateMode: _autoValidateMode,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              if (_formErrorText != null) ...<Widget>[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF3A2026)
+                        : const Color(0xFFFFF1F1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.redAccent.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(
+                    _formErrorText!,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  children: <Widget>[
+                    const Icon(
+                      Icons.account_circle_outlined,
+                      color: Color(0xFF4A769E),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Current username',
+                            style: TextStyle(
+                              color: mutedColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            widget.currentUsername,
+                            key: const Key(
+                              'admin-profile-current-username-label',
+                            ),
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              TextFormField(
+                key: const Key('admin-profile-change-username-field'),
+                controller: _newUsernameController,
+                onChanged: (_) => _clearFieldError('username'),
+                inputFormatters: AppFormValidators.usernameInputFormatters(),
+                validator: (String? value) => _mergeFieldError(
+                  'username',
+                  AppFormValidators.username(value),
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'New username',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                key: const Key('admin-profile-change-username-password-field'),
+                controller: _passwordController,
+                onChanged: (_) => _clearFieldError('current_password'),
+                obscureText: true,
+                enableSuggestions: false,
+                autocorrect: false,
+                validator: (String? value) {
+                  final String password = value ?? '';
+                  if (password.isEmpty) {
+                    return 'Password is required';
+                  }
+                  return _mergeFieldError('current_password', null);
+                },
+                decoration: const InputDecoration(
+                  labelText: 'Confirm password',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: _isSaving ? null : _submit,
+          icon: _isSaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.verified_user_outlined, size: 18),
+          label: Text(_isSaving ? 'Saving' : 'Save Username'),
         ),
       ],
     );
