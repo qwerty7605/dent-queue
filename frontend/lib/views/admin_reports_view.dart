@@ -76,7 +76,9 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     'Online Booking',
     'Walk-In Booking',
   ];
-  static const int _defaultTrendBucketLimit = 10;
+  static const int _defaultDailyTrendBucketLimit = 10;
+  static const int _defaultWeeklyTrendBucketLimit = 10;
+  static const int _defaultMonthlyTrendBucketLimit = 12;
   static const List<_TrendView> _trendViewOrder = <_TrendView>[
     _TrendView.monthly,
     _TrendView.weekly,
@@ -2120,27 +2122,27 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     final _ReportDateRangeSelection range = _defaultExportDateRange(
       _selectedTrendView,
     );
+    final int bucketLimit = _defaultTrendBucketLimit(_selectedTrendView);
     final String unit = switch (_selectedTrendView) {
       _TrendView.daily => 'days',
       _TrendView.weekly => 'weeks',
       _TrendView.monthly => 'months',
     };
 
-    return 'last $_defaultTrendBucketLimit $unit (${_formatReportFilterDate(range.startDate)} to ${_formatReportFilterDate(range.endDate)})';
+    return 'last $bucketLimit $unit (${_formatReportFilterDate(range.startDate)} to ${_formatReportFilterDate(range.endDate)})';
   }
 
   _ReportDateRangeSelection _defaultExportDateRange(_TrendView view) {
     final List<_AppointmentTrendPoint> points =
         _appointmentTrends[view] ?? const <_AppointmentTrendPoint>[];
     final DateTime endPeriod = _resolveDefaultTrendEndDate(view, points);
+    final int bucketLimit = _defaultTrendBucketLimit(view);
 
     switch (view) {
       case _TrendView.daily:
         final DateTime endDate = _dateOnly(endPeriod);
         return _ReportDateRangeSelection(
-          startDate: endDate.subtract(
-            const Duration(days: _defaultTrendBucketLimit - 1),
-          ),
+          startDate: endDate.subtract(Duration(days: bucketLimit - 1)),
           endDate: endDate,
         );
       case _TrendView.weekly:
@@ -2149,9 +2151,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
           _isoWeekNumber(endPeriod),
         );
         return _ReportDateRangeSelection(
-          startDate: weekStart.subtract(
-            const Duration(days: 7 * (_defaultTrendBucketLimit - 1)),
-          ),
+          startDate: weekStart.subtract(Duration(days: 7 * (bucketLimit - 1))),
           endDate: weekStart.add(const Duration(days: 6)),
         );
       case _TrendView.monthly:
@@ -2159,11 +2159,19 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         return _ReportDateRangeSelection(
           startDate: DateTime(
             monthStart.year,
-            monthStart.month - (_defaultTrendBucketLimit - 1),
+            monthStart.month - (bucketLimit - 1),
           ),
           endDate: DateTime(monthStart.year, monthStart.month + 1, 0),
         );
     }
+  }
+
+  int _defaultTrendBucketLimit(_TrendView view) {
+    return switch (view) {
+      _TrendView.daily => _defaultDailyTrendBucketLimit,
+      _TrendView.weekly => _defaultWeeklyTrendBucketLimit,
+      _TrendView.monthly => _defaultMonthlyTrendBucketLimit,
+    };
   }
 
   DateTime _resolveDefaultTrendEndDate(
@@ -2219,10 +2227,11 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
   List<String> _lastDailyTrendLabels(DateTime endDate) {
     final DateTime end = _dateOnly(endDate);
+    final int bucketLimit = _defaultTrendBucketLimit(_TrendView.daily);
 
-    return List<String>.generate(_defaultTrendBucketLimit, (int index) {
+    return List<String>.generate(bucketLimit, (int index) {
       return _formatReportFilterDate(
-        end.subtract(Duration(days: _defaultTrendBucketLimit - 1 - index)),
+        end.subtract(Duration(days: bucketLimit - 1 - index)),
       );
     });
   }
@@ -2232,10 +2241,11 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       _isoWeekYear(endDate),
       _isoWeekNumber(endDate),
     );
+    final int bucketLimit = _defaultTrendBucketLimit(_TrendView.weekly);
 
-    return List<String>.generate(_defaultTrendBucketLimit, (int index) {
+    return List<String>.generate(bucketLimit, (int index) {
       final DateTime date = weekStart.subtract(
-        Duration(days: 7 * (_defaultTrendBucketLimit - 1 - index)),
+        Duration(days: 7 * (bucketLimit - 1 - index)),
       );
       return _isoWeekLabel(date);
     });
@@ -2243,11 +2253,12 @@ class _AdminReportsViewState extends State<AdminReportsView> {
 
   List<String> _lastMonthlyTrendLabels(DateTime endDate) {
     final DateTime monthStart = DateTime(endDate.year, endDate.month, 1);
+    final int bucketLimit = _defaultTrendBucketLimit(_TrendView.monthly);
 
-    return List<String>.generate(_defaultTrendBucketLimit, (int index) {
+    return List<String>.generate(bucketLimit, (int index) {
       final DateTime date = DateTime(
         monthStart.year,
-        monthStart.month - (_defaultTrendBucketLimit - 1 - index),
+        monthStart.month - (bucketLimit - 1 - index),
         1,
       );
       final String month = date.month.toString().padLeft(2, '0');

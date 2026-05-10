@@ -600,19 +600,20 @@ void main() {
     },
   );
 
-  testWidgets('limits unfiltered appointment trends to the latest 10 buckets', (
+  testWidgets('limits unfiltered monthly appointment trends to 12 buckets', (
     WidgetTester tester,
   ) async {
     final List<Map<String, dynamic>> records =
-        List<Map<String, dynamic>>.generate(12, (int index) {
-          final int month = index + 1;
+        List<Map<String, dynamic>>.generate(14, (int index) {
+          final DateTime date = DateTime(2025, index + 1, 1);
+          final String month = date.month.toString().padLeft(2, '0');
           return <String, dynamic>{
-            'date': '2026-${month.toString().padLeft(2, '0')}-01',
+            'date': '${date.year}-$month-01',
             'status': 'Approved',
             'booking_type': 'Online Booking',
-            'patient_name': 'Trend Patient $month',
+            'patient_name': 'Trend Patient ${index + 1}',
             'service': 'Dental Checkup',
-            'queue_number': month.toString().padLeft(2, '0'),
+            'queue_number': (index + 1).toString().padLeft(2, '0'),
           };
         });
     final BaseService baseService = _FakeBaseService(records: records);
@@ -637,18 +638,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Monthly view'), findsOneWidget);
-    expect(find.text('2026-01'), findsNothing);
-    expect(find.text('2026-02'), findsNothing);
-    expect(find.text('2026-03'), findsOneWidget);
-    expect(find.text('2026-04'), findsOneWidget);
-    expect(find.text('2026-05'), findsOneWidget);
-    expect(find.text('2026-06'), findsOneWidget);
-    expect(find.text('2026-07'), findsOneWidget);
-    expect(find.text('2026-08'), findsOneWidget);
-    expect(find.text('2026-09'), findsOneWidget);
-    expect(find.text('2026-10'), findsOneWidget);
-    expect(find.text('2026-11'), findsOneWidget);
-    expect(find.text('2026-12'), findsOneWidget);
+    expect(find.text('2025-01'), findsNothing);
+    expect(find.text('2025-02'), findsNothing);
+    expect(find.text('2025-03'), findsOneWidget);
+    expect(find.text('2025-04'), findsOneWidget);
+    expect(find.text('2025-05'), findsOneWidget);
+    expect(find.text('2025-06'), findsOneWidget);
+    expect(find.text('2025-07'), findsOneWidget);
+    expect(find.text('2025-08'), findsOneWidget);
+    expect(find.text('2025-09'), findsOneWidget);
+    expect(find.text('2025-10'), findsOneWidget);
+    expect(find.text('2025-11'), findsOneWidget);
+    expect(find.text('2025-12'), findsOneWidget);
+    expect(find.text('2026-01'), findsOneWidget);
+    expect(find.text('2026-02'), findsOneWidget);
   });
 
   testWidgets('exports the active default trend window when no dates are set', (
@@ -717,7 +720,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.textContaining('last 10 months'), findsOneWidget);
+    expect(find.textContaining('last 12 months'), findsOneWidget);
 
     final Finder exportDialog = find.byType(AlertDialog);
     await tester.tap(
@@ -732,7 +735,7 @@ void main() {
     expect(
       baseService.rawRequestedPaths,
       contains(
-        '/api/v1/admin/reports/export?start_date=2025-07-01&end_date=2026-04-30&status=Approved&booking_type=Online+Booking&format=csv',
+        '/api/v1/admin/reports/export?start_date=2025-05-01&end_date=2026-04-30&status=Approved&booking_type=Online+Booking&format=csv',
       ),
     );
     expect(baseService.lastRawHeaders, <String, String>{'Accept': 'text/csv'});
