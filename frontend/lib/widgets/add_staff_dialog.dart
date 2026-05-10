@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../core/app_form_validators.dart';
 import '../core/api_exception.dart';
 import '../core/mobile_typography.dart';
+import 'terms_acceptance_form_field.dart';
 
 class AddStaffDialog extends StatefulWidget {
   const AddStaffDialog({super.key, required this.onSubmit});
@@ -38,6 +39,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
   bool _isSubmitting = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
+  bool _acceptedTerms = false;
   AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
 
   @override
@@ -100,6 +102,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
             'username': _usernameController.text.trim(),
             'password': _passwordController.text,
             'password_confirmation': _confirmPasswordController.text,
+            'terms_accepted': _acceptedTerms,
           });
 
       if (!mounted) return;
@@ -556,6 +559,19 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
               },
             ),
           ),
+        ),
+        const SizedBox(height: 16),
+        TermsAcceptanceFormField(
+          value: _acceptedTerms,
+          checkboxKey: const Key('staff-registration-terms-checkbox'),
+          linkKey: const Key('staff-registration-terms-link'),
+          prefixText: 'I confirm this user agrees to the ',
+          suffixText: ' before this account is created.',
+          onChanged: (bool accepted) {
+            setState(() {
+              _acceptedTerms = accepted;
+            });
+          },
         ),
         const SizedBox(height: 16),
         Container(

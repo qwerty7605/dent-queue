@@ -28,10 +28,12 @@ class AuthController extends Controller
             'contact_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
             'location' => 'nullable|string|max:255',
             'gender' => 'nullable|string|in:male,female,other',
+            'terms_accepted' => 'accepted',
         ], [
             'phone_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'username.regex' => 'Username may only contain letters, numbers, dots, hyphens, and underscores.',
+            'terms_accepted.accepted' => 'You must accept the Terms and Conditions before creating an account.',
         ]);
 
         if (array_key_exists('contact_number', $data) && !array_key_exists('phone_number', $data)) {

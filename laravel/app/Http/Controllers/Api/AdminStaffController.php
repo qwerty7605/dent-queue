@@ -68,9 +68,11 @@ class AdminStaffController extends Controller
             'role' => 'required|string|in:staff,intern',
             'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', 'unique:users,username'],
             'password' => 'required|string|min:8|confirmed',
+            'terms_accepted' => 'accepted',
         ], [
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'username.regex' => 'Username may only contain letters, numbers, dots, hyphens, and underscores.',
+            'terms_accepted.accepted' => 'You must accept the Terms and Conditions before creating an account.',
         ]);
 
         $normalizedRole = Str::lower((string) $data['role']);

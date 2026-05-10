@@ -93,6 +93,7 @@ class AdminStaffApiTest extends TestCase
             'username' => 'newstaff',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'terms_accepted' => true,
         ]);
 
         $response->assertStatus(201)
@@ -137,6 +138,7 @@ class AdminStaffApiTest extends TestCase
             'username' => 'newintern',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'terms_accepted' => true,
         ]);
 
         $response->assertStatus(201)
@@ -149,6 +151,35 @@ class AdminStaffApiTest extends TestCase
             'username' => 'newintern',
             'email' => 'newintern@system.intern',
             'role_id' => $this->internRole->id,
+        ]);
+    }
+
+    public function test_admin_staff_creation_requires_terms_acceptance(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->postJson('/api/v1/admin/staff', [
+            'first_name' => 'New',
+            'middle_name' => 'Mae',
+            'last_name' => 'Staff',
+            'gender' => 'female',
+            'address' => 'Staff House 1',
+            'contact_number' => '09123456789',
+            'role' => 'staff',
+            'username' => 'termsmissing',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['terms_accepted'])
+            ->assertJsonPath(
+                'errors.terms_accepted.0',
+                'You must accept the Terms and Conditions before creating an account.'
+            );
+
+        $this->assertDatabaseMissing('users', [
+            'username' => 'termsmissing',
         ]);
     }
 
@@ -166,6 +197,7 @@ class AdminStaffApiTest extends TestCase
             'username' => 'badstaff',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'terms_accepted' => true,
         ]);
 
         $response->assertStatus(422)
@@ -187,6 +219,7 @@ class AdminStaffApiTest extends TestCase
             'username' => 'bad staff',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'terms_accepted' => true,
         ]);
 
         $response->assertStatus(422)
@@ -209,6 +242,7 @@ class AdminStaffApiTest extends TestCase
             'username' => 'recoveredintern',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'terms_accepted' => true,
         ]);
 
         $response->assertStatus(201)

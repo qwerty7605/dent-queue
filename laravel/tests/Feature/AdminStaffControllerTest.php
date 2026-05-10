@@ -45,6 +45,7 @@ class AdminStaffControllerTest extends TestCase
             'username' => 'janesmith',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'terms_accepted' => true,
         ];
 
         $response = $this->actingAs($this->admin)->postJson('/api/v1/admin/staff', $payload);
@@ -95,6 +96,7 @@ class AdminStaffControllerTest extends TestCase
             'username' => 'janesmith2',
             'password' => 'password123',
             'password_confirmation' => 'differentpassword',
+            'terms_accepted' => true,
         ];
 
         $response = $this->actingAs($this->admin)->postJson('/api/v1/admin/staff', $payload);
@@ -124,6 +126,7 @@ class AdminStaffControllerTest extends TestCase
             'username' => 'existinguser',
             'password' => 'password123',
             'password_confirmation' => 'password123',
+            'terms_accepted' => true,
         ];
 
         $response = $this->actingAs($this->admin)->postJson('/api/v1/admin/staff', $payload);
