@@ -508,7 +508,9 @@ void main() {
 
       expect(find.text('Monthly view'), findsOneWidget);
       expect(find.text('Appointments per month'), findsOneWidget);
+      expect(find.text('2026-01'), findsOneWidget);
       expect(find.text('2026-04'), findsOneWidget);
+      expect(find.text('2026-12'), findsOneWidget);
     },
   );
 

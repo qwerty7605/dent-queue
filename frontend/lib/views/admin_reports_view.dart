@@ -1867,11 +1867,68 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     final List<_AppointmentTrendPoint> apiPoints =
         _appointmentTrends[_selectedTrendView] ??
         const <_AppointmentTrendPoint>[];
+
+    if (_selectedTrendView == _TrendView.monthly) {
+      return _completeMonthlyTrendPoints(apiPoints);
+    }
+
     if (apiPoints.isNotEmpty) {
       return apiPoints;
     }
 
     return _placeholderTrendPoints(_selectedTrendView);
+  }
+
+  List<_AppointmentTrendPoint> _completeMonthlyTrendPoints(
+    List<_AppointmentTrendPoint> apiPoints,
+  ) {
+    if (apiPoints.isEmpty) {
+      return _placeholderTrendPoints(_TrendView.monthly);
+    }
+
+    final Map<String, int> countsByLabel = <String, int>{};
+    final Set<int> years = <int>{};
+
+    for (final _AppointmentTrendPoint point in apiPoints) {
+      final DateTime? month = _parseMonthlyTrendLabel(point.label);
+      if (month == null) {
+        return apiPoints;
+      }
+
+      years.add(month.year);
+      countsByLabel[point.label] =
+          (countsByLabel[point.label] ?? 0) + math.max(0, point.count);
+    }
+
+    if (years.length != 1) {
+      return apiPoints;
+    }
+
+    final int year = years.first;
+    return List<_AppointmentTrendPoint>.generate(12, (int index) {
+      final String month = (index + 1).toString().padLeft(2, '0');
+      final String label = '$year-$month';
+
+      return _AppointmentTrendPoint(
+        label: label,
+        count: countsByLabel[label] ?? 0,
+      );
+    });
+  }
+
+  DateTime? _parseMonthlyTrendLabel(String label) {
+    final RegExpMatch? match = RegExp(r'^(\d{4})-(\d{2})$').firstMatch(label);
+    if (match == null) {
+      return null;
+    }
+
+    final int? year = int.tryParse(match.group(1)!);
+    final int? month = int.tryParse(match.group(2)!);
+    if (year == null || month == null || month < 1 || month > 12) {
+      return null;
+    }
+
+    return DateTime(year, month);
   }
 
   bool _hasTrendDataFor(_TrendView view) {
@@ -1909,6 +1966,12 @@ class _AdminReportsViewState extends State<AdminReportsView> {
           _AppointmentTrendPoint(label: 'Apr', count: 0),
           _AppointmentTrendPoint(label: 'May', count: 0),
           _AppointmentTrendPoint(label: 'Jun', count: 0),
+          _AppointmentTrendPoint(label: 'Jul', count: 0),
+          _AppointmentTrendPoint(label: 'Aug', count: 0),
+          _AppointmentTrendPoint(label: 'Sep', count: 0),
+          _AppointmentTrendPoint(label: 'Oct', count: 0),
+          _AppointmentTrendPoint(label: 'Nov', count: 0),
+          _AppointmentTrendPoint(label: 'Dec', count: 0),
         ];
     }
   }

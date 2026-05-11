@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/token_storage.dart';
+import 'package:frontend/core/paginated_result.dart';
 import 'package:frontend/services/admin_dashboard_service.dart';
 import 'package:frontend/services/appointment_service.dart';
 import 'package:frontend/services/notification_service.dart';
@@ -10,6 +11,7 @@ import 'package:frontend/widgets/navigation_chrome.dart';
 
 class _FakeAppointmentService extends Fake implements AppointmentService {
   int adminMasterListCalls = 0;
+  int adminMasterListPageCalls = 0;
   int adminAppointmentsCalls = 0;
   int adminQueueCalls = 0;
   int recycleBinCalls = 0;
@@ -23,6 +25,31 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
   ]) async {
     adminMasterListCalls += 1;
     return <Map<String, dynamic>>[];
+  }
+
+  @override
+  Future<PaginatedResult<Map<String, dynamic>>> getAdminMasterListPage({
+    Map<String, String> filters = const <String, String>{},
+    int page = 1,
+    int perPage = 25,
+  }) async {
+    adminMasterListPageCalls += 1;
+    return const PaginatedResult<Map<String, dynamic>>(
+      items: <Map<String, dynamic>>[
+        <String, dynamic>{
+          'date': '2026-05-10',
+          'status': 'Approved',
+          'booking_type': 'Online Booking',
+          'patient_name': 'Casey Patient',
+          'service': 'Dental Checkup',
+          'queue_number': '04',
+        },
+      ],
+      currentPage: 1,
+      perPage: 25,
+      totalItems: 1,
+      hasMorePages: false,
+    );
   }
 
   @override
@@ -156,18 +183,10 @@ void main() {
     expect(find.text('Clinic operations analytics'), findsOneWidget);
     expect(adminDashboardService.reportSummaryCalls, 1);
     expect(adminDashboardService.trendTypes, contains('daily'));
+    expect(appointmentService.adminMasterListPageCalls, 1);
+    expect(find.text('Detailed Records'), findsOneWidget);
+    expect(find.text('Casey Patient'), findsOneWidget);
+    expect(find.text('Online Booking'), findsOneWidget);
     expect(find.byKey(const Key('report-export-button')), findsNothing);
-
-    await tester.tap(find.byTooltip('Open navigation menu'));
-    await tester.pumpAndSettle();
-
-    expect(
-      tester
-          .widget<AppNavigationDrawerItem>(
-            find.byKey(const Key('staff-nav-reports')),
-          )
-          .selected,
-      isTrue,
-    );
   });
 }

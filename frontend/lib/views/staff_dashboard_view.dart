@@ -21,7 +21,7 @@ import '../widgets/staff_appointment_details_dialog.dart';
 import 'staff_calendar_view.dart';
 import 'notifications_view.dart';
 import 'recycle_bin_view.dart';
-import 'admin_reports_view.dart';
+import 'staff_reports_view.dart';
 import 'staff_patient_records_view.dart';
 import 'staff_walk_in_view.dart';
 
@@ -926,11 +926,9 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
           ),
         ),
         Expanded(
-          child: AdminReportsView(
+          child: StaffReportsView(
             adminDashboardService: _adminDashboardService,
             appointmentService: _appointmentService,
-            showDetailedRecords: false,
-            canExport: false,
           ),
         ),
       ],
