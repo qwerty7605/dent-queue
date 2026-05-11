@@ -50,6 +50,32 @@ class DoctorAvailabilityApiTest extends TestCase
         $this->assertDatabaseCount('doctor_unavailabilities', 0);
     }
 
+    public function test_admin_can_create_doctor_unavailability_for_date_range(): void
+    {
+        $admin = $this->createUserWithRole('Admin');
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/v1/admin/settings/doctor-unavailability', [
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-14',
+            'start_time' => '08:00',
+            'end_time' => '17:00',
+            'reason' => 'Conference leave',
+        ])->assertCreated()
+            ->assertJsonCount(3, 'data');
+
+        $this->assertDatabaseCount('doctor_unavailabilities', 3);
+
+        foreach (['2026-05-12', '2026-05-13', '2026-05-14'] as $date) {
+            $this->assertDatabaseHas('doctor_unavailabilities', [
+                'unavailable_date' => $date,
+                'start_time' => '08:00',
+                'end_time' => '17:00',
+                'reason' => 'Conference leave',
+            ]);
+        }
+    }
+
     public function test_slot_availability_api_marks_doctor_unavailable_and_available_ranges(): void
     {
         $patient = $this->createUserWithRole('Patient');

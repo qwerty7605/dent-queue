@@ -61,10 +61,32 @@ class _NotificationsViewState extends State<NotificationsView> {
     bool showLoader = true,
     bool forceRefresh = false,
   }) async {
-    final bool hasVisibleContent = _notifications.isNotEmpty;
+    bool hasVisibleContent = _notifications.isNotEmpty;
     final String resolvedRole = _hasResolvedRole ? _role : await _resolveRole();
     if (!mounted) {
       return;
+    }
+
+    if (showLoader && !forceRefresh && !hasVisibleContent) {
+      final NotificationListResult? cachedResult = await _notificationService
+          .getCachedNotifications(resolvedRole, allowStale: true);
+
+      if (!mounted) {
+        return;
+      }
+
+      if (cachedResult != null) {
+        setState(() {
+          _notifications = cachedResult.notifications;
+          _unreadCount = cachedResult.unreadCount;
+          _role = resolvedRole;
+          _hasResolvedRole = true;
+          _isLoading = false;
+          _loadError = null;
+        });
+        hasVisibleContent = true;
+        showLoader = false;
+      }
     }
 
     setState(() {

@@ -5,7 +5,7 @@ import 'base_service.dart';
 class StaffService {
   StaffService(this._baseService);
 
-  static const Duration _cacheTtl = Duration(seconds: 30);
+  static const Duration _cacheTtl = Duration(minutes: 2);
   static const String _staffListCache = 'staff-service-list';
 
   final BaseService _baseService;
@@ -38,7 +38,9 @@ class StaffService {
     return result;
   }
 
-  Future<Map<String, dynamic>> createStaff(Map<String, dynamic> staffData) async {
+  Future<Map<String, dynamic>> createStaff(
+    Map<String, dynamic> staffData,
+  ) async {
     final response = await _baseService.postJson<dynamic>(
       Endpoints.adminStaff,
       staffData,

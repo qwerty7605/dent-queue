@@ -13,6 +13,27 @@ API_PORT="${API_PORT:-8080}"
 API_HOST="${API_HOST:-}"
 USE_ADB_REVERSE="${USE_ADB_REVERSE:-0}"
 
+usage() {
+  cat <<'EOF'
+Usage: run_phone.sh [device-id] [flutter-run-args...]
+       run_phone.sh -d <device-id> [flutter-run-args...]
+       run_phone.sh --device <device-id> [flutter-run-args...]
+
+Runs the Flutter app from the frontend project directory with API_BASE_URL set.
+The script can be launched from any working directory.
+
+Examples:
+  ./scripts/run_phone.sh -d emulator-5554
+  ./scripts/run_phone.sh --device adb-XKAES86TEUNBQOPN-U38ttB._adb-tls-connect._tcp
+  ./scripts/run_phone.sh emulator-5554 --release
+
+Environment overrides:
+  API_HOST          Force a specific LAN IP or hostname.
+  API_PORT          Backend port. Defaults to 8080.
+  USE_ADB_REVERSE   Set to 1 to tunnel Android device traffic to localhost.
+EOF
+}
+
 find_adb() {
   if command -v adb >/dev/null 2>&1; then
     command -v adb
@@ -74,7 +95,7 @@ check_http() {
   local url="$1"
 
   if command -v curl >/dev/null 2>&1; then
-    curl --silent --show-error --fail --max-time 2 -o /dev/null "$url"
+    curl --silent --show-error --max-time 2 -o /dev/null "$url"
     return $?
   fi
 
@@ -88,7 +109,7 @@ print_backend_start_hint() {
 
   if [[ -f "$docker_compose_file" ]]; then
     echo "Start the backend containers before launching the phone app:"
-    echo "  cd /home/aldridge/app-dev/laravel"
+    echo "  cd $repo_root/laravel"
     echo "  docker compose up -d"
     return
   fi
@@ -96,26 +117,61 @@ print_backend_start_hint() {
   echo "Start the backend before launching the phone app."
 }
 
-if [[ -z "$API_HOST" ]]; then
-  API_HOST="$(detect_host_ip || true)"
-fi
-
-if [[ -z "$API_HOST" ]]; then
-  echo "Unable to determine host LAN IP."
-  echo "Set it manually: API_HOST=192.168.x.x ./scripts/run_phone.sh"
-  exit 1
-fi
-
 DEVICE_ARGS=()
 DEVICE_ID=""
-if [[ "${1:-}" != "" ]] && [[ "${1:-}" != --* ]]; then
-  DEVICE_ID="$1"
-  DEVICE_ARGS=(-d "$1")
-  shift
-fi
+FLUTTER_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -d|--device)
+      if [[ $# -lt 2 ]]; then
+        echo "$1 requires a device id"
+        exit 1
+      fi
+      DEVICE_ID="$2"
+      DEVICE_ARGS=(-d "$2")
+      shift 2
+      ;;
+    -d=*|--device=*)
+      DEVICE_ID="${1#*=}"
+      if [[ -z "$DEVICE_ID" ]]; then
+        echo "$1 requires a device id"
+        exit 1
+      fi
+      DEVICE_ARGS=(-d "$DEVICE_ID")
+      shift
+      ;;
+    --)
+      shift
+      FLUTTER_ARGS+=("$@")
+      break
+      ;;
+    --*)
+      FLUTTER_ARGS+=("$1")
+      shift
+      ;;
+    *)
+      if [[ -z "$DEVICE_ID" && "${#FLUTTER_ARGS[@]}" -eq 0 ]]; then
+        DEVICE_ID="$1"
+        DEVICE_ARGS=(-d "$1")
+      else
+        FLUTTER_ARGS+=("$1")
+      fi
+      shift
+      ;;
+  esac
+done
 
 ADB_BIN="${ADB_BIN:-}"
 if [[ "$USE_ADB_REVERSE" == "1" ]]; then
+  if [[ -z "$API_HOST" ]]; then
+    API_HOST="127.0.0.1"
+  fi
+
   if [[ -z "$ADB_BIN" ]]; then
     ADB_BIN="$(find_adb || true)"
   fi
@@ -126,8 +182,9 @@ if [[ "$USE_ADB_REVERSE" == "1" ]]; then
     fi
 
     if [[ -n "$DEVICE_ID" ]]; then
-      if "$ADB_BIN" -s "$DEVICE_ID" reverse "tcp:${API_PORT}" "tcp:${API_PORT}" >/dev/null 2>&1; then
-        echo "adb reverse enabled for ${DEVICE_ID}, but LAN host remains the default."
+      if "$ADB_BIN" -s "$DEVICE_ID" reverse "tcp:${API_PORT}" "tcp:${API_PORT}" >/dev/null 2>&1 || "$ADB_BIN" reverse "tcp:${API_PORT}" "tcp:${API_PORT}" >/dev/null 2>&1; then
+        echo "adb reverse enabled for ${DEVICE_ID}; using localhost tunnel."
+        API_HOST="127.0.0.1"
       else
         echo "Warning: could not enable adb reverse for ${DEVICE_ID}"
       fi
@@ -135,6 +192,16 @@ if [[ "$USE_ADB_REVERSE" == "1" ]]; then
   else
     echo "Warning: adb not found; continuing with detected LAN host ${API_HOST}"
   fi
+fi
+
+if [[ -z "$API_HOST" ]]; then
+  API_HOST="$(detect_host_ip || true)"
+fi
+
+if [[ -z "$API_HOST" ]]; then
+  echo "Unable to determine host LAN IP."
+  echo "Set it manually: API_HOST=192.168.x.x ./scripts/run_phone.sh"
+  exit 1
 fi
 
 BASE_URL="http://${API_HOST}:${API_PORT}"
@@ -153,4 +220,4 @@ else
 fi
 
 echo "Running with API_BASE_URL=${BASE_URL}"
-flutter run "${DEVICE_ARGS[@]}" --dart-define=API_BASE_URL="$BASE_URL" "$@"
+flutter run "${DEVICE_ARGS[@]}" --dart-define=API_BASE_URL="$BASE_URL" "${FLUTTER_ARGS[@]}"

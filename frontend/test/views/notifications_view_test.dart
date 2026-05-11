@@ -20,6 +20,14 @@ class _FakeNotificationService extends Fake implements NotificationService {
   bool lastForceRefresh = false;
 
   @override
+  Future<NotificationListResult?> getCachedNotifications(
+    String role, {
+    bool allowStale = false,
+  }) async {
+    return null;
+  }
+
+  @override
   Future<NotificationListResult> getNotifications(
     String role, {
     bool forceRefresh = false,

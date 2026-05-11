@@ -7,6 +7,14 @@ class ShortTermCache {
       <String, Future<dynamic>>{};
 
   static T? read<T>(String namespace, String key) {
+    return readEntry<T>(namespace, key)?.value;
+  }
+
+  static ShortTermCacheHit<T>? readEntry<T>(
+    String namespace,
+    String key, {
+    bool allowStale = false,
+  }) {
     final String compositeKey = _compositeKey(namespace, key);
     final _ShortTermCacheEntry? entry = _entries[compositeKey];
 
@@ -14,12 +22,16 @@ class ShortTermCache {
       return null;
     }
 
-    if (DateTime.now().isAfter(entry.expiresAt)) {
+    final bool isFresh = !DateTime.now().isAfter(entry.expiresAt);
+    if (!isFresh && !allowStale) {
       _entries.remove(compositeKey);
       return null;
     }
 
-    return _clone(entry.value) as T;
+    return ShortTermCacheHit<T>(
+      value: _clone(entry.value) as T,
+      isFresh: isFresh,
+    );
   }
 
   static void write<T>(
@@ -103,6 +115,13 @@ class ShortTermCache {
   static String _compositeKey(String namespace, String key) {
     return '$namespace::$key';
   }
+}
+
+class ShortTermCacheHit<T> {
+  const ShortTermCacheHit({required this.value, required this.isFresh});
+
+  final T value;
+  final bool isFresh;
 }
 
 class _ShortTermCacheEntry {

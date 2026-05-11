@@ -350,6 +350,102 @@ void main() {
   );
 
   testWidgets(
+    'staff appointment page paginates 30 records and applies advanced search',
+    (WidgetTester tester) async {
+      final String today = todayString();
+      final InMemoryTokenStorage tokenStorage = InMemoryTokenStorage();
+      final List<Map<String, dynamic>> appointments =
+          List<Map<String, dynamic>>.generate(35, (int index) {
+            final int number = index + 1;
+            return <String, dynamic>{
+              'id': number,
+              'patient_name': 'Patient ${number.toString().padLeft(2, '0')}',
+              'service_type': number == 35
+                  ? 'Tooth Extraction'
+                  : 'Teeth Cleaning',
+              'appointment_date': today,
+              'time': '${(8 + (index % 8)).toString().padLeft(2, '0')}:00',
+              'status': 'Approved',
+              'queue_number': number,
+              'is_called': false,
+            };
+          });
+      final _FakeNotificationService notificationService =
+          _FakeNotificationService();
+      final appointmentService = _FakeAppointmentService()
+        ..adminMasterListResults = <List<Map<String, dynamic>>>[appointments]
+        ..adminAppointmentsResults = <List<Map<String, dynamic>>>[appointments]
+        ..adminQueueResults = <Map<String, dynamic>>[
+          <String, dynamic>{
+            'now_serving': <String, dynamic>{
+              'queue_number': 1,
+              'patient_name': 'Patient 01',
+            },
+            'next_up': <String, dynamic>{
+              'queue_number': 2,
+              'patient_name': 'Patient 02',
+            },
+          },
+        ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StaffDashboardView(
+            userInfo: const <String, dynamic>{},
+            tokenStorage: tokenStorage,
+            onLogout: () {},
+            loggingOut: false,
+            appointmentService: appointmentService,
+            notificationService: notificationService,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('staff-appointments-shortcut-card')),
+      );
+      await tester.tap(
+        find.byKey(const Key('staff-appointments-shortcut-card')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('staff-appointments-advanced-search')),
+        findsOneWidget,
+      );
+      expect(find.text('Displaying 1-30 of 35 appointments'), findsOneWidget);
+      expect(find.text('Patient 30'), findsOneWidget);
+      expect(find.text('Patient 31'), findsNothing);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('staff-appointment-next-page')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('staff-appointment-next-page')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Displaying 31-35 of 35 appointments'), findsOneWidget);
+      expect(find.text('Patient 31'), findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byKey(const Key('staff-appointment-search-field')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('staff-appointment-search-field')),
+        'Patient 35',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Patient 35'), findsWidgets);
+      expect(find.text('Tooth Extraction'), findsOneWidget);
+      expect(find.text('Patient 31'), findsNothing);
+      expect(find.text('Displaying 1-1 of 1 appointments'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'intern dashboard hides restricted controls and skips blocked calls',
     (WidgetTester tester) async {
       final String today = todayString();

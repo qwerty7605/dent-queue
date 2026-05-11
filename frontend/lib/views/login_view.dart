@@ -9,11 +9,13 @@ class LoginView extends StatefulWidget {
   const LoginView({
     super.key,
     required this.authService,
+    this.showRegisterPrompt = true,
     this.onSwitchToRegister,
     this.onLoginSuccess,
   });
 
   final AuthService authService;
+  final bool showRegisterPrompt;
   final VoidCallback? onSwitchToRegister;
   final VoidCallback? onLoginSuccess;
 
@@ -341,34 +343,37 @@ class _LoginViewState extends State<LoginView> {
                               ),
                               const SizedBox(height: 16),
 
-                              Wrap(
-                                alignment: WrapAlignment.center,
-                                children: [
-                                  Text(
-                                    'Dont have an account? ',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: MobileTypography.bodySmall(
-                                        context,
-                                      ),
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    onTap: widget.onSwitchToRegister,
-                                    child: Text(
-                                      'Click here',
+                              if (widget.showRegisterPrompt) ...[
+                                Wrap(
+                                  alignment: WrapAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Dont have an account? ',
                                       style: TextStyle(
-                                        color: Color(0xFF9CB5E8),
-                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
                                         fontSize: MobileTypography.bodySmall(
                                           context,
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
+                                    GestureDetector(
+                                      onTap: widget.onSwitchToRegister,
+                                      child: Text(
+                                        'Click here',
+                                        style: TextStyle(
+                                          color: Color(0xFF9CB5E8),
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: MobileTypography.bodySmall(
+                                            context,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                              ],
                               SizedBox(height: isDesktop ? 36 : 28),
 
                               SizedBox(

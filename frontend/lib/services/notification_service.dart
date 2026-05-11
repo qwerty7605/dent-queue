@@ -24,6 +24,39 @@ class NotificationService {
   final BaseService _baseService;
   final TokenStorage? _tokenStorage;
 
+  Future<NotificationListResult?> getCachedNotifications(
+    String role, {
+    bool allowStale = false,
+  }) async {
+    final String normalizedRole = _normalizedRole(role);
+    final String cacheKey = await _cacheKey(normalizedRole);
+    final ShortTermCacheHit<dynamic>? cached =
+        ShortTermCache.readEntry<dynamic>(
+          _notificationsCache,
+          cacheKey,
+          allowStale: allowStale,
+        );
+
+    if (cached?.value is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final Map<String, dynamic> cachedValue =
+        cached!.value as Map<String, dynamic>;
+    final List<AppNotification> notifications =
+        (cachedValue['notifications'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map>()
+            .map((Map<dynamic, dynamic> item) {
+              return AppNotification.fromJson(Map<String, dynamic>.from(item));
+            })
+            .toList();
+
+    return NotificationListResult(
+      notifications: notifications,
+      unreadCount: cachedValue['unread_count'] as int? ?? 0,
+    );
+  }
+
   Future<NotificationListResult> getNotifications(
     String role, {
     bool forceRefresh = false,

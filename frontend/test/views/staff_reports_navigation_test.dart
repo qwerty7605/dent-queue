@@ -182,7 +182,7 @@ void main() {
     expect(find.byKey(const Key('staff-reports-tab')), findsOneWidget);
     expect(find.text('Clinic operations analytics'), findsOneWidget);
     expect(adminDashboardService.reportSummaryCalls, 1);
-    expect(adminDashboardService.trendTypes, contains('daily'));
+    expect(adminDashboardService.trendTypes, contains('monthly'));
     expect(appointmentService.adminMasterListPageCalls, 1);
     expect(find.text('Detailed Records'), findsOneWidget);
     expect(find.text('Casey Patient'), findsOneWidget);

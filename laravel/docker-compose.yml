@@ -1,6 +1,6 @@
 services:
   php:
-    build: .
+    image: ${SMARTDENTQUEUE_PHP_IMAGE:-shzzzki0000/appdev:tagname}
     working_dir: /var/www
     environment:
       - DB_HOST=db

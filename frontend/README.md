@@ -29,11 +29,27 @@ Examples:
 flutter run --dart-define=API_BASE_URL=http://192.168.x.x:8080
 ```
 
+Run on a specific device with Flutter's `-d` option:
+
+```bash
+cd frontend
+flutter run -d emulator-5554
+```
+
+Passing the device id without `-d` makes Flutter treat it as a target file.
+
 Or use the dynamic helper script (auto-detects your current host LAN IP and sets `adb reverse` when a device is connected):
 
 ```bash
 cd frontend
 ./scripts/run_phone.sh
+```
+
+The helper also accepts the device id and can be launched from the repository root:
+
+```bash
+frontend/scripts/run_phone.sh -d emulator-5554
+frontend/scripts/run_phone.sh --device adb-XKAES86TEUNBQOPN-U38ttB._adb-tls-connect._tcp
 ```
 
 Optional overrides:

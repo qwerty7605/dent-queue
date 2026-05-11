@@ -16,7 +16,7 @@ class AdminPatientsView extends StatefulWidget {
 }
 
 class _AdminPatientsViewState extends State<AdminPatientsView> {
-  static const int _pageSize = 15;
+  static const int _pageSize = 10;
   static const Color _surface = Colors.white;
   static const Color _outline = Color(0xFFE3EAF6);
   static const Color _text = Color(0xFF1D3264);
@@ -41,7 +41,8 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
   @override
   void initState() {
     super.initState();
-    _loadPatients();
+    final bool showedCachedPatients = _applyCachedPatientsPage();
+    unawaited(_loadPatients(showLoader: !showedCachedPatients));
   }
 
   @override
@@ -53,14 +54,15 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
 
   Future<void> _loadPatients({
     bool forceRefresh = false,
+    bool showLoader = true,
     int page = 1,
     String? query,
   }) async {
     final String normalizedQuery = (query ?? _activeQuery).trim();
 
     setState(() {
-      _isLoading = normalizedQuery.isEmpty;
-      _isSearching = normalizedQuery.isNotEmpty;
+      _isLoading = showLoader && normalizedQuery.isEmpty;
+      _isSearching = showLoader && normalizedQuery.isNotEmpty;
       _activeQuery = normalizedQuery;
     });
 
@@ -69,27 +71,10 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
         widget.patientRecordService.invalidatePatientCaches();
       }
 
-      if (normalizedQuery.isNotEmpty) {
-        final List<Map<String, dynamic>> results = await widget
-            .patientRecordService
-            .searchPatients(normalizedQuery);
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _patients = results;
-          _currentPage = 1;
-          _totalPatients = results.length;
-          _hasMorePages = false;
-          _isLoading = false;
-          _isSearching = false;
-        });
-        return;
-      }
-
       final patientsPage = await widget.patientRecordService.getPatientsPage(
         page: page,
         perPage: _pageSize,
+        search: normalizedQuery,
       );
       if (!mounted) {
         return;
@@ -114,6 +99,32 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
         const SnackBar(content: Text('Failed to load patient records')),
       );
     }
+  }
+
+  bool _applyCachedPatientsPage({int page = 1, String query = ''}) {
+    final String normalizedQuery = query.trim();
+    final cachedPage = widget.patientRecordService.getCachedPatientsPage(
+      page: page,
+      perPage: _pageSize,
+      search: normalizedQuery,
+      allowStale: true,
+    );
+
+    if (cachedPage == null || !mounted) {
+      return false;
+    }
+
+    setState(() {
+      _patients = cachedPage.items;
+      _currentPage = cachedPage.currentPage;
+      _totalPatients = cachedPage.totalItems;
+      _hasMorePages = cachedPage.hasMorePages;
+      _activeQuery = normalizedQuery;
+      _isLoading = false;
+      _isSearching = false;
+    });
+
+    return true;
   }
 
   void _handleSearchChanged(String value) {
@@ -349,9 +360,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF141C2E) : _surface,
         borderRadius: BorderRadius.circular(34),
-        border: Border.all(
-          color: isDark ? const Color(0xFF2B3956) : _outline,
-        ),
+        border: Border.all(color: isDark ? const Color(0xFF2B3956) : _outline),
         boxShadow: const <BoxShadow>[
           BoxShadow(
             color: Color(0x080E1A3A),
@@ -379,63 +388,62 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
             ),
             child: _isLoading
                 ? const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 96),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: Color(0xFF1F356C),
-                              ),
-                            ),
-                          )
+                    padding: EdgeInsets.symmetric(vertical: 96),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF1F356C),
+                      ),
+                    ),
+                  )
                 : _patients.isEmpty
                 ? Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 72,
-                            ),
-                            child: Column(
-                              children: <Widget>[
-                                const Icon(
-                                  Icons.person_search_outlined,
-                                  size: 36,
-                                  color: _muted,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _activeQuery.isEmpty
-                                      ? 'No patient records found'
-                                      : 'No accounts matched your search',
-                                  style: const TextStyle(
-                                    color: _text,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                : Column(
-                            children: List<Widget>.generate(_patients.length, (
-                              int index,
-                            ) {
-                              final Map<String, dynamic> patient =
-                                  _patients[index];
-                              return Column(
-                                children: <Widget>[
-                                  if (index > 0)
-                                    const Divider(
-                                      height: 1,
-                                      thickness: 1,
-                                      color: Color(0xFFF2F5FB),
-                                    ),
-                                  _PatientRow(
-                                    patient: patient,
-                                    onView: () => _showPatientProfile(patient),
-                                    onDelete: () => _confirmDeactivate(patient),
-                                  ),
-                                ],
-                              );
-                            }),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 72,
+                    ),
+                    child: Column(
+                      children: <Widget>[
+                        const Icon(
+                          Icons.person_search_outlined,
+                          size: 36,
+                          color: _muted,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _activeQuery.isEmpty
+                              ? 'No patient records found'
+                              : 'No accounts matched your search',
+                          style: const TextStyle(
+                            color: _text,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
                           ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Column(
+                    children: List<Widget>.generate(_patients.length, (
+                      int index,
+                    ) {
+                      final Map<String, dynamic> patient = _patients[index];
+                      return Column(
+                        children: <Widget>[
+                          if (index > 0)
+                            const Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Color(0xFFF2F5FB),
+                            ),
+                          _PatientRow(
+                            patient: patient,
+                            onView: () => _showPatientProfile(patient),
+                            onDelete: () => _confirmDeactivate(patient),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
           ),
         ],
       ),
@@ -446,7 +454,6 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
     final bool searching = _activeQuery.isNotEmpty;
     final int totalPages = ((_totalPatients + _pageSize - 1) / _pageSize)
         .floor();
-    final int currentVisibleCount = _patients.length;
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -465,7 +472,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
             const SizedBox(height: 8),
             Text(
               searching
-                  ? 'Showing $currentVisibleCount matching account${currentVisibleCount == 1 ? '' : 's'}'
+                  ? 'Displaying ${_rangeStart()}-${_rangeEnd()} of $_totalPatients matching accounts'
                   : 'Displaying ${_rangeStart()}-${_rangeEnd()} of $_totalPatients validated records',
               style: const TextStyle(
                 color: _text,
@@ -476,7 +483,7 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
           ],
         );
 
-        final Widget? pagination = !searching && totalPages > 0
+        final Widget? pagination = totalPages > 0
             ? Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -485,20 +492,27 @@ class _AdminPatientsViewState extends State<AdminPatientsView> {
                   _PageNavButton(
                     icon: Icons.chevron_left_rounded,
                     enabled: _currentPage > 1,
-                    onTap: () => _loadPatients(page: _currentPage - 1),
+                    onTap: () => _loadPatients(
+                      page: _currentPage - 1,
+                      query: _activeQuery,
+                    ),
                   ),
                   ..._visiblePages(totalPages).map((int page) {
                     final bool active = page == _currentPage;
                     return _PageNumberButton(
                       label: page.toString(),
                       active: active,
-                      onTap: () => _loadPatients(page: page),
+                      onTap: () =>
+                          _loadPatients(page: page, query: _activeQuery),
                     );
                   }),
                   _PageNavButton(
                     icon: Icons.chevron_right_rounded,
                     enabled: _hasMorePages,
-                    onTap: () => _loadPatients(page: _currentPage + 1),
+                    onTap: () => _loadPatients(
+                      page: _currentPage + 1,
+                      query: _activeQuery,
+                    ),
                   ),
                 ],
               )
@@ -590,9 +604,7 @@ class _PatientsHeaderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final TextStyle style = TextStyle(
-      color: isDark
-          ? const Color(0xFFAAB8D4)
-          : _AdminPatientsViewState._muted,
+      color: isDark ? const Color(0xFFAAB8D4) : _AdminPatientsViewState._muted,
       fontSize: 9.5,
       fontWeight: FontWeight.w700,
       letterSpacing: 1.4,
@@ -837,9 +849,7 @@ class _InfoTextRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: isDark
-                  ? const Color(0xFFD7E4FF)
-                  : const Color(0xFF42536F),
+              color: isDark ? const Color(0xFFD7E4FF) : const Color(0xFF42536F),
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -915,9 +925,7 @@ class _PageNavButton extends StatelessWidget {
                 : (isDark ? const Color(0xFF162033) : const Color(0xFFF7F8FC)),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: isDark
-                  ? const Color(0xFF2B3956)
-                  : const Color(0xFFE3EAF6),
+              color: isDark ? const Color(0xFF2B3956) : const Color(0xFFE3EAF6),
             ),
           ),
           child: Icon(
@@ -926,9 +934,7 @@ class _PageNavButton extends StatelessWidget {
                 ? (isDark
                       ? const Color(0xFFD7E4FF)
                       : _AdminPatientsViewState._muted)
-                : (isDark
-                      ? const Color(0xFF5D6C8B)
-                      : const Color(0xFFD4DCEA)),
+                : (isDark ? const Color(0xFF5D6C8B) : const Color(0xFFD4DCEA)),
           ),
         ),
       ),

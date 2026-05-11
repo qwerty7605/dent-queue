@@ -32,7 +32,12 @@ class AdminStaffController extends Controller
         }
 
         $query = $this->staffListingQuery($roleIds->all());
+        $search = $this->resolveSearchQuery($request);
         $pagination = $this->resolvePagination($request);
+
+        if ($search !== null) {
+            $this->applyStaffSearch($query, $search);
+        }
 
         if ($pagination !== null) {
             $staff = $query->paginate(
@@ -167,6 +172,60 @@ class AdminStaffController extends Controller
             'page' => (int) ($payload['page'] ?? 1),
             'per_page' => (int) ($payload['per_page'] ?? 25),
         ];
+    }
+
+    private function resolveSearchQuery(Request $request): ?string
+    {
+        $payload = $request->validate([
+            'search' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        $search = trim((string) ($payload['search'] ?? ''));
+
+        return $search === '' ? null : $search;
+    }
+
+    private function applyStaffSearch(Builder $query, string $search): void
+    {
+        $terms = preg_split('/\s+/', trim($search)) ?: [];
+
+        $query->where(function (Builder $searchQuery) use ($terms) {
+            foreach ($terms as $term) {
+                $term = trim($term);
+
+                if ($term === '') {
+                    continue;
+                }
+
+                $termLike = '%' . $term . '%';
+
+                $searchQuery->where(
+                    function (Builder $termQuery) use ($termLike) {
+                        $termQuery
+                            ->where('first_name', 'LIKE', $termLike)
+                            ->orWhere('middle_name', 'LIKE', $termLike)
+                            ->orWhere('last_name', 'LIKE', $termLike)
+                            ->orWhere('username', 'LIKE', $termLike)
+                            ->orWhere('email', 'LIKE', $termLike)
+                            ->orWhere('phone_number', 'LIKE', $termLike)
+                            ->orWhereHas(
+                                'staffRecord',
+                                function (Builder $staffRecordQuery) use ($termLike) {
+                                    $staffRecordQuery
+                                        ->where('staff_id', 'LIKE', $termLike)
+                                        ->orWhere('first_name', 'LIKE', $termLike)
+                                        ->orWhere('middle_name', 'LIKE', $termLike)
+                                        ->orWhere('last_name', 'LIKE', $termLike)
+                                        ->orWhere('contact_number', 'LIKE', $termLike);
+                                },
+                            )
+                            ->orWhereHas('role', function (Builder $roleQuery) use ($termLike) {
+                                $roleQuery->where('name', 'LIKE', $termLike);
+                            });
+                    },
+                );
+            }
+        });
     }
 
     private function paginationMeta(LengthAwarePaginator $paginator): array

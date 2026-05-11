@@ -24,37 +24,53 @@ class DoctorAvailabilityService
     }
 
     /**
-     * @return array{schedule: DoctorUnavailability, affected_appointments: array<int, array<string, mixed>>}
+     * @return array{schedule: DoctorUnavailability|null, schedules: array<int, DoctorUnavailability>, affected_appointments: array<int, array<string, mixed>>}
      */
     public function create(User $user, array $payload): array
     {
         $schedule = $this->validateSchedulePayload($payload);
-
-        $this->assertScheduleDoesNotOverlap(
-            $schedule['unavailable_date'],
-            $schedule['start_time'],
-            $schedule['end_time'],
+        $dates = $this->scheduleDates(
+            $schedule['start_date'],
+            $schedule['end_date'],
         );
 
-        return DB::transaction(function () use ($schedule, $user): array {
-            $doctorUnavailability = DoctorUnavailability::query()->create([
-                'unavailable_date' => $schedule['unavailable_date'],
-                'start_time' => $schedule['start_time'],
-                'end_time' => $schedule['end_time'],
-                'reason' => $schedule['reason'] ?? null,
-                'created_by_user_id' => (int) $user->id,
-            ]);
+        foreach ($dates as $date) {
+            $this->assertScheduleDoesNotOverlap(
+                $date,
+                $schedule['start_time'],
+                $schedule['end_time'],
+            );
+        }
 
-            $affectedAppointments = $this->affectedAppointmentsForSchedule($doctorUnavailability);
-            $serializedAffectedAppointments = $affectedAppointments
-                ->map(fn (Appointment $appointment): array => $this->serializeAffectedAppointment($appointment))
-                ->all();
+        return DB::transaction(function () use ($schedule, $dates, $user): array {
+            $createdSchedules = [];
+            $serializedAffectedAppointments = [];
 
-            $this->updateAffectedAppointmentStatuses($doctorUnavailability, $affectedAppointments);
-            $this->notifyAffectedPatients($doctorUnavailability, $affectedAppointments);
+            foreach ($dates as $date) {
+                $doctorUnavailability = DoctorUnavailability::query()->create([
+                    'unavailable_date' => $date,
+                    'start_time' => $schedule['start_time'],
+                    'end_time' => $schedule['end_time'],
+                    'reason' => $schedule['reason'] ?? null,
+                    'created_by_user_id' => (int) $user->id,
+                ]);
+                $createdSchedules[] = $doctorUnavailability;
+
+                $affectedAppointments = $this->affectedAppointmentsForSchedule($doctorUnavailability);
+                $serializedAffectedAppointments = [
+                    ...$serializedAffectedAppointments,
+                    ...$affectedAppointments
+                        ->map(fn (Appointment $appointment): array => $this->serializeAffectedAppointment($appointment))
+                        ->all(),
+                ];
+
+                $this->updateAffectedAppointmentStatuses($doctorUnavailability, $affectedAppointments);
+                $this->notifyAffectedPatients($doctorUnavailability, $affectedAppointments);
+            }
 
             return [
-                'schedule' => $doctorUnavailability,
+                'schedule' => $createdSchedules[0] ?? null,
+                'schedules' => $createdSchedules,
                 'affected_appointments' => $serializedAffectedAppointments,
             ];
         });
@@ -340,14 +356,23 @@ class DoctorAvailabilityService
     }
 
     /**
-     * @return array{unavailable_date: string, start_time: string, end_time: string, reason: ?string}
+     * @return array{start_date: string, end_date: string, start_time: string, end_time: string, reason: ?string}
      */
     private function validateSchedulePayload(array $payload): array
     {
         $timezone = (string) config('app.timezone', 'UTC');
-        $date = Carbon::createFromFormat('Y-m-d', (string) $payload['unavailable_date'], $timezone)->toDateString();
+        $startDateValue = (string) ($payload['start_date'] ?? $payload['unavailable_date']);
+        $endDateValue = (string) ($payload['end_date'] ?? $startDateValue);
+        $startDate = Carbon::createFromFormat('Y-m-d', $startDateValue, $timezone)->startOfDay();
+        $endDate = Carbon::createFromFormat('Y-m-d', $endDateValue, $timezone)->startOfDay();
         $startTime = $this->normalizeTimeString((string) $payload['start_time'], $timezone);
         $endTime = $this->normalizeTimeString((string) $payload['end_time'], $timezone);
+
+        if ($endDate->lt($startDate)) {
+            throw ValidationException::withMessages([
+                'end_date' => ['End date must be on or after start date.'],
+            ]);
+        }
 
         if ($startTime === null) {
             throw ValidationException::withMessages([
@@ -361,8 +386,8 @@ class DoctorAvailabilityService
             ]);
         }
 
-        if ($this->combineDateAndTime($date, $endTime, $timezone)->lessThanOrEqualTo(
-            $this->combineDateAndTime($date, $startTime, $timezone),
+        if ($this->combineDateAndTime($startDate->toDateString(), $endTime, $timezone)->lessThanOrEqualTo(
+            $this->combineDateAndTime($startDate->toDateString(), $startTime, $timezone),
         )) {
             throw ValidationException::withMessages([
                 'end_time' => ['End time must be later than start time.'],
@@ -370,11 +395,30 @@ class DoctorAvailabilityService
         }
 
         return [
-            'unavailable_date' => $date,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
             'start_time' => $startTime,
             'end_time' => $endTime,
             'reason' => isset($payload['reason']) ? trim((string) $payload['reason']) : null,
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function scheduleDates(string $startDate, string $endDate): array
+    {
+        $timezone = (string) config('app.timezone', 'UTC');
+        $current = Carbon::createFromFormat('Y-m-d', $startDate, $timezone)->startOfDay();
+        $end = Carbon::createFromFormat('Y-m-d', $endDate, $timezone)->startOfDay();
+        $dates = [];
+
+        while ($current->lte($end)) {
+            $dates[] = $current->toDateString();
+            $current->addDay();
+        }
+
+        return $dates;
     }
 
     /**
