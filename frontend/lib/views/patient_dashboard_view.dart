@@ -54,7 +54,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   List<Map<String, dynamic>> _appointments = [];
   List<Map<String, dynamic>> _cancelledAppointments = [];
   Map<String, dynamic>? _todayQueueStatus;
-  _PatientAppointmentFilter _selectedFilter = _PatientAppointmentFilter.all;
+  _PatientAppointmentFilter _selectedFilter =
+      _PatientAppointmentFilter.approved;
   bool _isLoadingAppointments = true;
   String? _successMessage;
   String _messageType = 'success'; // 'success' or 'error'
@@ -245,14 +246,6 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   @override
   Widget build(BuildContext context) {
     final Map<String, dynamic> userInfo = _localUserInfo;
-    String fullName = userInfo['name']?.toString() ?? '';
-    if (fullName.isEmpty) {
-      fullName =
-          '${userInfo['first_name'] ?? ''} ${userInfo['middle_name'] ?? ''} ${userInfo['last_name'] ?? ''}'
-              .trim();
-    }
-    if (fullName.isEmpty) fullName = 'User';
-    final name = fullName;
     final chipName = _topBarName(userInfo);
 
     String? profilePicture = userInfo['profile_picture']?.toString();
@@ -269,35 +262,27 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     return Scaffold(
       backgroundColor: AppNavigationTheme.background,
       appBar: _buildAppBar(chipName, profileImage),
-      drawer: _buildDrawer(name, profileImage),
       body: _selectedIndex == 0
           ? _buildBody()
           : _selectedIndex == 1
           ? _buildProfileView()
           : _selectedIndex == 3
           ? _buildAppointmentsView()
-          : _buildMedicalHistoryView(),
-      floatingActionButton: _selectedIndex != 1
-          ? FloatingActionButton(
-              onPressed: _openBookAppointmentDialog,
-              backgroundColor: AppNavigationTheme.primary,
-              shape: const CircleBorder(),
-              child: const Icon(Icons.add, color: Colors.white, size: 36),
+          : _selectedIndex == 4
+          ? RecycleBinView(
+              role: RecycleBinRole.patient,
+              appointmentService: _appointmentService,
+              embedded: true,
             )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+          : _buildMedicalHistoryView(),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  void _selectSection(int index, {bool closeDrawer = false}) {
+  void _selectSection(int index) {
     setState(() {
       _selectedIndex = index;
     });
-
-    if (closeDrawer) {
-      Navigator.pop(context);
-    }
   }
 
   PreferredSizeWidget _buildAppBar(
@@ -305,7 +290,25 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
     ImageProvider<Object>? profileImage,
   ) {
     return AppHeaderBar(
-      titleSpacing: -8,
+      automaticallyImplyLeading: false,
+      leading: IconButton(
+        tooltip: 'Logout',
+        onPressed: widget.loggingOut ? null : widget.onLogout,
+        icon: widget.loggingOut
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Transform.flip(
+                flipX: true,
+                child: const Icon(Icons.logout, color: Colors.redAccent),
+              ),
+      ),
+      titleSpacing: 0,
       titleWidget: const AppBrandLockup(logoSize: 40, spacing: 4),
       showBottomAccent: false,
       actions: <Widget>[
@@ -329,121 +332,6 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildDrawer(String name, ImageProvider<Object>? profileImage) {
-    final String patientId =
-        _localUserInfo['patient_id']?.toString().trim().isNotEmpty == true
-        ? _localUserInfo['patient_id'].toString().trim()
-        : 'PT-${(_localUserInfo['id'] ?? '0001').toString().padLeft(4, '0')}';
-    return Drawer(
-      backgroundColor: AppNavigationTheme.surface,
-      child: SafeArea(
-        child: Column(
-          children: [
-            AppNavigationDrawerHeader(
-              name: name,
-              roleLabel: patientId,
-              profileImage: profileImage,
-              fallbackInitial: name.isNotEmpty ? name[0].toUpperCase() : 'U',
-            ),
-            const Divider(height: 1, color: AppNavigationTheme.divider),
-            const SizedBox(height: 10),
-            AppNavigationDrawerItem(
-              icon: Icons.calendar_today_outlined,
-              label: 'My Appointments',
-              selected: _selectedIndex == 3,
-              onTap: () => _selectSection(3, closeDrawer: true),
-            ),
-            AppNavigationDrawerItem(
-              icon: Icons.person_outline,
-              label: 'Profile',
-              selected: _selectedIndex == 1,
-              onTap: () => _selectSection(1, closeDrawer: true),
-            ),
-            AppNavigationDrawerItem(
-              icon: Icons.access_time_outlined,
-              label: 'Medical History',
-              selected: _selectedIndex == 2,
-              onTap: () => _selectSection(2, closeDrawer: true),
-            ),
-            AppNavigationDrawerItem(
-              icon: Icons.notifications_none,
-              label: 'Notifications',
-              selected: false,
-              onTap: () {
-                Navigator.pop(context);
-                _openNotifications();
-              },
-            ),
-            AppNavigationDrawerItem(
-              icon: Icons.restore_from_trash_outlined,
-              label: 'Recycle Bin',
-              selected: false,
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RecycleBinView(
-                      role: RecycleBinRole.patient,
-                      appointmentService: _appointmentService,
-                    ),
-                  ),
-                ).then((_) => _loadAppointments(showLoader: false));
-              },
-            ),
-            const Spacer(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 18),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: widget.loggingOut ? null : widget.onLogout,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF6F6),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        widget.loggingOut
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.logout, color: Colors.red),
-                        const SizedBox(width: 14),
-                        const Text(
-                          'Logout Account',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const Spacer(),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: Color(0xFFFFB5B5),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -607,11 +495,12 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                 child: Row(
                   children: [
                     _buildAppointmentFilterChip(
-                      label: 'All',
+                      label: 'Approved',
                       selected:
-                          _selectedFilter == _PatientAppointmentFilter.all,
+                          _selectedFilter == _PatientAppointmentFilter.approved,
                       onTap: () => setState(
-                        () => _selectedFilter = _PatientAppointmentFilter.all,
+                        () => _selectedFilter =
+                            _PatientAppointmentFilter.approved,
                       ),
                     ),
                     _buildAppointmentFilterChip(
@@ -624,12 +513,13 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                       ),
                     ),
                     _buildAppointmentFilterChip(
-                      label: 'Approved',
+                      label: 'Cancelled',
                       selected:
-                          _selectedFilter == _PatientAppointmentFilter.approved,
+                          _selectedFilter ==
+                          _PatientAppointmentFilter.cancelled,
                       onTap: () => setState(
                         () => _selectedFilter =
-                            _PatientAppointmentFilter.approved,
+                            _PatientAppointmentFilter.cancelled,
                       ),
                     ),
                     _buildAppointmentFilterChip(
@@ -643,13 +533,11 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                       ),
                     ),
                     _buildAppointmentFilterChip(
-                      label: 'Cancelled',
+                      label: 'All',
                       selected:
-                          _selectedFilter ==
-                          _PatientAppointmentFilter.cancelled,
+                          _selectedFilter == _PatientAppointmentFilter.all,
                       onTap: () => setState(
-                        () => _selectedFilter =
-                            _PatientAppointmentFilter.cancelled,
+                        () => _selectedFilter = _PatientAppointmentFilter.all,
                       ),
                     ),
                   ],
@@ -746,9 +634,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
       children: [
         const SizedBox(height: 18),
         _buildPatientPageTitle(
-          title: 'Medical History',
+          title: 'Appointment History',
           subtitle: null,
-          onBack: () => _selectSection(0),
         ),
         const SizedBox(height: 18),
         if (completedAppts.isEmpty)
@@ -760,7 +647,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                 icon: Icons.history_toggle_off_rounded,
                 title: 'No completed appointments yet',
                 message:
-                    'Finished dental visits will appear here as part of your medical history.',
+                    'Finished dental visits will appear here as part of your appointment history.',
               ),
             ),
           )
@@ -1101,35 +988,37 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   Widget _buildPatientPageTitle({
     required String title,
     String? subtitle,
-    required VoidCallback onBack,
+    VoidCallback? onBack,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
+          if (onBack != null) ...[
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1A2F64).withValues(alpha: 0.08),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                onPressed: onBack,
+                icon: const Icon(
+                  Icons.chevron_left_rounded,
+                  color: Color(0xFF1A2F64),
                 ),
-              ],
-            ),
-            child: IconButton(
-              onPressed: onBack,
-              icon: const Icon(
-                Icons.chevron_left_rounded,
-                color: Color(0xFF1A2F64),
               ),
             ),
-          ),
-          const SizedBox(width: 14),
+            const SizedBox(width: 14),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1835,30 +1724,78 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   }
 
   Widget _buildBottomNavigationBar() {
-    return BottomAppBar(
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 8,
-      color: AppNavigationTheme.surface,
+    return SafeArea(
+      top: false,
       child: SizedBox(
-        height: 64,
-        child: Row(
+        height: 92,
+        child: Stack(
+          alignment: Alignment.topCenter,
           children: [
-            Expanded(
-              child: AppBottomNavItem(
-                icon: Icons.home_outlined,
-                label: 'Home',
-                selected: _selectedIndex == 0,
-                onTap: () => _selectSection(0),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppNavigationTheme.surface,
+                  border: const Border(
+                    top: BorderSide(color: AppNavigationTheme.divider),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.fromLTRB(0, 18, 0, 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: AppBottomNavItem(
+                        icon: Icons.home_outlined,
+                        label: 'Home',
+                        selected: _selectedIndex == 0,
+                        onTap: () => _selectSection(0),
+                      ),
+                    ),
+                    Expanded(
+                      child: AppBottomNavItem(
+                        icon: Icons.calendar_today_outlined,
+                        label: 'Appointments',
+                        selected: _selectedIndex == 3,
+                        onTap: () => _selectSection(3),
+                      ),
+                    ),
+                    const SizedBox(width: 56),
+                    Expanded(
+                      child: AppBottomNavItem(
+                        icon: Icons.access_time_outlined,
+                        label: 'History',
+                        selected: _selectedIndex == 2,
+                        onTap: () => _selectSection(2),
+                      ),
+                    ),
+                    Expanded(
+                      child: AppBottomNavItem(
+                        icon: Icons.restore_from_trash_outlined,
+                        label: 'Bin',
+                        selected: _selectedIndex == 4,
+                        onTap: () => _selectSection(4),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 48),
-            Expanded(
-              child: AppBottomNavItem(
-                icon: Icons.person_outline,
-                label: 'Profile',
-                selected: _selectedIndex == 1,
-                onTap: () => _selectSection(1),
-              ),
+            FloatingActionButton(
+              heroTag: 'patient-book-appointment-bottom-nav',
+              tooltip: 'Book Appointment',
+              onPressed: _openBookAppointmentDialog,
+              backgroundColor: AppNavigationTheme.primary,
+              shape: const CircleBorder(),
+              child: const Icon(Icons.add, color: Colors.white, size: 34),
             ),
           ],
         ),

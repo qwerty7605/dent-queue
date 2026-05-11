@@ -57,6 +57,7 @@ class AppHeaderBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     this.title,
     this.titleWidget,
+    this.leading,
     this.actions = const <Widget>[],
     this.automaticallyImplyLeading = true,
     this.titleSpacing,
@@ -66,6 +67,7 @@ class AppHeaderBar extends StatelessWidget implements PreferredSizeWidget {
 
   final String? title;
   final Widget? titleWidget;
+  final Widget? leading;
   final List<Widget> actions;
   final bool automaticallyImplyLeading;
   final double? titleSpacing;
@@ -82,6 +84,7 @@ class AppHeaderBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: AppNavigationTheme.primary,
       elevation: 0,
       automaticallyImplyLeading: automaticallyImplyLeading,
+      leading: leading,
       centerTitle: centerTitle,
       titleSpacing: titleSpacing,
       iconTheme: const IconThemeData(color: Colors.white, size: 24),
@@ -346,8 +349,8 @@ class AppBottomNavItem extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
           decoration: BoxDecoration(
             color: selected
                 ? AppNavigationTheme.activeSurface
@@ -360,15 +363,18 @@ class AppBottomNavItem extends StatelessWidget {
             children: [
               Icon(icon, size: 22, color: color),
               const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: color,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  height: 1,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: color,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                    height: 1,
+                  ),
                 ),
               ),
             ],

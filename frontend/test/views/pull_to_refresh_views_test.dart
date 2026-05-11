@@ -534,8 +534,7 @@ void main() {
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.text('Profile'));
-      await tester.tap(find.text('Profile'));
+      await tester.tap(find.byIcon(Icons.person).first);
       await tester.pumpAndSettle();
 
       expect(find.text('Edit Profile'), findsNothing);

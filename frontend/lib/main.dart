@@ -10,7 +10,6 @@ import 'services/http_auth_service.dart';
 import 'views/dashboard_view.dart';
 import 'views/login_view.dart';
 import 'views/register_view.dart';
-import 'views/start_page_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -66,13 +65,12 @@ class AuthSwitcherView extends StatefulWidget {
   State<AuthSwitcherView> createState() => _AuthSwitcherViewState();
 }
 
-enum _AuthPage { loading, start, login, register, dashboard }
+enum _AuthPage { loading, login, register, dashboard }
 
 class _AuthSwitcherViewState extends State<AuthSwitcherView> {
   _AuthPage _page = _AuthPage.loading;
-  String? _startupError;
 
-  _AuthPage get _signedOutPage => kIsWeb ? _AuthPage.login : _AuthPage.start;
+  _AuthPage get _signedOutPage => _AuthPage.login;
 
   @override
   void initState() {
@@ -86,7 +84,6 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
       if (!mounted) return;
       setState(() {
         _page = _signedOutPage;
-        _startupError = null;
       });
       return;
     }
@@ -96,15 +93,12 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
       if (!mounted) return;
       setState(() {
         _page = _AuthPage.dashboard;
-        _startupError = null;
       });
     } on ApiException {
       await widget.tokenStorage.clear();
       if (!mounted) return;
       setState(() {
         _page = _signedOutPage;
-        _startupError =
-            'Unable to reconnect to the server. Please sign in again.';
       });
     } catch (error, stackTrace) {
       debugPrint('Auto-login failed: $error');
@@ -113,8 +107,6 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
       if (!mounted) return;
       setState(() {
         _page = _signedOutPage;
-        _startupError =
-            'Unable to reach the server right now. Check your connection and try again.';
       });
     }
   }
@@ -137,18 +129,6 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
       );
     }
 
-    if (_page == _AuthPage.start) {
-      return StartPageView(
-        message: _startupError,
-        onGetStarted: () {
-          setState(() {
-            _page = _AuthPage.login;
-            _startupError = null;
-          });
-        },
-      );
-    }
-
     if (_page == _AuthPage.login) {
       return LoginView(
         authService: widget.authService,
@@ -156,13 +136,11 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
         onSwitchToRegister: () {
           setState(() {
             _page = _AuthPage.register;
-            _startupError = null;
           });
         },
         onLoginSuccess: () {
           setState(() {
             _page = _AuthPage.dashboard;
-            _startupError = null;
           });
         },
       );
@@ -173,13 +151,11 @@ class _AuthSwitcherViewState extends State<AuthSwitcherView> {
       onSwitchToLogin: () {
         setState(() {
           _page = _AuthPage.login;
-          _startupError = null;
         });
       },
       onRegisterSuccess: () {
         setState(() {
           _page = _AuthPage.dashboard;
-          _startupError = null;
         });
       },
     );
