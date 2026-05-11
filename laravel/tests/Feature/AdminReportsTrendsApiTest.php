@@ -68,6 +68,19 @@ class AdminReportsTrendsApiTest extends TestCase
         ]);
     }
 
+    public function test_staff_can_access_reports_trends(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        Sanctum::actingAs($staff);
+
+        $response = $this->getJson('/api/v1/admin/reports/trends?trend_type=daily');
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data',
+            ]);
+    }
+
     public function test_unauthorized_patient_cannot_access_reports_trends(): void
     {
         $patient = $this->createUserWithRole('Patient');

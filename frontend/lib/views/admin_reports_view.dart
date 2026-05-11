@@ -42,12 +42,14 @@ class AdminReportsView extends StatefulWidget {
     required this.appointmentService,
     this.embedded = false,
     this.showDetailedRecords = true,
+    this.canExport = true,
   });
 
   final AdminDashboardService adminDashboardService;
   final AppointmentService appointmentService;
   final bool embedded;
   final bool showDetailedRecords;
+  final bool canExport;
 
   @override
   State<AdminReportsView> createState() => _AdminReportsViewState();
@@ -490,6 +492,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   }
 
   Widget _buildExportButton() {
+    if (!widget.canExport) {
+      return const SizedBox.shrink();
+    }
+
     if (_isExporting) {
       return FilledButton.icon(
         onPressed: null,
@@ -1233,6 +1239,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   }
 
   Widget _buildReportExportAction() {
+    if (!widget.canExport) {
+      return const SizedBox.shrink();
+    }
+
     return OutlinedButton(
       key: const Key('report-export-button'),
       onPressed: _isExporting
@@ -2330,6 +2340,12 @@ class _AdminReportsViewState extends State<AdminReportsView> {
           _AppointmentTrendPoint(label: 'Apr', count: 0),
           _AppointmentTrendPoint(label: 'May', count: 0),
           _AppointmentTrendPoint(label: 'Jun', count: 0),
+          _AppointmentTrendPoint(label: 'Jul', count: 0),
+          _AppointmentTrendPoint(label: 'Aug', count: 0),
+          _AppointmentTrendPoint(label: 'Sep', count: 0),
+          _AppointmentTrendPoint(label: 'Oct', count: 0),
+          _AppointmentTrendPoint(label: 'Nov', count: 0),
+          _AppointmentTrendPoint(label: 'Dec', count: 0),
         ];
     }
   }

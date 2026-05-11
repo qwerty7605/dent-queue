@@ -129,6 +129,28 @@ class AdminReportsSummaryApiTest extends TestCase
             ]);
     }
 
+    public function test_staff_can_access_reports_summary(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        Sanctum::actingAs($staff);
+
+        $response = $this->getJson('/api/v1/admin/reports/summary');
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    'total_appointments',
+                    'pending_count',
+                    'approved_count',
+                    'completed_count',
+                    'cancelled_count',
+                    'cancelled_by_doctor_count',
+                    'reschedule_required_count',
+                    'total_report_records',
+                ],
+            ]);
+    }
+
     public function test_unauthorized_patient_cannot_access_reports_summary(): void
     {
         $patient = $this->createUserWithRole('Patient');
