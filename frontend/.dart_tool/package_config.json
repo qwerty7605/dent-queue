@@ -9,7 +9,7 @@
     },
     {
       "name": "async",
-      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/async-2.13.0",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/async-2.13.1",
       "packageUri": "lib/",
       "languageVersion": "3.4"
     },
@@ -57,9 +57,9 @@
     },
     {
       "name": "cupertino_icons",
-      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/cupertino_icons-1.0.8",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/cupertino_icons-1.0.9",
       "packageUri": "lib/",
-      "languageVersion": "3.1"
+      "languageVersion": "3.9"
     },
     {
       "name": "dbus",
@@ -123,7 +123,7 @@
     },
     {
       "name": "flutter_plugin_android_lifecycle",
-      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.33",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/flutter_plugin_android_lifecycle-2.0.34",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -183,15 +183,15 @@
     },
     {
       "name": "google_fonts",
-      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/google_fonts-8.0.2",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/google_fonts-8.1.0",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
     {
       "name": "hooks",
-      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/hooks-1.0.1",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/hooks-1.0.3",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.10"
     },
     {
       "name": "http",
@@ -213,7 +213,7 @@
     },
     {
       "name": "image_picker_android",
-      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/image_picker_android-0.8.13+14",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/image_picker_android-0.8.13+16",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -256,6 +256,18 @@
     {
       "name": "intl",
       "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/intl-0.20.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "jni",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/jni-1.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "jni_flutter",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/jni_flutter-1.0.1",
       "packageUri": "lib/",
       "languageVersion": "3.3"
     },
@@ -315,9 +327,9 @@
     },
     {
       "name": "native_toolchain_c",
-      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/native_toolchain_c-0.17.4",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/native_toolchain_c-0.17.6",
       "packageUri": "lib/",
-      "languageVersion": "3.9"
+      "languageVersion": "3.10"
     },
     {
       "name": "network_info_plus",
@@ -344,6 +356,12 @@
       "languageVersion": "3.10"
     },
     {
+      "name": "package_config",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/package_config-2.2.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
       "name": "path",
       "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/path-1.9.1",
       "packageUri": "lib/",
@@ -357,7 +375,7 @@
     },
     {
       "name": "path_provider_android",
-      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/path_provider_android-2.2.22",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/path_provider_android-2.3.1",
       "packageUri": "lib/",
       "languageVersion": "3.9"
     },
@@ -408,6 +426,12 @@
       "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/pub_semver-2.2.0",
       "packageUri": "lib/",
       "languageVersion": "3.4"
+    },
+    {
+      "name": "record_use",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/record_use-0.6.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.10"
     },
     {
       "name": "sky_engine",
@@ -465,7 +489,7 @@
     },
     {
       "name": "vm_service",
-      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/vm_service-15.0.2",
+      "rootUri": "file:///home/aldridge/.pub-cache/hosted/pub.dev/vm_service-15.1.0",
       "packageUri": "lib/",
       "languageVersion": "3.5"
     },

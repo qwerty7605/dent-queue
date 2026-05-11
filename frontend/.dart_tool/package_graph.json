@@ -82,7 +82,7 @@
     },
     {
       "name": "google_fonts",
-      "version": "8.0.2",
+      "version": "8.1.0",
       "dependencies": [
         "crypto",
         "flutter",
@@ -129,7 +129,7 @@
     },
     {
       "name": "cupertino_icons",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "dependencies": []
     },
     {
@@ -317,7 +317,7 @@
     },
     {
       "name": "image_picker_android",
-      "version": "0.8.13+14",
+      "version": "0.8.13+16",
       "dependencies": [
         "flutter",
         "flutter_plugin_android_lifecycle",
@@ -431,7 +431,7 @@
     },
     {
       "name": "async",
-      "version": "2.13.0",
+      "version": "2.13.1",
       "dependencies": [
         "collection",
         "meta"
@@ -546,7 +546,7 @@
     },
     {
       "name": "flutter_plugin_android_lifecycle",
-      "version": "2.0.33",
+      "version": "2.0.34",
       "dependencies": [
         "flutter"
       ]
@@ -593,9 +593,11 @@
     },
     {
       "name": "path_provider_android",
-      "version": "2.2.22",
+      "version": "2.3.1",
       "dependencies": [
         "flutter",
+        "jni",
+        "jni_flutter",
         "path_provider_platform_interface"
       ]
     },
@@ -611,7 +613,7 @@
     },
     {
       "name": "vm_service",
-      "version": "15.0.2",
+      "version": "15.1.0",
       "dependencies": []
     },
     {
@@ -641,6 +643,27 @@
       ]
     },
     {
+      "name": "jni_flutter",
+      "version": "1.0.1",
+      "dependencies": [
+        "flutter",
+        "jni"
+      ]
+    },
+    {
+      "name": "jni",
+      "version": "1.0.0",
+      "dependencies": [
+        "args",
+        "collection",
+        "ffi",
+        "meta",
+        "package_config",
+        "path",
+        "plugin_platform_interface"
+      ]
+    },
+    {
       "name": "xml",
       "version": "6.6.1",
       "dependencies": [
@@ -663,7 +686,7 @@
     },
     {
       "name": "native_toolchain_c",
-      "version": "0.17.4",
+      "version": "0.17.6",
       "dependencies": [
         "code_assets",
         "glob",
@@ -680,13 +703,14 @@
     },
     {
       "name": "hooks",
-      "version": "1.0.1",
+      "version": "1.0.3",
       "dependencies": [
         "collection",
         "crypto",
         "logging",
         "meta",
         "pub_semver",
+        "record_use",
         "yaml"
       ]
     },
@@ -696,6 +720,13 @@
       "dependencies": [
         "collection",
         "hooks"
+      ]
+    },
+    {
+      "name": "package_config",
+      "version": "2.2.0",
+      "dependencies": [
+        "path"
       ]
     },
     {
@@ -724,6 +755,15 @@
         "collection",
         "source_span",
         "string_scanner"
+      ]
+    },
+    {
+      "name": "record_use",
+      "version": "0.6.0",
+      "dependencies": [
+        "collection",
+        "meta",
+        "pub_semver"
       ]
     },
     {

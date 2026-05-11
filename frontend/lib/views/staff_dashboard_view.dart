@@ -284,6 +284,18 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       return;
     }
 
+    try {
+      await _notificationService.markAllAsRead('staff');
+      if (mounted) {
+        setState(() {
+          _unreadNotificationCount = 0;
+        });
+      }
+    } catch (_) {
+      // Keep opening the notification list even if marking read fails.
+    }
+
+    if (!mounted) return;
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const NotificationsView()),
@@ -466,7 +478,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       appBar: _buildAppBar(chipName, profileImage),
       drawer: _buildDrawer(name, profileImage),
       body: _buildSelectedTab(profileImageUrl),
-      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
@@ -607,28 +618,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
                     onTap: () =>
                         _selectTab(_StaffTab.reports, closeDrawer: true),
                   ),
-                  AppNavigationDrawerItem(
-                    icon: Icons.person_outline,
-                    label: 'Profile',
-                    selected: _selectedTab == _StaffTab.profile,
-                    onTap: () =>
-                        _selectTab(_StaffTab.profile, closeDrawer: true),
-                  ),
-                  if (!_isReadOnlyAccount)
-                    AppNavigationDrawerItem(
-                      icon: Icons.notifications_none,
-                      label: 'Notifications',
-                      selected: false,
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationsView(),
-                          ),
-                        );
-                      },
-                    ),
                   if (!_isReadOnlyAccount)
                     AppNavigationDrawerItem(
                       icon: Icons.restore_from_trash_outlined,
@@ -2270,83 +2259,6 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomNavigationBar() {
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppNavigationTheme.surface,
-          border: const Border(
-            top: BorderSide(color: AppNavigationTheme.divider),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          children: [
-            Expanded(
-              child: AppBottomNavItem(
-                icon: Icons.home_outlined,
-                label: 'Home',
-                selected: _selectedTab == _StaffTab.home,
-                onTap: () => _selectTab(_StaffTab.home),
-              ),
-            ),
-            Expanded(
-              child: AppBottomNavItem(
-                icon: Icons.calendar_month_outlined,
-                label: 'Calendar',
-                selected: _selectedTab == _StaffTab.calendar,
-                onTap: () => _selectTab(_StaffTab.calendar),
-              ),
-            ),
-            if (!_isReadOnlyAccount)
-              Expanded(
-                child: AppBottomNavItem(
-                  icon: Icons.person_add_alt_1_outlined,
-                  label: 'Walk-in',
-                  selected: _selectedTab == _StaffTab.walkIn,
-                  onTap: () => _selectTab(_StaffTab.walkIn),
-                ),
-              ),
-            if (!_isReadOnlyAccount)
-              Expanded(
-                child: AppBottomNavItem(
-                  icon: Icons.badge_outlined,
-                  label: 'Records',
-                  selected: _selectedTab == _StaffTab.records,
-                  onTap: () => _selectTab(_StaffTab.records),
-                ),
-              ),
-            Expanded(
-              child: AppBottomNavItem(
-                key: const Key('staff-bottom-nav-reports'),
-                icon: Icons.bar_chart_outlined,
-                label: 'Reports',
-                selected: _selectedTab == _StaffTab.reports,
-                onTap: () => _selectTab(_StaffTab.reports),
-              ),
-            ),
-            Expanded(
-              child: AppBottomNavItem(
-                icon: Icons.person_outline,
-                label: 'Profile',
-                selected: _selectedTab == _StaffTab.profile,
-                onTap: () => _selectTab(_StaffTab.profile),
-              ),
-            ),
-          ],
         ),
       ),
     );

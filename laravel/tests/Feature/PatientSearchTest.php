@@ -80,6 +80,5 @@ class PatientSearchTest extends TestCase
         $response->assertJsonStructure(['data']);
         $this->assertEmpty($response->json('data'));
         
-        echo "All search tests passed!\n";
     }
 }

@@ -16,11 +16,13 @@ class RecycleBinView extends StatefulWidget {
     required this.role,
     this.entries,
     this.appointmentService,
+    this.embedded = false,
   });
 
   final RecycleBinRole role;
   final List<RecycleBinEntry>? entries; // For offline preview if provided
   final AppointmentService? appointmentService;
+  final bool embedded;
 
   @override
   State<RecycleBinView> createState() => _RecycleBinViewState();
@@ -188,6 +190,12 @@ class _RecycleBinViewState extends State<RecycleBinView> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
+      if (widget.embedded) {
+        return const Center(
+          child: CircularProgressIndicator(color: AppNavigationTheme.primary),
+        );
+      }
+
       return Scaffold(
         backgroundColor: AppNavigationTheme.background,
         appBar: _buildAppBar(),
@@ -204,48 +212,53 @@ class _RecycleBinViewState extends State<RecycleBinView> {
     final int expiredCount = resolvedEntries.length - recoverableCount;
     final bool usingPreviewData =
         widget.appointmentService == null && widget.entries == null;
+    final Widget content = _errorMessage != null
+        ? Center(
+            child: Text(
+              _errorMessage!,
+              style: const TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          )
+        : resolvedEntries.isEmpty
+        ? _buildEmptyState()
+        : Stack(
+            children: [
+              ListView(
+                key: const Key('recycle-bin-list'),
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+                children: [
+                  _buildHeroCard(
+                    recoverableCount: recoverableCount,
+                    expiredCount: expiredCount,
+                    usingPreviewData: usingPreviewData,
+                  ),
+                  const SizedBox(height: 16),
+                  ...resolvedEntries.map(_buildEntryCard),
+                ],
+              ),
+              if (_isRestoring)
+                Container(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF4A769E),
+                    ),
+                  ),
+                ),
+            ],
+          );
+
+    if (widget.embedded) {
+      return content;
+    }
 
     return Scaffold(
       backgroundColor: AppNavigationTheme.background,
       appBar: _buildAppBar(),
-      body: _errorMessage != null
-          ? Center(
-              child: Text(
-                _errorMessage!,
-                style: const TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            )
-          : resolvedEntries.isEmpty
-          ? _buildEmptyState()
-          : Stack(
-              children: [
-                ListView(
-                  key: const Key('recycle-bin-list'),
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
-                  children: [
-                    _buildHeroCard(
-                      recoverableCount: recoverableCount,
-                      expiredCount: expiredCount,
-                      usingPreviewData: usingPreviewData,
-                    ),
-                    const SizedBox(height: 16),
-                    ...resolvedEntries.map(_buildEntryCard),
-                  ],
-                ),
-                if (_isRestoring)
-                  Container(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFF4A769E),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+      body: content,
     );
   }
 
