@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
+import '../core/api_exception.dart';
+import '../core/appointment_status.dart';
 import '../core/file_download.dart';
 import '../core/mobile_typography.dart';
 import '../services/admin_dashboard_service.dart';
@@ -9,8 +12,10 @@ import '../services/appointment_service.dart';
 import '../widgets/app_alert_dialog.dart';
 import '../widgets/admin_data_table.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/appointment_success_dialog.dart';
 import '../widgets/appointment_status_badge.dart';
 import '../widgets/paginated_table_footer.dart';
+import '../widgets/staff_appointment_details_dialog.dart';
 
 enum _TrendView { daily, weekly, monthly }
 
@@ -56,6 +61,7 @@ class AdminReportsView extends StatefulWidget {
 }
 
 class _AdminReportsViewState extends State<AdminReportsView> {
+  static final DateTime _seededReportStartDate = DateTime(2012, 9, 4);
   static const Color _reportAccent = Color(0xFF1A2F64);
   static const Color _exportButtonColor = Color(0xFF1A2F64);
   static const List<Color> _reportCardPalette = <Color>[
@@ -1392,11 +1398,28 @@ class _AdminReportsViewState extends State<AdminReportsView> {
   }
 
   Future<_ReportDateRangeSelection?> _showReportDateRangePicker() async {
-    final DateTime firstDate = DateTime(2020);
-    final DateTime lastDate = DateTime(2100);
     final DateTime today = _dateOnly(DateTime.now());
+    final DateTime firstDate = _seededReportStartDate;
+    final DateTime lastDate = today;
     DateTime? selectedStart = _draftStartDate;
     DateTime? selectedEnd = _draftEndDate;
+
+    DateTime clampDate(DateTime value) {
+      if (value.isBefore(firstDate)) {
+        return firstDate;
+      }
+      if (value.isAfter(lastDate)) {
+        return lastDate;
+      }
+      return value;
+    }
+
+    if (selectedStart != null) {
+      selectedStart = clampDate(_dateOnly(selectedStart!));
+    }
+    if (selectedEnd != null) {
+      selectedEnd = clampDate(_dateOnly(selectedEnd!));
+    }
 
     DateTime initialDateFor(DateTime? selectedDate) {
       if (selectedDate != null) {
@@ -1491,7 +1514,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   subtitle: 'Choose the first day from the left calendar.',
                   selectedDate: selectedStart,
                   onDateChanged: (DateTime value) {
-                    final DateTime start = _dateOnly(value);
+                    final DateTime start = clampDate(_dateOnly(value));
                     setDialogState(() {
                       selectedStart = start;
                       if (selectedEnd != null && selectedEnd!.isBefore(start)) {
@@ -1509,7 +1532,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                   subtitle: 'Choose the last day from the right calendar.',
                   selectedDate: selectedEnd,
                   onDateChanged: (DateTime value) {
-                    final DateTime end = _dateOnly(value);
+                    final DateTime end = clampDate(_dateOnly(value));
                     setDialogState(() {
                       selectedEnd = end;
                       if (selectedStart != null &&
@@ -2529,6 +2552,14 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                         alignment: Alignment.center,
                       ),
                     ),
+                    DataColumn(
+                      label: AdminDataTable.headerLabel(
+                        'Actions',
+                        context: context,
+                        width: 80,
+                        alignment: Alignment.center,
+                      ),
+                    ),
                   ],
                   rows: _detailedRecords.asMap().entries.map((entry) {
                     final int index = entry.key;
@@ -2587,6 +2618,23 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                                 status:
                                     record['status']?.toString() ?? 'Pending',
                                 compact: true,
+                              ),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          SizedBox(
+                            width: 80,
+                            child: Center(
+                              child: IconButton(
+                                onPressed: () => _openReportRecordDetails(
+                                  record,
+                                ),
+                                tooltip: 'Manage appointment',
+                                icon: const Icon(
+                                  Icons.edit_calendar_outlined,
+                                  size: 18,
+                                ),
                               ),
                             ),
                           ),
@@ -2826,6 +2874,94 @@ class _AdminReportsViewState extends State<AdminReportsView> {
         },
       ),
     );
+  }
+
+  void _openReportRecordDetails(Map<String, dynamic> record) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => StaffAppointmentDetailsDialog(
+        appointment: record,
+        actorRole: 'admin',
+        onStatusUpdate: (String nextStatus) =>
+            _updateReportRecordStatus(record, nextStatus),
+      ),
+    );
+  }
+
+  Future<bool> _updateReportRecordStatus(
+    Map<String, dynamic> record,
+    String nextStatus,
+  ) async {
+    final int? appointmentId = _parseAppointmentId(record);
+    if (appointmentId == null) {
+      _showTransientMessage('Unable to update status: invalid appointment ID.');
+      return false;
+    }
+
+    try {
+      await widget.appointmentService.updateAdminAppointmentStatus(
+        appointmentId,
+        nextStatus,
+      );
+      if (!mounted) {
+        return false;
+      }
+
+      await _fetchData(forceRefresh: true);
+      if (!mounted) {
+        return true;
+      }
+
+      if (nextStatus == 'approved') {
+        await showAppointmentSuccessDialog(
+          context,
+          title: 'Appointment\nSuccessfully Approved!',
+          message: 'The appointment has been successfully approved.',
+          buttonLabel: 'Return to Reports',
+        );
+      } else {
+        _showTransientMessage(
+          'Appointment updated to ${appointmentStatusLabel(nextStatus)}.',
+        );
+      }
+
+      return true;
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return false;
+      }
+      _showTransientMessage(error.message);
+      return false;
+    } catch (_) {
+      if (!mounted) {
+        return false;
+      }
+      _showTransientMessage('Unable to update appointment status right now.');
+      return false;
+    }
+  }
+
+  int? _parseAppointmentId(Map<String, dynamic> record) {
+    final dynamic directId = record['id'];
+    if (directId is int) {
+      return directId;
+    }
+
+    final int? parsedDirect = int.tryParse(directId?.toString() ?? '');
+    if (parsedDirect != null) {
+      return parsedDirect;
+    }
+
+    return int.tryParse(record['appointment_id']?.toString() ?? '');
+  }
+
+  void _showTransientMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildDistributionStatCard({

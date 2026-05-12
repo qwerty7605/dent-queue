@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/appointment_actions.dart';
 import '../core/appointment_status.dart';
 import 'app_alert_dialog.dart';
 import 'app_dialog_scaffold.dart';
@@ -14,11 +15,13 @@ class StaffAppointmentDetailsDialog extends StatefulWidget {
     required this.appointment,
     this.onStatusUpdate,
     this.showStatusActions = true,
+    this.actorRole = 'staff',
   });
 
   final Map<String, dynamic> appointment;
   final StaffAppointmentStatusUpdater? onStatusUpdate;
   final bool showStatusActions;
+  final String actorRole;
 
   @override
   State<StaffAppointmentDetailsDialog> createState() =>
@@ -45,7 +48,7 @@ class _StaffAppointmentDetailsDialogState
     final status = normalizeAppointmentStatus(widget.appointment['status']);
     final queueNumber = _formatQueueNumber(widget.appointment['queue_number']);
     final actions = widget.showStatusActions && widget.onStatusUpdate != null
-        ? _allowedActionsForStatus(status)
+        ? _allowedActionsForAppointment(widget.appointment, widget.actorRole)
         : const <_AppointmentAction>[];
 
     return AppDialogScaffold(
@@ -227,37 +230,37 @@ class _StaffAppointmentDetailsDialogState
     };
   }
 
-  List<_AppointmentAction> _allowedActionsForStatus(String status) {
-    return switch (status) {
-      'pending' => [
-        const _AppointmentAction(
-          label: 'Approve',
-          nextStatus: 'approved',
-          backgroundColor: Color(0xFFDCEBFF),
-          foregroundColor: Color(0xFF1D4ED8),
-        ),
-        const _AppointmentAction(
-          label: 'Cancel',
-          nextStatus: 'cancelled',
-          backgroundColor: Color(0xFFFFE1E1),
-          foregroundColor: Color(0xFFDC2626),
-        ),
-      ],
-      'approved' => [
-        const _AppointmentAction(
-          label: 'Mark Completed',
-          nextStatus: 'completed',
-          backgroundColor: Color(0xFFDCF6E4),
-          foregroundColor: Color(0xFF15803D),
-        ),
-        const _AppointmentAction(
-          label: 'Cancel',
-          nextStatus: 'cancelled',
-          backgroundColor: Color(0xFFFFE1E1),
-          foregroundColor: Color(0xFFDC2626),
-        ),
-      ],
-      _ => const <_AppointmentAction>[],
+  List<_AppointmentAction> _allowedActionsForAppointment(
+    Map<String, dynamic> appointment,
+    String actorRole,
+  ) {
+    final List<AppointmentAction> actions = resolveAppointmentActions(
+      appointment,
+      actorRole: actorRole,
+    );
+    return actions.map(_uiActionFor).toList();
+  }
+
+  _AppointmentAction _uiActionFor(AppointmentAction action) {
+    return switch (action) {
+      AppointmentAction.approve => const _AppointmentAction(
+        label: 'Approve',
+        nextStatus: 'approved',
+        backgroundColor: Color(0xFFDCEBFF),
+        foregroundColor: Color(0xFF1D4ED8),
+      ),
+      AppointmentAction.cancel => const _AppointmentAction(
+        label: 'Cancel',
+        nextStatus: 'cancelled',
+        backgroundColor: Color(0xFFFFE1E1),
+        foregroundColor: Color(0xFFDC2626),
+      ),
+      AppointmentAction.complete => const _AppointmentAction(
+        label: 'Mark Completed',
+        nextStatus: 'completed',
+        backgroundColor: Color(0xFFDCF6E4),
+        foregroundColor: Color(0xFF15803D),
+      ),
     };
   }
 
