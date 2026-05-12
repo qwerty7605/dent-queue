@@ -281,10 +281,27 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
 
   Future<_UnavailableDateRangeSelection?> _showUnavailableDateRangePicker() {
     final DateTime now = _dateOnly(DateTime.now());
-    final DateTime firstDate = now.subtract(const Duration(days: 1));
-    final DateTime lastDate = now.add(const Duration(days: 365));
+    final DateTime firstDate = now;
+    final DateTime lastDate = DateTime(now.year + 2, now.month, now.day);
     DateTime? selectedStart = _unavailableStartDate;
     DateTime? selectedEnd = _unavailableEndDate;
+
+    DateTime clampDate(DateTime value) {
+      if (value.isBefore(firstDate)) {
+        return firstDate;
+      }
+      if (value.isAfter(lastDate)) {
+        return lastDate;
+      }
+      return value;
+    }
+
+    if (selectedStart != null) {
+      selectedStart = clampDate(_dateOnly(selectedStart!));
+    }
+    if (selectedEnd != null) {
+      selectedEnd = clampDate(_dateOnly(selectedEnd!));
+    }
 
     DateTime initialDateFor(DateTime? selectedDate) {
       if (selectedDate != null) {
@@ -410,7 +427,9 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                             subtitle: 'Choose the first unavailable day.',
                             selectedDate: selectedStart,
                             onDateChanged: (DateTime value) {
-                              final DateTime start = _dateOnly(value);
+                              final DateTime start = clampDate(
+                                _dateOnly(value),
+                              );
                               setDialogState(() {
                                 selectedStart = start;
                                 if (selectedEnd != null &&
@@ -429,7 +448,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                             subtitle: 'Choose the last unavailable day.',
                             selectedDate: selectedEnd,
                             onDateChanged: (DateTime value) {
-                              final DateTime end = _dateOnly(value);
+                              final DateTime end = clampDate(_dateOnly(value));
                               setDialogState(() {
                                 selectedEnd = end;
                                 if (selectedStart != null &&
@@ -1006,9 +1025,11 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
       );
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [hoursCard, const SizedBox(width: 20), daysCard],
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [hoursCard, const SizedBox(width: 20), daysCard],
+      ),
     );
   }
 
@@ -1021,7 +1042,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
       subtitle:
           'SET DAILY OPENING AND CLOSING TIME FOR APPOINTMENT VALIDATION.',
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(32, 26, 32, 30),
+        padding: const EdgeInsets.fromLTRB(32, 28, 32, 30),
         child: Wrap(
           spacing: 20,
           runSpacing: 18,

@@ -55,4 +55,33 @@ void main() {
       expect(updaterCalled, isTrue);
     },
   );
+
+  testWidgets('uses api allowed_actions when provided', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StaffAppointmentDetailsDialog(
+            appointment: <String, dynamic>{
+              'patient_name': 'Ava Stone',
+              'service_type': 'Dental Cleaning',
+              'appointment_date': '2026-04-20',
+              'time': '09:00',
+              'status': 'Pending',
+              'queue_number': 1,
+              'allowed_actions': <String>['cancel'],
+            },
+            actorRole: 'admin',
+            onStatusUpdate: (_) async => true,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('CANCEL'), findsOneWidget);
+    expect(find.text('APPROVE'), findsNothing);
+  });
 }

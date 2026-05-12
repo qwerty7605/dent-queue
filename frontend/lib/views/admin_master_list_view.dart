@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../core/api_exception.dart';
 import '../core/appointment_status.dart';
 import '../services/admin_dashboard_service.dart';
 import '../services/appointment_service.dart';
 import '../widgets/app_empty_state.dart';
+import '../widgets/appointment_success_dialog.dart';
+import '../widgets/staff_appointment_details_dialog.dart';
 
 enum _MasterListFilter { all, approved, cancelled, completed, pending }
 
@@ -402,7 +405,10 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                                 context,
                               ).withValues(alpha: 0.7),
                             ),
-                          _MasterListRow(appointment: appointment),
+                          _MasterListRow(
+                            appointment: appointment,
+                            onManage: () => _openAppointmentDetails(appointment),
+                          ),
                         ],
                       );
                     }),
@@ -758,6 +764,90 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
       _totalAppointments,
     );
   }
+
+  void _openAppointmentDetails(Map<String, dynamic> appointment) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => StaffAppointmentDetailsDialog(
+        appointment: appointment,
+        actorRole: 'admin',
+        onStatusUpdate: (String nextStatus) =>
+            _updateAppointmentStatus(appointment, nextStatus),
+      ),
+    );
+  }
+
+  Future<bool> _updateAppointmentStatus(
+    Map<String, dynamic> appointment,
+    String nextStatus,
+  ) async {
+    final int? appointmentId = _parseAppointmentId(appointment['id']);
+    if (appointmentId == null) {
+      _showStatusMessage('Unable to update status: invalid appointment ID.');
+      return false;
+    }
+
+    try {
+      await widget.appointmentService.updateAdminAppointmentStatus(
+        appointmentId,
+        nextStatus,
+      );
+      if (!mounted) {
+        return false;
+      }
+
+      await _loadMasterList(
+        showLoader: false,
+        page: _currentPage,
+        query: _activeQuery,
+      );
+      if (!mounted) {
+        return true;
+      }
+
+      final String updatedLabel = appointmentStatusLabel(nextStatus);
+      if (normalizeAppointmentStatus(nextStatus) == 'approved') {
+        await showAppointmentSuccessDialog(
+          context,
+          title: 'Appointment\nSuccessfully Approved!',
+          message: 'The appointment has been successfully approved.',
+          buttonLabel: 'Return to Appointments',
+        );
+      } else {
+        _showStatusMessage('Appointment updated to $updatedLabel.');
+      }
+
+      return true;
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return false;
+      }
+      _showStatusMessage(error.message);
+      return false;
+    } catch (_) {
+      if (!mounted) {
+        return false;
+      }
+      _showStatusMessage('Unable to update appointment status right now.');
+      return false;
+    }
+  }
+
+  int? _parseAppointmentId(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  void _showStatusMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
 }
 
 class _MasterListHeaderRow extends StatelessWidget {
@@ -785,15 +875,20 @@ class _MasterListHeaderRow extends StatelessWidget {
           flex: 2,
           child: Text('STATUS', style: style, textAlign: TextAlign.center),
         ),
+        Expanded(
+          flex: 1,
+          child: Text('ACTIONS', style: style, textAlign: TextAlign.center),
+        ),
       ],
     );
   }
 }
 
 class _MasterListRow extends StatelessWidget {
-  const _MasterListRow({required this.appointment});
+  const _MasterListRow({required this.appointment, required this.onManage});
 
   final Map<String, dynamic> appointment;
+  final VoidCallback onManage;
 
   @override
   Widget build(BuildContext context) {
@@ -1006,6 +1101,20 @@ class _MasterListRow extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
                   ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Center(
+              child: IconButton(
+                onPressed: onManage,
+                tooltip: 'Manage appointment',
+                icon: Icon(
+                  Icons.edit_calendar_outlined,
+                  color: mutedColor,
+                  size: 20,
                 ),
               ),
             ),
