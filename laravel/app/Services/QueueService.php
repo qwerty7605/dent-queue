@@ -16,9 +16,9 @@ class QueueService
 {
     private const DAILY_QUEUE_LIMIT = 50;
     private const MAX_QUEUE_ASSIGNMENT_RETRIES = 5;
-    private const ACTIVE_QUEUE_STATUSES = ['pending', 'confirmed', 'completed'];
+    private const ACTIVE_QUEUE_STATUSES = ['confirmed', 'completed'];
     private const ELIGIBLE_CALL_STATUSES = ['confirmed'];
-    private const ACTIVE_DISPLAY_STATUSES = ['pending', 'confirmed', 'completed'];
+    private const ACTIVE_DISPLAY_STATUSES = ['confirmed', 'completed'];
 
     public function __construct(
         private readonly CentralizedCacheService $cacheService,
@@ -41,6 +41,11 @@ class QueueService
         }
 
         $appointmentDate = (string) $appointment->appointment_date;
+        if (!in_array((string) $appointment->status, self::ACTIVE_QUEUE_STATUSES, true)) {
+            $this->syncQueueNumbersForDate($appointmentDate);
+
+            return null;
+        }
 
         return DB::transaction(function () use ($appointment, $appointmentDate) {
             for ($attempt = 0; $attempt < self::MAX_QUEUE_ASSIGNMENT_RETRIES; $attempt++) {

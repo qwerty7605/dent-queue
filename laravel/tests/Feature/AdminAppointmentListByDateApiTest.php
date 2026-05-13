@@ -76,11 +76,11 @@ class AdminAppointmentListByDateApiTest extends TestCase
             ->assertJsonPath('appointments.1.id', $sameTimeEarlierCreated->id)
             ->assertJsonPath('appointments.1.time', '09:00')
             ->assertJsonPath('appointments.1.status', 'Pending')
-            ->assertJsonPath('appointments.1.queue_number', 2)
+            ->assertJsonPath('appointments.1.queue_number', null)
             ->assertJsonPath('appointments.2.id', $sameTimeLaterCreated->id)
             ->assertJsonPath('appointments.2.time', '09:00')
             ->assertJsonPath('appointments.2.status', 'Approved')
-            ->assertJsonPath('appointments.2.queue_number', 3);
+            ->assertJsonPath('appointments.2.queue_number', 2);
 
         $appointmentIds = array_map(
             fn (array $appointment): int => (int) ($appointment['id'] ?? 0),
@@ -103,15 +103,13 @@ class AdminAppointmentListByDateApiTest extends TestCase
             'queue_date' => $date,
             'queue_number' => 1,
         ]);
-        $this->assertDatabaseHas('queues', [
+        $this->assertDatabaseMissing('queues', [
             'appointment_id' => $sameTimeEarlierCreated->id,
-            'queue_date' => $date,
-            'queue_number' => 2,
         ]);
         $this->assertDatabaseHas('queues', [
             'appointment_id' => $sameTimeLaterCreated->id,
             'queue_date' => $date,
-            'queue_number' => 3,
+            'queue_number' => 2,
         ]);
     }
 
@@ -137,7 +135,7 @@ class AdminAppointmentListByDateApiTest extends TestCase
         $earlierAppointment = $this->createAppointment($patientA->id, $service->id, $date, '08:30', 'confirmed');
         $laterAppointment = $this->createAppointment($patientB->id, $service->id, $date, '09:00', 'pending');
 
-        $earlierQueue = $this->createQueue($earlierAppointment->id, $date, 1);
+        $this->createQueue($earlierAppointment->id, $date, 1);
         $laterQueue = $this->createQueue($laterAppointment->id, $date, 2);
 
         Sanctum::actingAs($staff);
@@ -145,21 +143,17 @@ class AdminAppointmentListByDateApiTest extends TestCase
         $this->getJson('/api/v1/admin/appointments?date=' . $date)
             ->assertOk()
             ->assertJsonPath('appointments.0.queue_number', 1)
-            ->assertJsonPath('appointments.1.queue_number', 2);
+            ->assertJsonPath('appointments.1.queue_number', null);
 
         $this->assertDatabaseHas('queues', [
-            'id' => $earlierQueue->id,
             'appointment_id' => $earlierAppointment->id,
             'queue_date' => $date,
             'queue_number' => 1,
         ]);
-        $this->assertDatabaseHas('queues', [
+        $this->assertDatabaseMissing('queues', [
             'id' => $laterQueue->id,
-            'appointment_id' => $laterAppointment->id,
-            'queue_date' => $date,
-            'queue_number' => 2,
         ]);
-        $this->assertDatabaseCount('queues', 2);
+        $this->assertDatabaseCount('queues', 1);
     }
 
     private function createQueue(int $appointmentId, string $date, int $queueNumber): Queue

@@ -133,22 +133,19 @@ class QueueNowServingApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('message', 'Next patient called successfully.')
-            ->assertJsonPath('called_queue.queue_number', 2)
-            ->assertJsonPath('now_serving.queue_number', 2)
-            ->assertJsonPath('next_up.queue_number', 3);
+            ->assertJsonPath('called_queue.queue_number', 1)
+            ->assertJsonPath('now_serving.queue_number', 1)
+            ->assertJsonPath('next_up.queue_number', 2);
 
         $this->assertDatabaseHas('queues', [
             'appointment_id' => $approvedAppointment->id,
             'queue_date' => $date,
-            'queue_number' => 2,
+            'queue_number' => 1,
             'is_called' => true,
         ]);
 
-        $this->assertDatabaseHas('queues', [
+        $this->assertDatabaseMissing('queues', [
             'appointment_id' => $pendingAppointment->id,
-            'queue_date' => $date,
-            'queue_number' => 1,
-            'is_called' => false,
         ]);
     }
 

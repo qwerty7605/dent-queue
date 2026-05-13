@@ -49,7 +49,10 @@ class QueueHighLoadConsistencyTest extends TestCase
 
         app(QueueService::class)->syncQueueNumbersForDate($date);
 
-        $expectedAppointments = $appointments;
+        $expectedAppointments = array_values(array_filter(
+            $appointments,
+            static fn (Appointment $appointment): bool => (string) $appointment->status === 'confirmed',
+        ));
         usort($expectedAppointments, fn (Appointment $left, Appointment $right): int => $this->compareAppointments($left, $right));
 
         $queues = Queue::query()
@@ -68,9 +71,9 @@ class QueueHighLoadConsistencyTest extends TestCase
             $expectedAppointments,
         );
 
-        $this->assertCount(50, $queues);
-        $this->assertSame(range(1, 50), $queueNumbers);
-        $this->assertCount(50, array_unique($queueNumbers));
+        $this->assertCount(33, $queues);
+        $this->assertSame(range(1, 33), $queueNumbers);
+        $this->assertCount(33, array_unique($queueNumbers));
         $this->assertSame($expectedAppointmentIds, $queueAppointmentIds);
     }
 

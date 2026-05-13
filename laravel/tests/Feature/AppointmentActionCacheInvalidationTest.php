@@ -113,7 +113,7 @@ class AppointmentActionCacheInvalidationTest extends TestCase
             ->assertJsonPath('data.approved_count', 0);
         $this->getJson('/api/v1/admin/queues/today?date='.$date)
             ->assertOk()
-            ->assertJsonPath('queue_summary.total_queued', 1)
+            ->assertJsonPath('queue_summary.total_queued', 0)
             ->assertJsonPath('next_up', null);
 
         $initialVersions = $this->cacheVersions();

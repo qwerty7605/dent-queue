@@ -49,7 +49,7 @@ class QueueController extends Controller
         $appointment = Appointment::query()
             ->where('patient_id', (int) $patientRecord->id)
             ->whereDate('appointment_date', now(config('app.timezone'))->toDateString())
-            ->whereIn('status', ['pending', 'confirmed', 'completed'])
+            ->whereIn('status', ['confirmed', 'completed'])
             ->tap(static fn ($query) => AppointmentQueueOrder::apply($query, 'appointments'))
             ->first();
 

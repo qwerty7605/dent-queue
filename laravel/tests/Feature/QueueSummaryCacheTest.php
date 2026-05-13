@@ -51,7 +51,7 @@ class QueueSummaryCacheTest extends TestCase
             ->assertOk()
             ->assertJsonPath('now_serving.queue_number', 1)
             ->assertJsonPath('next_up.queue_number', 2)
-            ->assertJsonPath('queue_summary.total_queued', 3)
+            ->assertJsonPath('queue_summary.total_queued', 2)
             ->assertJsonPath('queue_summary.next_slot', '10:00');
 
         DB::table('queues')->delete();
@@ -60,7 +60,7 @@ class QueueSummaryCacheTest extends TestCase
             ->assertOk()
             ->assertJsonPath('now_serving.queue_number', 1)
             ->assertJsonPath('next_up.queue_number', 2)
-            ->assertJsonPath('queue_summary.total_queued', 3)
+            ->assertJsonPath('queue_summary.total_queued', 2)
             ->assertJsonPath('queue_summary.next_slot', '10:00');
     }
 

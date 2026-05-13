@@ -233,7 +233,7 @@ class AppointmentService
         $this->syncDailyQueueNumbers($date);
 
         return Appointment::query()
-            ->join('queues', 'queues.appointment_id', '=', 'appointments.id')
+            ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id')
             ->join('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
             ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
             ->where('appointments.appointment_date', $date)
@@ -266,7 +266,9 @@ class AppointmentService
                     ),
                     'time' => (string) $appointment->time_slot,
                     'status' => self::humanStatusLabel((string) $appointment->status),
-                    'queue_number' => (int) $appointment->queue_number,
+                    'queue_number' => $appointment->queue_number !== null
+                        ? (int) $appointment->queue_number
+                        : null,
                     'is_called' => (bool) $appointment->is_called,
                     'appointment_date' => (string) $appointment->appointment_date,
                     'timestamp_created' => $appointment->created_at !== null
@@ -320,7 +322,7 @@ class AppointmentService
                         throw $exception;
                     }
 
-                    $this->queueService->generateQueueNumber((int) $appointment->id);
+                    $this->refreshQueueForAppointment($appointment);
 
                     $appointment->load(['patient', 'queue', 'service']);
                     $this->createBookingNotification($appointment);
@@ -403,6 +405,8 @@ class AppointmentService
             } else {
                 $appointment->update(['status' => $targetStatus]);
 
+                $this->refreshQueueForAppointment($appointment);
+
                 if ($targetStatus === self::STATUS_CONFIRMED) {
                     $this->createApprovalNotification($appointment);
                 }
@@ -472,7 +476,7 @@ class AppointmentService
                 $appointment->status = self::STATUS_PENDING;
                 $appointment->save();
 
-                $this->queueService->generateQueueNumber((int) $appointment->id);
+                $this->refreshQueueForAppointment($appointment);
             });
         });
 
@@ -556,7 +560,7 @@ class AppointmentService
                         $this->queueService->syncQueueNumbersForDate($originalDate);
                     }
 
-                    $this->queueService->generateQueueNumber((int) $appointment->id);
+                    $this->refreshQueueForAppointment($appointment);
                 });
             } catch (QueryException $exception) {
                 if ($this->isUniqueConstraintViolation($exception)) {
@@ -700,6 +704,19 @@ class AppointmentService
         $normalized = mb_strtolower(trim($status));
 
         return self::STATUS_ALIASES[$normalized] ?? null;
+    }
+
+    private function refreshQueueForAppointment(Appointment $appointment): void
+    {
+        $status = $this->normalizeStatus((string) $appointment->status);
+
+        if (in_array($status, [self::STATUS_CONFIRMED, self::STATUS_COMPLETED], true)) {
+            $this->queueService->generateQueueNumber((int) $appointment->id);
+
+            return;
+        }
+
+        $this->queueService->syncQueueNumbersForDate((string) $appointment->appointment_date);
     }
 
     private function resolveInitialStatus(array $data): string
