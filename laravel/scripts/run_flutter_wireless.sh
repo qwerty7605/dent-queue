@@ -58,6 +58,29 @@ detect_host_ip() {
   return 1
 }
 
+build_base_url() {
+  local host="$1"
+  local port="$2"
+
+  host="${host%/}"
+  host="${host%/api/v1/auth}"
+  host="${host%/api/v1}"
+  host="${host%/api}"
+  host="${host/#http\//http://}"
+  host="${host/#https\//https://}"
+
+  if [[ "$host" == http://* || "$host" == https://* ]]; then
+    if [[ "$host" == *:[0-9]* ]]; then
+      printf '%s\n' "$host"
+    else
+      printf '%s:%s\n' "$host" "$port"
+    fi
+    return
+  fi
+
+  printf 'http://%s:%s\n' "$host" "$port"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --device)
@@ -94,7 +117,7 @@ API_HOST="${API_HOST:-$(detect_host_ip || true)}"
 [[ -d "$FRONTEND_DIR" ]] || fail "Flutter project not found at $FRONTEND_DIR"
 [[ -f "$FRONTEND_DIR/pubspec.yaml" ]] || fail "pubspec.yaml not found in $FRONTEND_DIR"
 
-BASE_URL="http://$API_HOST:$API_PORT"
+BASE_URL="$(build_base_url "$API_HOST" "$API_PORT")"
 
 if [[ "$PRINT_ONLY" -eq 1 ]]; then
   printf '%s\n' "$BASE_URL"

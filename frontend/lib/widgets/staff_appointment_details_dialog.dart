@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/appointment_actions.dart';
 import '../core/appointment_status.dart';
 import 'app_alert_dialog.dart';
+import 'app_confirmation_dialog.dart';
 import 'app_dialog_scaffold.dart';
 import 'appointment_status_badge.dart';
 
@@ -177,6 +178,15 @@ class _StaffAppointmentDetailsDialogState
     final String normalizedStatus = normalizeAppointmentStatus(
       action.nextStatus,
     );
+
+    if (normalizedStatus == 'cancelled') {
+      return _showCancelConfirmationDialog();
+    }
+
+    if (normalizedStatus == 'approved') {
+      return _showApproveConfirmationDialog();
+    }
+
     final decision = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -199,6 +209,66 @@ class _StaffAppointmentDetailsDialogState
         );
       },
     );
+    return decision ?? false;
+  }
+
+  Future<bool> _showApproveConfirmationDialog() async {
+    final String serviceType = _readValue(
+      'service_type',
+      fallback: 'this appointment',
+    );
+    final String formattedDate = _formatDate(
+      widget.appointment['appointment_date']?.toString() ?? '',
+    );
+
+    final decision = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AppConfirmationDialog(
+        icon: Icons.check_rounded,
+        iconBackgroundColor: const Color(0xFFEAF2FF),
+        iconColor: const Color(0xFF2563EB),
+        title: 'Approve Appointment?',
+        message:
+            'Are you sure you want to approve this appointment for '
+            '$serviceType on $formattedDate?',
+        secondaryLabel: 'No, Keep it',
+        primaryLabel: 'Yes, Approve',
+        primaryColor: const Color(0xFF2563EB),
+        onSecondaryPressed: () => Navigator.of(dialogContext).pop(false),
+        onPrimaryPressed: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+
+    return decision ?? false;
+  }
+
+  Future<bool> _showCancelConfirmationDialog() async {
+    final String serviceType = _readValue(
+      'service_type',
+      fallback: 'this appointment',
+    );
+    final String formattedDate = _formatDate(
+      widget.appointment['appointment_date']?.toString() ?? '',
+    );
+
+    final decision = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AppConfirmationDialog(
+        icon: Icons.close_rounded,
+        iconBackgroundColor: const Color(0xFFFFECEC),
+        iconColor: const Color(0xFFFF4747),
+        title: 'Cancel Appointment?',
+        message:
+            'Are you sure you want to cancel this appointment for '
+            '$serviceType on $formattedDate?',
+        secondaryLabel: 'No, Keep it',
+        primaryLabel: 'Yes, Cancel',
+        primaryColor: const Color(0xFFFF4B4B),
+        onSecondaryPressed: () => Navigator.of(dialogContext).pop(false),
+        onPrimaryPressed: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+
     return decision ?? false;
   }
 
