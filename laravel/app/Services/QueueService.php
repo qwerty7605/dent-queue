@@ -319,7 +319,11 @@ class QueueService
             return Queue::query()->find((int) $queue->id);
         });
 
-        $snapshot = $this->getQueueSnapshot(null, $queueDate);
+        if ($calledQueue !== null) {
+            $this->cacheService->flushQueue();
+        }
+
+        $snapshot = $this->getQueueSnapshot(null, $queueDate, $calledQueue !== null);
 
         if ($calledQueue !== null) {
             $appointment = Appointment::query()->find((int) $calledQueue->appointment_id);

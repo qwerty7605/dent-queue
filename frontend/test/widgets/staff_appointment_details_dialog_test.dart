@@ -149,4 +149,62 @@ void main() {
 
     expect(submittedStatus, 'cancelled');
   });
+
+  testWidgets('uses approve-style confirmation modal for completion', (
+    WidgetTester tester,
+  ) async {
+    String? submittedStatus;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StaffAppointmentDetailsDialog(
+            appointment: <String, dynamic>{
+              'patient_name': 'Ava Stone',
+              'service_type': 'Dental Cleaning',
+              'appointment_date': '2026-04-20',
+              'time': '09:00',
+              'status': 'Approved',
+              'queue_number': 1,
+              'allowed_actions': <String>['complete'],
+            },
+            actorRole: 'admin',
+            onStatusUpdate: (String nextStatus) async {
+              submittedStatus = nextStatus;
+              return true;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('MARK COMPLETED'));
+    await tester.pumpAndSettle();
+
+    final Dialog confirmationDialog = tester.widget<Dialog>(
+      find.byType(Dialog).last,
+    );
+
+    expect(find.text('Mark as Completed?'), findsOneWidget);
+    expect(confirmationDialog.constraints?.maxWidth, 380);
+    expect(
+      find.text(
+        'Are you sure you want to mark this appointment as completed for '
+        'Dental Cleaning on Apr 20, 2026?',
+      ),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(ElevatedButton, 'No, Keep it'), findsOneWidget);
+    expect(
+      find.widgetWithText(ElevatedButton, 'Yes, Complete'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Yes, Complete'));
+    await tester.pumpAndSettle();
+
+    expect(submittedStatus, 'completed');
+  });
 }

@@ -187,6 +187,10 @@ class _StaffAppointmentDetailsDialogState
       return _showApproveConfirmationDialog();
     }
 
+    if (normalizedStatus == 'completed') {
+      return _showCompletedConfirmationDialog();
+    }
+
     final decision = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -209,6 +213,36 @@ class _StaffAppointmentDetailsDialogState
         );
       },
     );
+    return decision ?? false;
+  }
+
+  Future<bool> _showCompletedConfirmationDialog() async {
+    final String serviceType = _readValue(
+      'service_type',
+      fallback: 'this appointment',
+    );
+    final String formattedDate = _formatDate(
+      widget.appointment['appointment_date']?.toString() ?? '',
+    );
+
+    final decision = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AppConfirmationDialog(
+        icon: Icons.task_alt_rounded,
+        iconBackgroundColor: const Color(0xFFEAFBF0),
+        iconColor: const Color(0xFF16A34A),
+        title: 'Mark as Completed?',
+        message:
+            'Are you sure you want to mark this appointment as completed for '
+            '$serviceType on $formattedDate?',
+        secondaryLabel: 'No, Keep it',
+        primaryLabel: 'Yes, Complete',
+        primaryColor: const Color(0xFF16A34A),
+        onSecondaryPressed: () => Navigator.of(dialogContext).pop(false),
+        onPrimaryPressed: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+
     return decision ?? false;
   }
 
