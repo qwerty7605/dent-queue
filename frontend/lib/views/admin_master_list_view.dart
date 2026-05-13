@@ -781,7 +781,9 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
     Map<String, dynamic> appointment,
     String nextStatus,
   ) async {
-    final int? appointmentId = _parseAppointmentId(appointment['id']);
+    final int? appointmentId = _parseAppointmentId(
+      appointment['id'] ?? appointment['appointment_id'],
+    );
     if (appointmentId == null) {
       _showStatusMessage('Unable to update status: invalid appointment ID.');
       return false;
