@@ -623,11 +623,7 @@ class _RegisterViewState extends State<RegisterView> {
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
-            decoration: _inputDecoration(
-              hintText: 'Enter Location',
-              helperText:
-                  'Up to ${AppFormValidators.addressMaxLength} characters',
-            ),
+            decoration: _inputDecoration(hintText: 'Enter Location'),
             validator: (value) => _mergeFieldError(
               'location',
               AppFormValidators.address(value, fieldLabel: 'Location'),
@@ -682,10 +678,7 @@ class _RegisterViewState extends State<RegisterView> {
               fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
-            decoration: _inputDecoration(
-              hintText: 'Enter your Username',
-              helperText: 'Letters, numbers, dots, hyphens, underscores',
-            ),
+            decoration: _inputDecoration(hintText: 'Enter your Username'),
             validator: (value) =>
                 _mergeFieldError('username', AppFormValidators.username(value)),
             textInputAction: TextInputAction.next,
@@ -705,8 +698,6 @@ class _RegisterViewState extends State<RegisterView> {
             ),
             decoration: _inputDecoration(
               hintText: 'Enter your Password',
-              helperText:
-                  'Minimum ${AppFormValidators.passwordMinLength} characters',
               suffixIcon: IconButton(
                 icon: Icon(
                   _showPassword ? Icons.visibility_off : Icons.visibility,

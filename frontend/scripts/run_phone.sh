@@ -11,7 +11,7 @@ fi
 
 API_PORT="${API_PORT:-8080}"
 API_HOST="${API_HOST:-}"
-USE_ADB_REVERSE="${USE_ADB_REVERSE:-0}"
+USE_ADB_REVERSE="${USE_ADB_REVERSE:-auto}"
 
 usage() {
   cat <<'EOF'
@@ -30,7 +30,7 @@ Examples:
 Environment overrides:
   API_HOST          Force a specific LAN IP or hostname.
   API_PORT          Backend port. Defaults to 8080.
-  USE_ADB_REVERSE   Set to 1 to tunnel Android device traffic to localhost.
+  USE_ADB_REVERSE   Set to auto, 1, or 0. Defaults to auto.
 EOF
 }
 
@@ -102,9 +102,32 @@ check_http() {
   return 2
 }
 
+build_base_url() {
+  local host="$1"
+  local port="$2"
+
+  host="${host%/}"
+  host="${host%/api/v1/auth}"
+  host="${host%/api/v1}"
+  host="${host%/api}"
+  host="${host/#http\//http://}"
+  host="${host/#https\//https://}"
+
+  if [[ "$host" == http://* || "$host" == https://* ]]; then
+    if [[ "$host" == *:[0-9]* ]]; then
+      printf '%s\n' "$host"
+    else
+      printf '%s:%s\n' "$host" "$port"
+    fi
+    return
+  fi
+
+  printf 'http://%s:%s\n' "$host" "$port"
+}
+
 print_backend_start_hint() {
   local repo_root
-  repo_root="$(cd "$SCRIPT_DIR/.." && pwd)"
+  repo_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
   local docker_compose_file="$repo_root/laravel/docker-compose.yml"
 
   if [[ -f "$docker_compose_file" ]]; then
@@ -167,11 +190,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 ADB_BIN="${ADB_BIN:-}"
-if [[ "$USE_ADB_REVERSE" == "1" ]]; then
-  if [[ -z "$API_HOST" ]]; then
-    API_HOST="127.0.0.1"
-  fi
-
+if [[ "$USE_ADB_REVERSE" == "1" || "$USE_ADB_REVERSE" == "auto" ]]; then
   if [[ -z "$ADB_BIN" ]]; then
     ADB_BIN="$(find_adb || true)"
   fi
@@ -204,12 +223,12 @@ if [[ -z "$API_HOST" ]]; then
   exit 1
 fi
 
-BASE_URL="http://${API_HOST}:${API_PORT}"
+BASE_URL="$(build_base_url "$API_HOST" "$API_PORT")"
 
 LOCAL_URL="http://127.0.0.1:${API_PORT}"
-if check_http "$BASE_URL"; then
+if check_http "${BASE_URL}/up"; then
   echo "Backend reachable at ${BASE_URL}"
-elif check_http "$LOCAL_URL"; then
+elif check_http "${LOCAL_URL}/up"; then
   echo "Backend is running on ${LOCAL_URL}, but not reachable on ${BASE_URL}."
   print_backend_start_hint
   exit 1

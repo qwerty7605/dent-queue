@@ -56,9 +56,36 @@ class AppConfig {
 
   static String? _normalizeUrl(String? raw) {
     if (raw == null) return null;
-    final trimmed = raw.trim();
+    var trimmed = raw.trim();
     if (trimmed.isEmpty) return null;
-    return trimmed.endsWith('/') ? trimmed.substring(0, trimmed.length - 1) : trimmed;
+    if (trimmed.startsWith('http/')) {
+      trimmed = 'http://${trimmed.substring('http/'.length)}';
+    } else if (trimmed.startsWith('https/')) {
+      trimmed = 'https://${trimmed.substring('https/'.length)}';
+    }
+    final withoutTrailingSlash = trimmed.endsWith('/')
+        ? trimmed.substring(0, trimmed.length - 1)
+        : trimmed;
+    final uri = Uri.tryParse(withoutTrailingSlash);
+    if (uri == null || !uri.hasScheme) {
+      return withoutTrailingSlash;
+    }
+
+    var normalizedPath = uri.path;
+    for (final apiPath in <String>['/api/v1/auth', '/api/v1', '/api']) {
+      if (normalizedPath == apiPath) {
+        normalizedPath = '';
+        break;
+      }
+    }
+
+    return Uri(
+      scheme: uri.scheme,
+      userInfo: uri.userInfo,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : port,
+      path: normalizedPath,
+    ).toString().replaceFirst(RegExp(r'/$'), '');
   }
 
   static String? get manualBaseUrl {

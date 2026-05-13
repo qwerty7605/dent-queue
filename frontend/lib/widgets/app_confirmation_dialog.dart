@@ -16,6 +16,7 @@ class AppConfirmationDialog extends StatelessWidget {
     this.primaryForegroundColor = Colors.white,
     this.secondaryColor = const Color(0xFFF4F7FF),
     this.secondaryForegroundColor = const Color(0xFF223C7A),
+    this.maxWidth = 380,
   });
 
   final IconData icon;
@@ -31,6 +32,7 @@ class AppConfirmationDialog extends StatelessWidget {
   final Color primaryForegroundColor;
   final Color secondaryColor;
   final Color secondaryForegroundColor;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -39,64 +41,68 @@ class AppConfirmationDialog extends StatelessWidget {
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: iconBackgroundColor,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: iconColor, size: 28),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF223C7A),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.45,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF5F6E86),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: _ConfirmationButton(
-                    label: secondaryLabel,
-                    backgroundColor: secondaryColor,
-                    foregroundColor: secondaryForegroundColor,
-                    onPressed: onSecondaryPressed,
-                  ),
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: iconBackgroundColor,
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _ConfirmationButton(
-                    label: primaryLabel,
-                    backgroundColor: primaryColor,
-                    foregroundColor: primaryForegroundColor,
-                    onPressed: onPrimaryPressed,
-                  ),
+                child: Icon(icon, color: iconColor, size: 28),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF223C7A),
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF5F6E86),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: _ConfirmationButton(
+                      label: secondaryLabel,
+                      backgroundColor: secondaryColor,
+                      foregroundColor: secondaryForegroundColor,
+                      onPressed: onSecondaryPressed,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _ConfirmationButton(
+                      label: primaryLabel,
+                      backgroundColor: primaryColor,
+                      foregroundColor: primaryForegroundColor,
+                      onPressed: onPrimaryPressed,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
