@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Service extends Model
 {
@@ -12,7 +14,13 @@ class Service extends Model
         'is_active',
     ];
 
-    public function appointments()
+    public function appointments(): BelongsToMany
+    {
+        return $this->belongsToMany(Appointment::class, 'appointment_service')
+            ->withTimestamps();
+    }
+
+    public function legacyAppointments(): HasMany
     {
         return $this->hasMany(Appointment::class);
     }

@@ -113,7 +113,7 @@ class AppointmentActionCacheInvalidationTest extends TestCase
             ->assertJsonPath('data.approved_count', 0);
         $this->getJson('/api/v1/admin/queues/today?date='.$date)
             ->assertOk()
-            ->assertJsonPath('queue_summary.total_queued', 1)
+            ->assertJsonPath('queue_summary.total_queued', 0)
             ->assertJsonPath('next_up', null);
 
         $initialVersions = $this->cacheVersions();
@@ -181,9 +181,11 @@ class AppointmentActionCacheInvalidationTest extends TestCase
 
         DB::beginTransaction();
         try {
-            app(AppointmentService::class)->cancelByPatient(
+            app(AppointmentService::class)->updateStatus(
                 $appointment->fresh(),
-                (int) $patientRecord->id,
+                'cancelled',
+                (int) $admin->id,
+                'Cache invalidation cancellation.',
             );
 
             $this->assertCacheVersionsUnchanged($initialVersions);

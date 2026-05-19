@@ -381,7 +381,8 @@ class ClinicSettingService
     private function buildScheduleChangeNotificationMessage(
         Appointment $appointment,
     ): string {
-        $serviceName = trim((string) ($appointment->service?->name ?? 'your appointment'));
+        $appointment->loadMissing(['service', 'services']);
+        $serviceName = trim((string) $appointment->serviceSummary());
         $message = sprintf(
             'Your appointment for %s on %s at %s needs attention because the clinic schedule changed and your original slot is no longer available.',
             $serviceName !== '' ? $serviceName : 'your appointment',

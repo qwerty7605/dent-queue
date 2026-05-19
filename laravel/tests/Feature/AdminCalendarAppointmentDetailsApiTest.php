@@ -62,7 +62,7 @@ class AdminCalendarAppointmentDetailsApiTest extends TestCase
             ->assertJsonPath('appointments.1.service_type', 'Teeth Cleaning')
             ->assertJsonPath('appointments.1.appointment_date', $date)
             ->assertJsonPath('appointments.1.appointment_time', '16:00')
-            ->assertJsonPath('appointments.1.queue_number', 2)
+            ->assertJsonPath('appointments.1.queue_number', null)
             ->assertJsonPath('appointments.1.notes', 'Should not appear.')
             ->assertJsonPath('appointments.1.status', 'Pending');
     }

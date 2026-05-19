@@ -191,7 +191,15 @@ class PatientRecordController extends Controller
         return [
             'id' => (int) $appointment->id,
             'service_id' => (int) $appointment->service_id,
-            'service_type' => $appointment->service?->name ?? $this->fallbackServiceType((int) $appointment->service_id),
+            'service_ids' => $appointment->selectedServiceIds(),
+            'service_type' => $appointment->serviceSummary(),
+            'services' => $appointment->selectedServices()
+                ->map(static fn ($service): array => [
+                    'id' => (int) $service->id,
+                    'name' => (string) $service->name,
+                ])
+                ->values()
+                ->all(),
             'appointment_date' => (string) $appointment->appointment_date,
             'appointment_time' => (string) $appointment->time_slot,
             'status' => $this->displayStatus((string) $appointment->status),

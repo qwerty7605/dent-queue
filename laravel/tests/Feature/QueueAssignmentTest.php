@@ -50,6 +50,40 @@ class QueueAssignmentTest extends TestCase
         );
     }
 
+    public function test_pending_booking_has_no_queue_number_until_it_is_approved(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $patient = $this->createUserWithRole('Patient');
+        $service = $this->createService();
+        $appointmentDate = now()->next('Monday')->format('Y-m-d');
+
+        Sanctum::actingAs($patient);
+
+        $appointmentId = (int) $this->postJson('/api/v1/patient/appointments', [
+            'service_id' => $service->id,
+            'appointment_date' => $appointmentDate,
+            'time_slot' => '09:00',
+        ])->assertCreated()
+            ->assertJsonPath('appointment.queue_number', null)
+            ->json('appointment.id');
+
+        $this->assertDatabaseMissing('queues', [
+            'appointment_id' => $appointmentId,
+        ]);
+
+        app(AppointmentService::class)->updateStatus(
+            \App\Models\Appointment::query()->findOrFail($appointmentId),
+            'approved',
+            (int) $staff->id,
+        );
+
+        $this->assertDatabaseHas('queues', [
+            'appointment_id' => $appointmentId,
+            'queue_date' => $appointmentDate,
+            'queue_number' => 1,
+        ]);
+    }
+
     public function test_queue_number_resets_for_a_new_day(): void
     {
         $staff = $this->createUserWithRole('Staff');
@@ -97,7 +131,7 @@ class QueueAssignmentTest extends TestCase
             'service_id' => $service->id,
             'appointment_date' => $appointmentDate,
             'time_slot' => '09:00',
-        ])->assertCreated()->assertJsonPath('appointment.queue_number', '01');
+        ])->assertCreated()->assertJsonPath('appointment.queue_number', null);
 
         Sanctum::actingAs($staff);
 
@@ -110,7 +144,7 @@ class QueueAssignmentTest extends TestCase
             'service_type' => $service->name,
             'appointment_date' => $appointmentDate,
             'appointment_time' => '10:00',
-        ])->assertCreated()->assertJsonPath('appointment.queue_number', '02');
+        ])->assertCreated()->assertJsonPath('appointment.queue_number', '01');
 
         $staffBookedPatient = $this->createUserWithRole('Patient');
         $staffBookedPatientRecord = PatientRecord::syncFromUser($staffBookedPatient);
@@ -120,10 +154,10 @@ class QueueAssignmentTest extends TestCase
             'service_type' => $service->name,
             'appointment_date' => $appointmentDate,
             'appointment_time' => '11:00',
-        ])->assertCreated()->assertJsonPath('appointment.queue_number', '03');
+        ])->assertCreated()->assertJsonPath('appointment.queue_number', '02');
 
         $this->assertSame(
-            [1, 2, 3],
+            [1, 2],
             Queue::query()
                 ->where('queue_date', $appointmentDate)
                 ->orderBy('queue_number')
@@ -251,6 +285,7 @@ class QueueAssignmentTest extends TestCase
             \App\Models\Appointment::query()->findOrFail($secondId),
             'cancelled',
             (int) $staff->id,
+            'Queue resequencing test cancellation.',
         );
 
         $this->assertDatabaseMissing('queues', [
@@ -273,13 +308,12 @@ class QueueAssignmentTest extends TestCase
             'appointment_id' => $firstId,
             'queue_number' => 1,
         ]);
-        $this->assertDatabaseHas('queues', [
+        $this->assertDatabaseMissing('queues', [
             'appointment_id' => $secondId,
-            'queue_number' => 2,
         ]);
         $this->assertDatabaseHas('queues', [
             'appointment_id' => $thirdId,
-            'queue_number' => 3,
+            'queue_number' => 2,
         ]);
     }
 

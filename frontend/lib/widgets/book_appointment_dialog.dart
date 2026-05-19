@@ -30,7 +30,12 @@ class BookAppointmentDialog extends StatefulWidget {
 class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   static const Map<String, List<String>> _apiFieldMappings =
       <String, List<String>>{
-        'service': <String>['service_id', 'service_type'],
+        'service': <String>[
+          'services',
+          'services.*',
+          'service_id',
+          'service_type',
+        ],
         'date': <String>['appointment_date'],
         'time': <String>['time_slot', 'appointment_time'],
         'notes': <String>['notes'],
@@ -46,7 +51,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   int _currentStep = 1;
   DateTime _visibleMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
-  String? _selectedService;
+  final Set<String> _selectedServices = <String>{};
   DateTime? _selectedDate;
   String? _selectedTimeSlot;
   List<Map<String, dynamic>> _availabilitySlots = <Map<String, dynamic>>[];
@@ -120,7 +125,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   bool get _canMoveForward {
     switch (_currentStep) {
       case 1:
-        return _selectedService != null;
+        return _selectedServices.isNotEmpty;
       case 2:
         return _selectedDate != null;
       case 3:
@@ -216,6 +221,10 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   Future<void> _handlePrimaryAction() async {
     if (_currentStep < 4) {
       if (_formKey.currentState!.validate() && _canMoveForward) {
+        if (_currentStep == 3 && !await _validateSelectedBooking()) {
+          return;
+        }
+
         setState(() {
           _currentStep += 1;
           _autoValidateMode = AutovalidateMode.disabled;
@@ -242,25 +251,21 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
       return;
     }
 
+    if (!await _validateSelectedBooking()) {
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
-      final Map<String, dynamic> payload = <String, dynamic>{
-        'service_id': int.parse(_selectedService!),
-        'appointment_date': _formatSelectedDate(),
-        'time_slot': _selectedTimeSlot!,
-        'notes': _notesController.text.trim(),
-      };
+      final Map<String, dynamic> payload = _bookingValidationPayload()
+        ..['services'] = _selectedServiceIds()
+        ..['notes'] = _notesController.text.trim();
       await _appointmentService.createAppointment(payload);
 
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      final String serviceName =
-          _services.firstWhere(
-                (s) => s['id'].toString() == _selectedService,
-                orElse: () => <String, dynamic>{'name': 'your service'},
-              )['name']
-              as String;
+      final String serviceName = _selectedServiceName();
 
       await showAppointmentSuccessDialog(
         context,
@@ -283,6 +288,91 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
         _formErrorText = 'Failed to book appointment.';
       });
     }
+  }
+
+  Future<bool> _validateSelectedBooking() async {
+    if (_selectedDate == null ||
+        _selectedTimeSlot == null ||
+        _selectedServices.isEmpty) {
+      setState(() => _autoValidateMode = AutovalidateMode.always);
+      _formKey.currentState?.validate();
+      return false;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _fieldErrors = <String, String>{};
+      _formErrorText = null;
+    });
+
+    try {
+      final Map<String, dynamic> response = await _appointmentService
+          .validateBooking(_bookingValidationPayload());
+      if (!mounted) return false;
+
+      final bool isValid = response['valid'] == true;
+      if (!isValid) {
+        _applyValidationFailure(
+          response['message']?.toString() ??
+              'The selected appointment schedule is not available.',
+          response['errors'],
+        );
+      }
+
+      setState(() => _isLoading = false);
+      return isValid;
+    } on ApiException catch (error) {
+      if (!mounted) return false;
+      setState(() => _isLoading = false);
+      _applyApiErrors(error);
+      return false;
+    } catch (_) {
+      if (!mounted) return false;
+      setState(() {
+        _isLoading = false;
+        _formErrorText = 'Unable to validate this schedule right now.';
+      });
+      return false;
+    }
+  }
+
+  Map<String, dynamic> _bookingValidationPayload() {
+    return <String, dynamic>{
+      'service_id': _selectedServiceIds().first,
+      'service_ids': _selectedServiceIds(),
+      'appointment_date': _formatSelectedDate(),
+      'appointment_time': _selectedTimeSlot!,
+      'time_slot': _selectedTimeSlot!,
+    };
+  }
+
+  void _applyValidationFailure(String message, dynamic errors) {
+    final Map<String, String> fieldErrors = collectApiFieldErrors(
+      errors is Map ? Map<String, dynamic>.from(errors) : null,
+      _apiFieldMappings,
+    );
+
+    if (fieldErrors.isEmpty) {
+      final normalizedMessage = message.trim();
+      if (normalizedMessage.contains('past')) {
+        fieldErrors['time'] = 'You cannot book an appointment in the past.';
+      } else if (normalizedMessage.contains('already booked') ||
+          normalizedMessage.contains('time slot')) {
+        fieldErrors['time'] =
+            'This time slot is already booked. Please choose another time.';
+      } else if (normalizedMessage.contains('scheduled on this day') ||
+          normalizedMessage.contains('booking for this date')) {
+        fieldErrors['date'] =
+            'You already have an appointment scheduled on this day.';
+      }
+    }
+
+    setState(() {
+      _fieldErrors = fieldErrors;
+      _formErrorText = fieldErrors.isEmpty ? message : null;
+      _autoValidateMode = AutovalidateMode.always;
+    });
+    _formKey.currentState?.validate();
   }
 
   @override
@@ -632,7 +722,8 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   ) {
     return Column(
       children: _services.map((Map<String, dynamic> service) {
-        final bool isSelected = _selectedService == service['id'].toString();
+        final String serviceId = service['id'].toString();
+        final bool isSelected = _selectedServices.contains(serviceId);
         final Color accent = service['accent'] as Color;
 
         return Container(
@@ -661,7 +752,11 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
             onTap: () {
               _clearFieldError('service');
               setState(() {
-                _selectedService = service['id'].toString();
+                if (isSelected) {
+                  _selectedServices.remove(serviceId);
+                } else {
+                  _selectedServices.add(serviceId);
+                }
               });
             },
             child: Padding(
@@ -1256,12 +1351,24 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   }
 
   String _selectedServiceName() {
+    final names = <String>[];
     for (final Map<String, dynamic> service in _services) {
-      if (service['id'].toString() == _selectedService) {
-        return service['name'].toString();
+      if (_selectedServices.contains(service['id'].toString())) {
+        names.add(service['name'].toString());
       }
     }
-    return 'Not selected';
+
+    return names.isEmpty ? 'Not selected' : names.join(', ');
+  }
+
+  List<int> _selectedServiceIds() {
+    return _services
+        .where(
+          (Map<String, dynamic> service) =>
+              _selectedServices.contains(service['id'].toString()),
+        )
+        .map((Map<String, dynamic> service) => service['id'] as int)
+        .toList();
   }
 
   bool _isBeforeCurrentMonth(DateTime month) {

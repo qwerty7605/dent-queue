@@ -443,7 +443,7 @@ class DoctorAvailabilityService
         $blockedEnd = $this->combineDateAndTime($date, (string) $schedule->end_time, $timezone);
 
         return Appointment::query()
-            ->with(['patient', 'service'])
+            ->with(['patient', 'service', 'services'])
             ->whereDate('appointment_date', $date)
             ->whereNull('deleted_at')
             // Approved appointments are stored internally as `confirmed`.
@@ -501,7 +501,7 @@ class DoctorAvailabilityService
         Appointment $appointment,
         DoctorUnavailability $schedule,
     ): string {
-        $serviceName = trim((string) ($appointment->service?->name ?? 'your appointment'));
+        $serviceName = trim((string) $appointment->serviceSummary());
         $reason = trim((string) ($schedule->reason ?? ''));
 
         $message = sprintf(
@@ -573,9 +573,14 @@ class DoctorAvailabilityService
             'patient_record_id' => (int) $appointment->patient_id,
             'patient_name' => $patientName,
             'service_id' => (int) $appointment->service_id,
-            'service_name' => $appointment->service?->name !== null
-                ? (string) $appointment->service->name
-                : null,
+            'service_name' => $appointment->serviceSummary(),
+            'services' => $appointment->selectedServices()
+                ->map(static fn ($service): array => [
+                    'id' => (int) $service->id,
+                    'name' => (string) $service->name,
+                ])
+                ->values()
+                ->all(),
             'appointment_date' => (string) $appointment->appointment_date,
             'appointment_time' => (string) $appointment->time_slot,
             'status' => 'approved',

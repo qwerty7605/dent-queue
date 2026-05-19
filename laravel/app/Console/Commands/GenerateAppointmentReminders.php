@@ -30,7 +30,7 @@ class GenerateAppointmentReminders extends Command
     {
         $tomorrow = Carbon::tomorrow()->toDateString();
 
-        $appointments = Appointment::with('service')
+        $appointments = Appointment::with(['service', 'services'])
             ->where('appointment_date', $tomorrow)
             ->where('status', 'confirmed')
             ->get();
@@ -56,7 +56,7 @@ class GenerateAppointmentReminders extends Command
                     }
                 }
 
-                $serviceName = $appointment->service ? $appointment->service->name : 'your appointment';
+                $serviceName = $appointment->serviceSummary();
 
                 PatientNotification::create([
                     'patient_id' => $appointment->patient_id,

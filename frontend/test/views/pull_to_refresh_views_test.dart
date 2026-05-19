@@ -40,6 +40,11 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getMedicalHistory() async {
+    return <Map<String, dynamic>>[];
+  }
+
+  @override
   Future<Map<String, dynamic>> getPatientTodayQueue({
     bool forceRefresh = false,
   }) async {
@@ -163,7 +168,7 @@ void main() {
                   'service_type': 'Dental Check-up',
                   'appointment_date': today,
                   'appointment_time': '09:00',
-                  'status': 'Pending',
+                  'status': 'Approved',
                   'queue_number': '01',
                   'notes': '',
                 },
@@ -566,7 +571,7 @@ void main() {
                   'service_type': 'Dental Check-up',
                   'appointment_date': today,
                   'appointment_time': '09:00',
-                  'status': 'Pending',
+                  'status': 'Approved',
                   'queue_number': '01',
                   'notes': '',
                 },

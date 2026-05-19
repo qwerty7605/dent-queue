@@ -8,7 +8,7 @@ import 'app_dialog_scaffold.dart';
 import 'appointment_status_badge.dart';
 
 typedef StaffAppointmentStatusUpdater =
-    Future<bool> Function(String nextStatus);
+    Future<bool> Function(String nextStatus, {String? cancellationReason});
 
 class StaffAppointmentDetailsDialog extends StatefulWidget {
   const StaffAppointmentDetailsDialog({
@@ -46,8 +46,16 @@ class _StaffAppointmentDetailsDialogState
           '',
     );
     final notes = widget.appointment['notes']?.toString().trim() ?? '';
+    final cancellationReason =
+        widget.appointment['cancellation_reason']?.toString().trim() ?? '';
+    final cancelledBy =
+        widget.appointment['cancelled_by_name']?.toString().trim() ?? '';
+    final cancelledAt = _formatDateTime(
+      widget.appointment['cancelled_at']?.toString() ?? '',
+    );
     final status = normalizeAppointmentStatus(widget.appointment['status']);
     final queueNumber = _formatQueueNumber(widget.appointment['queue_number']);
+    final logs = _readLogs();
     final actions = widget.showStatusActions && widget.onStatusUpdate != null
         ? _allowedActionsForAppointment(widget.appointment, widget.actorRole)
         : const <_AppointmentAction>[];
@@ -69,7 +77,7 @@ class _StaffAppointmentDetailsDialogState
         children: [
           _DetailBlock(label: 'PATIENT NAME', value: patientName),
           const SizedBox(height: 16),
-          _DetailBlock(label: 'SERVICE TYPE', value: serviceType),
+          _DetailBlock(label: 'SERVICES', value: serviceType),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -87,6 +95,33 @@ class _StaffAppointmentDetailsDialogState
             label: 'NOTES',
             value: notes.isEmpty ? 'No notes provided' : notes,
           ),
+          if (cancellationReason.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _DetailBlock(
+              label: 'CANCELLATION REASON',
+              value: cancellationReason,
+            ),
+          ],
+          if (cancelledBy.isNotEmpty || cancelledAt.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _DetailBlock(
+                    label: 'CANCELLED BY',
+                    value: cancelledBy.isEmpty ? 'Not recorded' : cancelledBy,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _DetailBlock(
+                    label: 'CANCELLED AT',
+                    value: cancelledAt.isEmpty ? 'Not recorded' : cancelledAt,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: [
@@ -105,9 +140,25 @@ class _StaffAppointmentDetailsDialogState
               ),
             ],
           ),
+          if (logs.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            _AppointmentLogsBlock(logs: logs),
+          ],
         ],
       ),
     );
+  }
+
+  List<Map<String, dynamic>> _readLogs() {
+    final rawLogs = widget.appointment['logs'];
+    if (rawLogs is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    return rawLogs
+        .whereType<Map>()
+        .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+        .toList();
   }
 
   Widget? _buildFooter(List<_AppointmentAction> actions) {
@@ -141,8 +192,24 @@ class _StaffAppointmentDetailsDialogState
   }
 
   Future<void> _handleAction(_AppointmentAction action) async {
-    final confirmed = await _showConfirmationDialog(action);
-    if (!confirmed || !mounted) {
+    String? cancellationReason;
+    final String normalizedStatus = normalizeAppointmentStatus(
+      action.nextStatus,
+    );
+
+    if (normalizedStatus == 'cancelled') {
+      cancellationReason = await _showCancelReasonDialog();
+      if (cancellationReason == null || !mounted) {
+        return;
+      }
+    } else {
+      final confirmed = await _showConfirmationDialog(action);
+      if (!confirmed || !mounted) {
+        return;
+      }
+    }
+
+    if (!mounted) {
       return;
     }
 
@@ -160,7 +227,10 @@ class _StaffAppointmentDetailsDialogState
       return;
     }
 
-    final success = await updater(action.nextStatus);
+    final success = await updater(
+      action.nextStatus,
+      cancellationReason: cancellationReason,
+    );
     if (!mounted) {
       return;
     }
@@ -179,12 +249,12 @@ class _StaffAppointmentDetailsDialogState
       action.nextStatus,
     );
 
-    if (normalizedStatus == 'cancelled') {
-      return _showCancelConfirmationDialog();
-    }
-
     if (normalizedStatus == 'approved') {
       return _showApproveConfirmationDialog();
+    }
+
+    if (normalizedStatus == 'completed') {
+      return _showCompletedConfirmationDialog();
     }
 
     final decision = await showDialog<bool>(
@@ -209,6 +279,36 @@ class _StaffAppointmentDetailsDialogState
         );
       },
     );
+    return decision ?? false;
+  }
+
+  Future<bool> _showCompletedConfirmationDialog() async {
+    final String serviceType = _readValue(
+      'service_type',
+      fallback: 'this appointment',
+    );
+    final String formattedDate = _formatDate(
+      widget.appointment['appointment_date']?.toString() ?? '',
+    );
+
+    final decision = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AppConfirmationDialog(
+        icon: Icons.task_alt_rounded,
+        iconBackgroundColor: const Color(0xFFEAFBF0),
+        iconColor: const Color(0xFF16A34A),
+        title: 'Mark as Completed?',
+        message:
+            'Are you sure you want to mark this appointment as completed for '
+            '$serviceType on $formattedDate?',
+        secondaryLabel: 'No, Keep it',
+        primaryLabel: 'Yes, Complete',
+        primaryColor: const Color(0xFF16A34A),
+        onSecondaryPressed: () => Navigator.of(dialogContext).pop(false),
+        onPrimaryPressed: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+
     return decision ?? false;
   }
 
@@ -242,7 +342,7 @@ class _StaffAppointmentDetailsDialogState
     return decision ?? false;
   }
 
-  Future<bool> _showCancelConfirmationDialog() async {
+  Future<String?> _showCancelReasonDialog() async {
     final String serviceType = _readValue(
       'service_type',
       fallback: 'this appointment',
@@ -250,26 +350,14 @@ class _StaffAppointmentDetailsDialogState
     final String formattedDate = _formatDate(
       widget.appointment['appointment_date']?.toString() ?? '',
     );
-
-    final decision = await showDialog<bool>(
+    return showDialog<String>(
       context: context,
-      builder: (BuildContext dialogContext) => AppConfirmationDialog(
-        icon: Icons.close_rounded,
-        iconBackgroundColor: const Color(0xFFFFECEC),
-        iconColor: const Color(0xFFFF4747),
-        title: 'Cancel Appointment?',
+      builder: (BuildContext dialogContext) => _CancellationReasonDialog(
         message:
-            'Are you sure you want to cancel this appointment for '
-            '$serviceType on $formattedDate?',
-        secondaryLabel: 'No, Keep it',
-        primaryLabel: 'Yes, Cancel',
-        primaryColor: const Color(0xFFFF4B4B),
-        onSecondaryPressed: () => Navigator.of(dialogContext).pop(false),
-        onPrimaryPressed: () => Navigator.of(dialogContext).pop(true),
+            'Provide a reason for cancelling this appointment for '
+            '$serviceType on $formattedDate.',
       ),
     );
-
-    return decision ?? false;
   }
 
   String _confirmationTitle(String nextStatus) {
@@ -406,6 +494,150 @@ class _StaffAppointmentDetailsDialogState
 
     return trimmed;
   }
+
+  String _formatDateTime(String rawDateTime) {
+    final parsed = DateTime.tryParse(rawDateTime.trim());
+    if (parsed == null) {
+      return rawDateTime.trim();
+    }
+
+    final hour = parsed.hour == 0
+        ? 12
+        : parsed.hour > 12
+        ? parsed.hour - 12
+        : parsed.hour;
+    final minute = parsed.minute.toString().padLeft(2, '0');
+    final period = parsed.hour >= 12 ? 'PM' : 'AM';
+
+    return '${_formatDate(parsed.toIso8601String().split('T').first)} $hour:$minute $period';
+  }
+}
+
+class _AppointmentLogsBlock extends StatelessWidget {
+  const _AppointmentLogsBlock({required this.logs});
+
+  final List<Map<String, dynamic>> logs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'APPOINTMENT LOGS',
+            style: TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (final log in logs.take(5)) ...[
+            _AppointmentLogRow(log: log),
+            if (log != logs.take(5).last) const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AppointmentLogRow extends StatelessWidget {
+  const _AppointmentLogRow({required this.log});
+
+  final Map<String, dynamic> log;
+
+  @override
+  Widget build(BuildContext context) {
+    final action = log['action']?.toString().trim() ?? 'Appointment activity';
+    final status =
+        log['action_status']?.toString().trim() ??
+        log['new_status']?.toString().trim() ??
+        '';
+    final actor = log['performed_by']?.toString().trim() ?? '';
+    final actionAt = _formatLogDateTime(
+      log['action_at']?.toString() ?? log['created_at']?.toString() ?? '',
+    );
+    final reason = log['cancellation_reason']?.toString().trim() ?? '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          status.isEmpty ? action : '$action • $status',
+          style: const TextStyle(
+            color: Color(0xFF1E293B),
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          [
+            if (actor.isNotEmpty) 'By $actor',
+            if (actionAt.isNotEmpty) actionAt,
+          ].join(' • '),
+          style: const TextStyle(
+            color: Color(0xFF64748B),
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+        ),
+        if (reason.isNotEmpty) ...[
+          const SizedBox(height: 3),
+          Text(
+            'Reason: $reason',
+            style: const TextStyle(
+              color: Color(0xFFB45309),
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  static String _formatLogDateTime(String rawDateTime) {
+    final parsed = DateTime.tryParse(rawDateTime.trim());
+    if (parsed == null) {
+      return rawDateTime.trim();
+    }
+
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final local = parsed.toLocal();
+    final hour = local.hour == 0
+        ? 12
+        : local.hour > 12
+        ? local.hour - 12
+        : local.hour;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
+
+    return '${months[local.month - 1]} ${local.day}, ${local.year} $hour:$minute $period';
+  }
 }
 
 class _ActionButton extends StatelessWidget {
@@ -432,6 +664,75 @@ class _ActionButton extends StatelessWidget {
         ),
         child: Text(config.label.toUpperCase()),
       ),
+    );
+  }
+}
+
+class _CancellationReasonDialog extends StatefulWidget {
+  const _CancellationReasonDialog({required this.message});
+
+  final String message;
+
+  @override
+  State<_CancellationReasonDialog> createState() =>
+      _CancellationReasonDialogState();
+}
+
+class _CancellationReasonDialogState extends State<_CancellationReasonDialog> {
+  final TextEditingController _controller = TextEditingController();
+  String? _fieldError;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppAlertDialog(
+      title: const Text('Cancel Appointment?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.message),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            minLines: 3,
+            maxLines: 5,
+            decoration: InputDecoration(
+              labelText: 'Cancellation reason',
+              errorText: _fieldError,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('No, Keep it'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final value = _controller.text.trim();
+            if (value.isEmpty) {
+              setState(() {
+                _fieldError = 'Cancellation reason is required.';
+              });
+              return;
+            }
+
+            Navigator.of(context).pop(value);
+          },
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFFF4B4B),
+          ),
+          child: const Text('Yes, Cancel'),
+        ),
+      ],
     );
   }
 }

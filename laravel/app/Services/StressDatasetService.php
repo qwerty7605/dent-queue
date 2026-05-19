@@ -318,7 +318,7 @@ class StressDatasetService
     private function resolveSimulationDates(int $simulationDays, array $workingDays): array
     {
         $dates = [];
-        $cursor = Carbon::today((string) config('app.timezone', 'UTC'));
+        $cursor = Carbon::today((string) config('app.timezone', 'UTC'))->addDay();
 
         while (count($dates) < $simulationDays) {
             if (in_array($cursor->englishDayOfWeek, $workingDays, true)) {
@@ -471,7 +471,12 @@ class StressDatasetService
                 $currentStatus = (string) $appointment->status;
 
                 if ($position % 11 === 0 && $currentStatus === 'pending') {
-                    $this->appointmentService->updateStatus($appointment, 'cancelled', $actorId);
+                    $this->appointmentService->updateStatus(
+                        $appointment,
+                        'cancelled',
+                        $actorId,
+                        'Bulk simulation cancellation.',
+                    );
                     return;
                 }
 

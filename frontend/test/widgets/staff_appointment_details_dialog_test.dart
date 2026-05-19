@@ -21,10 +21,11 @@ void main() {
                 'queue_number': 1,
                 'notes': '',
               },
-              onStatusUpdate: (String nextStatus) async {
-                updaterCalled = nextStatus == 'approved';
-                return true;
-              },
+              onStatusUpdate:
+                  (String nextStatus, {String? cancellationReason}) async {
+                    updaterCalled = nextStatus == 'approved';
+                    return true;
+                  },
             ),
           ),
         ),
@@ -83,7 +84,7 @@ void main() {
               'allowed_actions': <String>['cancel'],
             },
             actorRole: 'admin',
-            onStatusUpdate: (_) async => true,
+            onStatusUpdate: (_, {String? cancellationReason}) async => true,
           ),
         ),
       ),
@@ -114,10 +115,12 @@ void main() {
               'allowed_actions': <String>['cancel'],
             },
             actorRole: 'admin',
-            onStatusUpdate: (String nextStatus) async {
-              submittedStatus = nextStatus;
-              return true;
-            },
+            onStatusUpdate:
+                (String nextStatus, {String? cancellationReason}) async {
+                  submittedStatus = nextStatus;
+                  expect(cancellationReason, 'Patient requested another day.');
+                  return true;
+                },
           ),
         ),
       ),
@@ -128,25 +131,77 @@ void main() {
     await tester.tap(find.text('CANCEL'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Cancel Appointment?'), findsOneWidget);
+    expect(find.text('Cancellation reason'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'No, Keep it'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Yes, Cancel'), findsOneWidget);
+
+    await tester.enterText(
+      find.byType(TextField),
+      'Patient requested another day.',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Yes, Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(submittedStatus, 'cancelled');
+  });
+
+  testWidgets('uses approve-style confirmation modal for completion', (
+    WidgetTester tester,
+  ) async {
+    String? submittedStatus;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StaffAppointmentDetailsDialog(
+            appointment: <String, dynamic>{
+              'patient_name': 'Ava Stone',
+              'service_type': 'Dental Cleaning',
+              'appointment_date': '2026-04-20',
+              'time': '09:00',
+              'status': 'Approved',
+              'queue_number': 1,
+              'allowed_actions': <String>['complete'],
+            },
+            actorRole: 'admin',
+            onStatusUpdate:
+                (String nextStatus, {String? cancellationReason}) async {
+                  submittedStatus = nextStatus;
+                  return true;
+                },
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('MARK COMPLETED'));
+    await tester.pumpAndSettle();
+
     final Dialog confirmationDialog = tester.widget<Dialog>(
       find.byType(Dialog).last,
     );
 
-    expect(find.text('Cancel Appointment?'), findsOneWidget);
+    expect(find.text('Mark as Completed?'), findsOneWidget);
     expect(confirmationDialog.constraints?.maxWidth, 380);
     expect(
       find.text(
-        'Are you sure you want to cancel this appointment for '
+        'Are you sure you want to mark this appointment as completed for '
         'Dental Cleaning on Apr 20, 2026?',
       ),
       findsOneWidget,
     );
     expect(find.widgetWithText(ElevatedButton, 'No, Keep it'), findsOneWidget);
-    expect(find.widgetWithText(ElevatedButton, 'Yes, Cancel'), findsOneWidget);
+    expect(
+      find.widgetWithText(ElevatedButton, 'Yes, Complete'),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Yes, Cancel'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Yes, Complete'));
     await tester.pumpAndSettle();
 
-    expect(submittedStatus, 'cancelled');
+    expect(submittedStatus, 'completed');
   });
 }

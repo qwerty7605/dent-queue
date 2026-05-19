@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' hide TextDirection;
 
 import '../core/api_exception.dart';
 import '../core/appointment_status.dart';
@@ -1415,10 +1414,10 @@ class _AdminReportsViewState extends State<AdminReportsView> {
     }
 
     if (selectedStart != null) {
-      selectedStart = clampDate(_dateOnly(selectedStart!));
+      selectedStart = clampDate(_dateOnly(selectedStart));
     }
     if (selectedEnd != null) {
-      selectedEnd = clampDate(_dateOnly(selectedEnd!));
+      selectedEnd = clampDate(_dateOnly(selectedEnd));
     }
 
     DateTime initialDateFor(DateTime? selectedDate) {
@@ -2627,9 +2626,8 @@ class _AdminReportsViewState extends State<AdminReportsView> {
                             width: 80,
                             child: Center(
                               child: IconButton(
-                                onPressed: () => _openReportRecordDetails(
-                                  record,
-                                ),
+                                onPressed: () =>
+                                    _openReportRecordDetails(record),
                                 tooltip: 'Manage appointment',
                                 icon: const Icon(
                                   Icons.edit_calendar_outlined,
@@ -2882,16 +2880,21 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       builder: (_) => StaffAppointmentDetailsDialog(
         appointment: record,
         actorRole: 'admin',
-        onStatusUpdate: (String nextStatus) =>
-            _updateReportRecordStatus(record, nextStatus),
+        onStatusUpdate: (String nextStatus, {String? cancellationReason}) =>
+            _updateReportRecordStatus(
+              record,
+              nextStatus,
+              cancellationReason: cancellationReason,
+            ),
       ),
     );
   }
 
   Future<bool> _updateReportRecordStatus(
     Map<String, dynamic> record,
-    String nextStatus,
-  ) async {
+    String nextStatus, {
+    String? cancellationReason,
+  }) async {
     final int? appointmentId = _parseAppointmentId(record);
     if (appointmentId == null) {
       _showTransientMessage('Unable to update status: invalid appointment ID.');
@@ -2902,6 +2905,7 @@ class _AdminReportsViewState extends State<AdminReportsView> {
       await widget.appointmentService.updateAdminAppointmentStatus(
         appointmentId,
         nextStatus,
+        cancellationReason: cancellationReason,
       );
       if (!mounted) {
         return false;

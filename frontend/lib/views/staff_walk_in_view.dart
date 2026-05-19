@@ -31,7 +31,14 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
         'address': <String>['address', 'location'],
         'gender': <String>['gender'],
         'contact_number': <String>['contact_number', 'phone_number'],
-        'service_type': <String>['service_type', 'service_id'],
+        'service_type': <String>[
+          'service_types',
+          'service_types.*',
+          'services',
+          'services.*',
+          'service_type',
+          'service_id',
+        ],
         'appointment_date': <String>['appointment_date'],
         'appointment_time': <String>['appointment_time', 'time_slot'],
       };
@@ -46,7 +53,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
   int _currentStep = 0;
 
   String? _gender;
-  String? _serviceType;
+  final Set<String> _serviceTypesSelected = <String>{};
 
   DateTime? _selectedDate;
   String? _selectedTimeSlot;
@@ -208,7 +215,12 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
         'address': _addressController.text.trim(),
         'gender': _gender,
         'contact_number': _contactNumberController.text.trim(),
-        'service_type': _serviceType,
+        'service_type': _serviceTypesSelected.isNotEmpty
+            ? _serviceTypesSelected.first
+            : null,
+        'service_types': _serviceTypes
+            .where((String service) => _serviceTypesSelected.contains(service))
+            .toList(),
         'appointment_date': dateStr,
         'appointment_time': _selectedTimeSlot,
       };
@@ -238,7 +250,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
         setState(() {
           _currentStep = 0;
           _gender = null;
-          _serviceType = null;
+          _serviceTypesSelected.clear();
           _selectedDate = null;
           _selectedTimeSlot = null;
           _availabilitySlots = <Map<String, dynamic>>[];
@@ -644,19 +656,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
           title: 'Appointment Details',
         ),
         const SizedBox(height: 24),
-        _buildDropdownField(
-          label: 'SERVICE TYPE',
-          hint: 'Select Service',
-          fieldKey: 'service_type',
-          value: _serviceType,
-          items: _serviceTypes,
-          onChanged: (val) {
-            setState(() => _serviceType = val);
-            _clearFieldError('service_type');
-          },
-          validator: (val) =>
-              _mergeFieldError('service_type', val == null ? 'Required' : null),
-        ),
+        _buildServiceTypeField(),
         const SizedBox(height: 18),
         _buildDatePickerField(
           label: 'APPOINTMENT DATE',
@@ -926,6 +926,77 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
           }).toList(),
         ),
       ],
+    );
+  }
+
+  Widget _buildServiceTypeField() {
+    return FormField<Set<String>>(
+      validator: (_) => _mergeFieldError(
+        'service_type',
+        _serviceTypesSelected.isEmpty ? 'Required' : null,
+      ),
+      builder: (state) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'SERVICE TYPE',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF7A8799),
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: state.hasError
+                    ? Colors.redAccent
+                    : const Color(0xFFE1E7F0),
+              ),
+            ),
+            child: Column(
+              children: _serviceTypes.map((service) {
+                final selected = _serviceTypesSelected.contains(service);
+                return CheckboxListTile(
+                  dense: true,
+                  value: selected,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  title: Text(
+                    service,
+                    style: const TextStyle(
+                      color: Color(0xFF263449),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  activeColor: const Color(0xFF4A769E),
+                  onChanged: (checked) {
+                    setState(() {
+                      if (checked == true) {
+                        _serviceTypesSelected.add(service);
+                      } else {
+                        _serviceTypesSelected.remove(service);
+                      }
+                    });
+                    _clearFieldError('service_type');
+                    state.didChange(_serviceTypesSelected);
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+          if (state.errorText != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              state.errorText!,
+              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
     );
   }
 

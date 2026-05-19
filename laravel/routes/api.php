@@ -50,6 +50,7 @@ Route::prefix('v1')->group(function () {
                 Route::delete('/patients/{patientId}', [PatientRecordController::class, 'destroy']);
                 Route::apiResource('services', ServiceController::class);
                 Route::apiResource('staff', AdminStaffController::class);
+                Route::post('/appointments/validate-booking', [AppointmentController::class, 'validateAdminBooking']);
                 Route::post('/appointments', [AppointmentController::class, 'storeAdmin']);
                 Route::post('/appointments/walk-in', [AppointmentController::class, 'storeWalkIn']);
                 Route::post('/appointments/follow-up', [AppointmentController::class, 'storeFollowUp']);
@@ -74,6 +75,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('patient')->middleware('role:patient')->group(function () {
             Route::get('/services', [ServiceController::class, 'index']);
             Route::get('/appointments/history', [AppointmentController::class, 'medicalHistory']);
+            Route::post('/appointments/validate-booking', [AppointmentController::class, 'validatePatientBooking']);
             Route::patch('/appointments/{appointment}/cancel', [AppointmentController::class, 'cancel']);
             Route::patch('/appointments/{id}/restore', [AppointmentController::class, 'restore']);
             Route::get('/appointments/recycle-bin', [AppointmentController::class, 'recycleBin']);

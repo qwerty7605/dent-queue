@@ -32,7 +32,7 @@ class BulkReportSeeder extends Seeder
         }
 
         $appointments = Appointment::query()
-            ->with(['patient', 'queue', 'service'])
+            ->with(['patient', 'queue', 'service', 'services'])
             ->where('notes', 'like', $this->bulkSeedMarker() . '%')
             ->get();
 
@@ -82,7 +82,7 @@ class BulkReportSeeder extends Seeder
             'appointment_id' => (int) $appointment->id,
             'patient_id' => (int) $appointment->patient_id,
             'patient_name' => $patientName,
-            'service_type' => (string) ($appointment->service?->name ?? 'Unknown Service'),
+            'service_type' => $appointment->serviceSummary(),
             'appointment_date' => (string) $appointment->appointment_date,
             'appointment_time' => (string) $appointment->time_slot,
             'status' => (string) $appointment->status,

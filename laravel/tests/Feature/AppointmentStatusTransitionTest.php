@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Appointment;
+use App\Models\PatientNotification;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,6 +46,7 @@ class AppointmentStatusTransitionTest extends TestCase
 
         $response = $this->patchJson('/api/v1/admin/appointments/' . $appointment->id . '/status', [
             'status' => 'cancelled',
+            'cancellation_reason' => 'Patient requested cancellation.',
         ]);
 
         $response->assertOk()
@@ -53,10 +55,20 @@ class AppointmentStatusTransitionTest extends TestCase
         $this->assertDatabaseHas('appointments', [
             'id' => $appointment->id,
             'status' => 'cancelled',
+            'cancellation_reason' => 'Patient requested cancellation.',
+            'cancelled_by' => $staff->id,
         ]);
         $this->assertSoftDeleted('appointments', [
             'id' => $appointment->id,
         ]);
+
+        $notification = PatientNotification::query()
+            ->where('appointment_id', (int) $appointment->id)
+            ->where('type', 'appointment_cancelled')
+            ->first();
+
+        $this->assertNotNull($notification);
+        $this->assertStringContainsString('Patient requested cancellation.', (string) $notification->message);
     }
 
     public function test_pending_to_completed_transition_is_rejected(): void
@@ -73,6 +85,27 @@ class AppointmentStatusTransitionTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['status'])
             ->assertJsonPath('errors.status.0', 'Invalid status transition: pending -> completed.');
+
+        $this->assertDatabaseHas('appointments', [
+            'id' => $appointment->id,
+            'status' => 'pending',
+        ]);
+    }
+
+    public function test_staff_cancellation_requires_reason(): void
+    {
+        $staff = $this->createUserWithRole('Staff');
+        $patient = $this->createUserWithRole('Patient');
+        $appointment = $this->createAppointment($patient->id, 'pending');
+        Sanctum::actingAs($staff);
+
+        $response = $this->patchJson('/api/v1/admin/appointments/' . $appointment->id . '/status', [
+            'status' => 'cancelled',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['cancellation_reason'])
+            ->assertJsonPath('errors.cancellation_reason.0', 'Cancellation reason is required.');
 
         $this->assertDatabaseHas('appointments', [
             'id' => $appointment->id,
@@ -109,6 +142,7 @@ class AppointmentStatusTransitionTest extends TestCase
 
         $response = $this->patchJson('/api/v1/admin/appointments/' . $appointment->id . '/status', [
             'status' => 'cancelled',
+            'cancellation_reason' => 'Doctor is unavailable.',
         ]);
 
         $response->assertOk()
@@ -117,6 +151,8 @@ class AppointmentStatusTransitionTest extends TestCase
         $this->assertDatabaseHas('appointments', [
             'id' => $appointment->id,
             'status' => 'cancelled',
+            'cancellation_reason' => 'Doctor is unavailable.',
+            'cancelled_by' => $staff->id,
         ]);
         $this->assertSoftDeleted('appointments', [
             'id' => $appointment->id,

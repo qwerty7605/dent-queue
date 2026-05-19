@@ -38,22 +38,11 @@ class AppointmentController extends Controller
     public function medicalHistory(Request $request): JsonResponse
     {
         $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
-        $appointments = $this->appointmentService->getPatientCompletedAppointments((int) $patientRecord->id);
+        $history = $this->appointmentService->getPatientAppointmentHistory((int) $patientRecord->id);
 
         return response()->json([
-            'appointments' => $appointments->map(fn ($appointment) => [
-                'date' => (string) $appointment->appointment_date,
-                'service_type' => match ((int) $appointment->service_id) {
-                    1 => 'Dental Check-up',
-                    2 => 'Dental Panoramic X-ray',
-                    3 => 'Root Canal',
-                    4 => 'Teeth Cleaning',
-                    5 => 'Teeth Whitening',
-                    6 => 'Tooth Extraction',
-                    default => 'Unknown Service',
-                },
-                'status' => AppointmentService::humanStatusLabel((string) $appointment->status),
-            ]),
+            'appointments' => $history,
+            'history' => $history,
         ]);
     }
 
@@ -99,6 +88,30 @@ class AppointmentController extends Controller
         ]);
     }
 
+    public function validatePatientBooking(Request $request): JsonResponse
+    {
+        $patientRecord = $this->resolveAuthenticatedPatientRecord($request);
+
+        return $this->validateBookingAvailabilityForPatient(
+            $request,
+            (int) $patientRecord->id,
+        );
+    }
+
+    public function validateAdminBooking(Request $request): JsonResponse
+    {
+        $this->forbidInternWrites($request);
+
+        $payload = $request->validate([
+            'patient_id' => ['required', 'integer', 'exists:patient_records,id'],
+        ]);
+
+        return $this->validateBookingAvailabilityForPatient(
+            $request,
+            (int) $payload['patient_id'],
+        );
+    }
+
     public function calendarAppointments(Request $request): JsonResponse
     {
         $payload = $request->validate([
@@ -141,27 +154,26 @@ class AppointmentController extends Controller
 
         $payload = $request->validate([
             'patient_id' => ['required', 'integer', 'exists:patient_records,id'],
-            'service_type' => ['required', 'string', 'exists:services,name'],
+            'service_type' => ['required_without_all:service_types,services', 'string', 'exists:services,name'],
+            'service_types' => ['required_without_all:service_type,services', 'array', 'min:1'],
+            'service_types.*' => ['required', 'string', 'exists:services,name'],
+            'services' => ['required_without_all:service_type,service_types', 'array', 'min:1'],
+            'services.*' => ['required', 'integer', 'exists:services,id'],
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'appointment_time' => ['required', 'string'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $service = Service::query()->where('name', (string) $payload['service_type'])->first();
-
-        if ($service === null) {
-            return response()->json([
-                'message' => 'The selected service type is invalid.',
-            ], 422);
-        }
+        $serviceIds = $this->resolveServiceIdsFromPayload($payload);
 
         $appointment = $this->appointmentService->createAppointment([
             'patient_id' => (int) $payload['patient_id'],
-            'service_id' => (int) $service->id,
+            'service_ids' => $serviceIds,
             'appointment_date' => (string) $payload['appointment_date'],
             'time_slot' => (string) $payload['appointment_time'],
             'status' => 'approved',
             'notes' => $payload['notes'] ?? null,
+            'actor_user_id' => (int) $request->user()->id,
         ]);
 
         return response()->json([
@@ -177,6 +189,7 @@ class AppointmentController extends Controller
     {
         $payload = $this->validateBookingPayload($request, false);
         $payload['patient_id'] = (int) $this->resolveAuthenticatedPatientRecord($request)->id;
+        $payload['actor_user_id'] = (int) $request->user()->id;
 
         $appointment = $this->appointmentService->createAppointment($payload);
 
@@ -210,20 +223,18 @@ class AppointmentController extends Controller
             'gender' => ['required', 'string', 'in:Male,Female,Other'],
             'contact_number' => ['required', 'regex:/^09\d{9}$/'],
             'birthdate' => ['nullable', 'date', 'before_or_equal:today'],
-            'service_type' => ['required', 'string', 'exists:services,name'],
+            'service_type' => ['required_without_all:service_types,services', 'string', 'exists:services,name'],
+            'service_types' => ['required_without_all:service_type,services', 'array', 'min:1'],
+            'service_types.*' => ['required', 'string', 'exists:services,name'],
+            'services' => ['required_without_all:service_type,service_types', 'array', 'min:1'],
+            'services.*' => ['required', 'integer', 'exists:services,id'],
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'appointment_time' => ['required', 'string'],
         ], [
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
         ]);
 
-        $service = Service::query()->where('name', (string) $payload['service_type'])->first();
-
-        if ($service === null) {
-            return response()->json([
-                'message' => 'The selected service type is invalid.',
-            ], 422);
-        }
+        $serviceIds = $this->resolveServiceIdsFromPayload($payload);
 
         try {
             [$patientRecord, $appointment] = $this->appointmentService->createWalkInAppointment([
@@ -236,11 +247,12 @@ class AppointmentController extends Controller
                 'birthdate' => $payload['birthdate'] ?? null,
                 'user_id' => null,
             ], [
-                'service_id' => $service->id,
+                'service_ids' => $serviceIds,
                 'appointment_date' => $payload['appointment_date'],
                 'time_slot' => $payload['appointment_time'],
                 'status' => 'approved',
                 'notes' => 'Walk-In Patient',
+                'actor_user_id' => (int) $request->user()->id,
             ]);
 
             $appointmentResponse = $this->formatAppointmentResponse($appointment);
@@ -281,6 +293,7 @@ class AppointmentController extends Controller
         $this->forbidInternWrites($request);
 
         $payload = $this->validateBookingPayload($request, true);
+        $payload['actor_user_id'] = (int) $request->user()->id;
         $appointment = $this->appointmentService->createAppointment($payload);
 
         $appointment->load('queue');
@@ -297,12 +310,14 @@ class AppointmentController extends Controller
 
         $payload = $request->validate([
             'status' => ['required', 'string'],
+            'cancellation_reason' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $updatedAppointment = $this->appointmentService->updateStatus(
             $appointment,
             (string) $payload['status'],
             (int) $request->user()->id,
+            $payload['cancellation_reason'] ?? null,
         );
 
         return response()->json([
@@ -324,6 +339,7 @@ class AppointmentController extends Controller
         $updatedAppointment = $this->appointmentService->cancelByPatient(
             $appointment,
             (int) $patientRecord->id,
+            (int) $request->user()->id,
         );
 
         return response()->json([
@@ -406,6 +422,7 @@ class AppointmentController extends Controller
                 'patient',
                 'queue',
                 'service',
+                'services',
                 'patientNotifications' => function ($query) {
                     $query->whereIn('type', [
                         'appointment_reschedule_required',
@@ -435,7 +452,7 @@ class AppointmentController extends Controller
 
         /** @var Appointment $appointment */
         $appointment = Appointment::query()
-            ->with(['patient', 'queue', 'service'])
+            ->with(['patient', 'queue', 'service', 'services'])
             ->findOrFail($id);
 
         if ((int) $appointment->patient_id !== (int) $patientRecord->id) {
@@ -447,13 +464,21 @@ class AppointmentController extends Controller
         $payload = $request->validate([
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'time_slot' => ['required', 'string'],
+            'services' => ['sometimes', 'array', 'min:1'],
+            'services.*' => ['required', 'integer', 'exists:services,id'],
+            'service_id' => ['sometimes', 'integer', 'exists:services,id'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        if (array_key_exists('services', $payload)) {
+            $payload['service_ids'] = $payload['services'];
+        }
 
         $updatedAppointment = $this->appointmentService->rescheduleByPatient(
             $appointment,
             (int) $patientRecord->id,
             $payload,
+            (int) $request->user()->id,
         );
 
         return response()->json([
@@ -473,7 +498,9 @@ class AppointmentController extends Controller
     private function validateBookingPayload(Request $request, bool $requirePatientId): array
     {
         $rules = [
-            'service_id' => ['required', 'integer', 'between:1,6'],
+            'service_id' => ['required_without:services', 'integer', 'exists:services,id'],
+            'services' => ['required_without:service_id', 'array', 'min:1'],
+            'services.*' => ['required', 'integer', 'exists:services,id'],
             'appointment_date' => ['required', 'date_format:Y-m-d'],
             'time_slot' => ['required', 'string'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -483,7 +510,63 @@ class AppointmentController extends Controller
             $rules['patient_id'] = ['required', 'integer', 'exists:patient_records,id'];
         }
 
-        return $request->validate($rules);
+        $payload = $request->validate($rules);
+
+        if (array_key_exists('services', $payload)) {
+            $payload['service_ids'] = $payload['services'];
+        }
+
+        return $payload;
+    }
+
+    private function validateBookingAvailabilityForPatient(Request $request, int $patientId): JsonResponse
+    {
+        $payload = $request->validate([
+            'appointment_date' => ['required', 'date_format:Y-m-d'],
+            'appointment_time' => ['required_without:time_slot', 'string'],
+            'time_slot' => ['required_without:appointment_time', 'string'],
+            'service_id' => ['required_without_all:services,service_ids,service_type,service_types', 'integer', 'exists:services,id'],
+            'services' => ['required_without_all:service_id,service_ids,service_type,service_types', 'array', 'min:1'],
+            'services.*' => ['required', 'integer', 'exists:services,id'],
+            'service_ids' => ['required_without_all:service_id,services,service_type,service_types', 'array', 'min:1'],
+            'service_ids.*' => ['required', 'integer', 'exists:services,id'],
+            'service_type' => ['required_without_all:service_id,services,service_ids,service_types', 'string', 'exists:services,name'],
+            'service_types' => ['required_without_all:service_id,services,service_ids,service_type', 'array', 'min:1'],
+            'service_types.*' => ['required', 'string', 'exists:services,name'],
+        ]);
+
+        if (array_key_exists('service_ids', $payload)) {
+            $payload['services'] = $payload['service_ids'];
+        } elseif (!array_key_exists('services', $payload)) {
+            $payload['services'] = $this->resolveServiceIdsFromPayload($payload);
+        }
+
+        try {
+            $validated = $this->appointmentService->validateBookingRequest($payload, $patientId);
+        } catch (ValidationException $exception) {
+            return response()->json([
+                'valid' => false,
+                'message' => $this->firstValidationMessage($exception),
+                'errors' => $exception->errors(),
+            ]);
+        }
+
+        return response()->json([
+            'valid' => true,
+            'message' => 'Schedule is available.',
+            'data' => $validated,
+        ]);
+    }
+
+    private function firstValidationMessage(ValidationException $exception): string
+    {
+        foreach ($exception->errors() as $messages) {
+            if (is_array($messages) && $messages !== []) {
+                return (string) $messages[0];
+            }
+        }
+
+        return 'The selected appointment schedule is not available.';
     }
 
     private function validateMasterListSearch(Request $request): ?string
@@ -499,18 +582,15 @@ class AppointmentController extends Controller
 
     private function formatAppointmentResponse(Appointment $appointment): array
     {
+        $appointment->loadMissing('cancelledBy');
+
         return [
             'id' => (int) $appointment->id,
             'patient_id' => (int) $appointment->patient_id,
-            'service_type' => match ((int) $appointment->service_id) {
-                1 => 'Dental Check-up',
-                2 => 'Dental Panoramic X-ray',
-                3 => 'Root Canal',
-                4 => 'Teeth Cleaning',
-                5 => 'Teeth Whitening',
-                6 => 'Tooth Extraction',
-                default => 'Unknown Service',
-            },
+            'service_id' => (int) $appointment->service_id,
+            'service_ids' => $appointment->selectedServiceIds(),
+            'service_type' => $appointment->serviceSummary(),
+            'services' => $this->formatSelectedServices($appointment),
             'appointment_date' => (string) $appointment->appointment_date,
             'appointment_time' => (string) $appointment->time_slot,
             'status' => AppointmentService::humanStatusLabel((string) $appointment->status),
@@ -518,9 +598,71 @@ class AppointmentController extends Controller
             'is_called' => (bool) ($appointment->queue?->is_called ?? false),
             'timestamp_created' => optional($appointment->created_at)?->toIso8601String(),
             'notes' => (string) $appointment->notes,
+            'cancellation_reason' => $appointment->cancellation_reason,
+            'cancelled_by' => $appointment->cancelled_by !== null ? (int) $appointment->cancelled_by : null,
+            'cancelled_by_name' => $this->formatCancelledByName($appointment),
+            'cancelled_at' => optional($appointment->cancelled_at)?->toIso8601String(),
+            'logs' => $this->appointmentService->formatAppointmentLogs($appointment),
             'reschedule_reason' => $this->resolveRescheduleReason($appointment),
             'recycle_bin' => $this->appointmentService->buildRecycleBinState($appointment),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return list<int>
+     */
+    private function resolveServiceIdsFromPayload(array $payload): array
+    {
+        if (isset($payload['services']) && is_array($payload['services'])) {
+            return collect($payload['services'])
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->filter(static fn (int $id): bool => $id > 0)
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        $serviceNames = [];
+        if (isset($payload['service_types']) && is_array($payload['service_types'])) {
+            $serviceNames = $payload['service_types'];
+        } elseif (isset($payload['service_type'])) {
+            $serviceNames = [(string) $payload['service_type']];
+        }
+
+        return Service::query()
+            ->whereIn('name', $serviceNames)
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    private function formatSelectedServices(Appointment $appointment): array
+    {
+        return $appointment->selectedServices()
+            ->map(static fn (Service $service): array => [
+                'id' => (int) $service->id,
+                'name' => (string) $service->name,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function formatCancelledByName(Appointment $appointment): ?string
+    {
+        if ($appointment->cancelledBy === null) {
+            return null;
+        }
+
+        $name = trim(sprintf(
+            '%s %s',
+            (string) $appointment->cancelledBy->first_name,
+            (string) $appointment->cancelledBy->last_name,
+        ));
+
+        return $name !== '' ? $name : (string) $appointment->cancelledBy->username;
     }
 
     private function resolveRescheduleReason(Appointment $appointment): ?string

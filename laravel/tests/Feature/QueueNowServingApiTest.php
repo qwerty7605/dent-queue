@@ -133,23 +133,55 @@ class QueueNowServingApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('message', 'Next patient called successfully.')
-            ->assertJsonPath('called_queue.queue_number', 2)
-            ->assertJsonPath('now_serving.queue_number', 2)
-            ->assertJsonPath('next_up.queue_number', 3);
+            ->assertJsonPath('called_queue.queue_number', 1)
+            ->assertJsonPath('now_serving.queue_number', 1)
+            ->assertJsonPath('next_up.queue_number', 2);
 
         $this->assertDatabaseHas('queues', [
             'appointment_id' => $approvedAppointment->id,
             'queue_date' => $date,
-            'queue_number' => 2,
+            'queue_number' => 1,
             'is_called' => true,
         ]);
 
-        $this->assertDatabaseHas('queues', [
+        $this->assertDatabaseMissing('queues', [
             'appointment_id' => $pendingAppointment->id,
-            'queue_date' => $date,
-            'queue_number' => 1,
-            'is_called' => false,
         ]);
+    }
+
+    public function test_staff_call_next_returns_fresh_now_serving_after_queue_snapshot_was_cached(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-03-23 08:15:00', 'Asia/Manila'));
+        $staff = $this->createUserWithRole('Staff');
+        $service = $this->createService('Teeth Cleaning');
+        $date = '2026-03-23';
+
+        $firstPatient = $this->createUserWithRole('Patient');
+        $secondPatient = $this->createUserWithRole('Patient');
+
+        $firstAppointment = $this->createAppointment($this->patientRecordId($firstPatient), $service->id, $date, '09:00', 'confirmed');
+        $secondAppointment = $this->createAppointment($this->patientRecordId($secondPatient), $service->id, $date, '09:30', 'confirmed');
+
+        $this->createQueue($firstAppointment->id, $date, 1, false);
+        $this->createQueue($secondAppointment->id, $date, 2, false);
+
+        Sanctum::actingAs($staff);
+
+        $this->getJson('/api/v1/admin/queues/today?date=' . $date)
+            ->assertOk()
+            ->assertJsonPath('now_serving', null)
+            ->assertJsonPath('next_up.queue_number', 1);
+
+        $response = $this->postJson('/api/v1/admin/queues/call-next', [
+            'date' => $date,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Next patient called successfully.')
+            ->assertJsonPath('called_queue.queue_number', 1)
+            ->assertJsonPath('now_serving.queue_number', 1)
+            ->assertJsonPath('now_serving.appointment_id', $firstAppointment->id)
+            ->assertJsonPath('next_up.queue_number', 2);
     }
 
     public function test_staff_call_next_resequences_same_time_records_by_created_timestamp(): void

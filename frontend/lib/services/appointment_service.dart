@@ -94,6 +94,19 @@ class AppointmentService {
     return response as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> validateBooking(
+    Map<String, dynamic> payload, {
+    bool isAdmin = false,
+  }) async {
+    final response = await _baseService.postJson<dynamic>(
+      isAdmin ? Endpoints.adminValidateBooking : Endpoints.validateBooking,
+      payload,
+      (data) => data,
+    );
+
+    return Map<String, dynamic>.from(response as Map);
+  }
+
   Future<Map<String, dynamic>> getAvailabilitySlots(
     String date, {
     int? ignoreAppointmentId,
@@ -653,11 +666,17 @@ class AppointmentService {
 
   Future<Map<String, dynamic>> updateAdminAppointmentStatus(
     int id,
-    String status,
-  ) async {
+    String status, {
+    String? cancellationReason,
+  }) async {
+    final payload = <String, dynamic>{'status': status};
+    if (cancellationReason != null && cancellationReason.trim().isNotEmpty) {
+      payload['cancellation_reason'] = cancellationReason.trim();
+    }
+
     final response = await _baseService.patchJson<dynamic>(
       Endpoints.adminUpdateAppointmentStatus(id),
-      {'status': status},
+      payload,
       (data) => data,
     );
 

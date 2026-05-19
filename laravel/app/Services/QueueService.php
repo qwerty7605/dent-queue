@@ -16,9 +16,9 @@ class QueueService
 {
     private const DAILY_QUEUE_LIMIT = 50;
     private const MAX_QUEUE_ASSIGNMENT_RETRIES = 5;
-    private const ACTIVE_QUEUE_STATUSES = ['pending', 'confirmed', 'completed'];
+    private const ACTIVE_QUEUE_STATUSES = ['confirmed', 'completed'];
     private const ELIGIBLE_CALL_STATUSES = ['confirmed'];
-    private const ACTIVE_DISPLAY_STATUSES = ['pending', 'confirmed', 'completed'];
+    private const ACTIVE_DISPLAY_STATUSES = ['confirmed', 'completed'];
 
     public function __construct(
         private readonly CentralizedCacheService $cacheService,
@@ -41,6 +41,11 @@ class QueueService
         }
 
         $appointmentDate = (string) $appointment->appointment_date;
+        if (!in_array((string) $appointment->status, self::ACTIVE_QUEUE_STATUSES, true)) {
+            $this->syncQueueNumbersForDate($appointmentDate);
+
+            return null;
+        }
 
         return DB::transaction(function () use ($appointment, $appointmentDate) {
             for ($attempt = 0; $attempt < self::MAX_QUEUE_ASSIGNMENT_RETRIES; $attempt++) {
@@ -182,7 +187,7 @@ class QueueService
             $nowServing = Queue::query()
                 ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
                 ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
-                ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+                ->leftJoin('services as legacy_services', 'legacy_services.id', '=', 'appointments.service_id')
                 ->where('queues.queue_date', $queueDate)
                 ->whereNull('appointments.deleted_at')
                 ->where('queues.is_called', true)
@@ -194,16 +199,16 @@ class QueueService
                     'appointments.id as appointment_id',
                     'appointments.status',
                     'appointments.time_slot',
-                    'services.name as service_name',
                     'patient_records.first_name',
                     'patient_records.last_name',
                 ])
+                ->selectRaw($this->serviceNamesSelectExpression() . ' as service_name')
                 ->first();
 
             $nextUp = Queue::query()
                 ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
                 ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
-                ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+                ->leftJoin('services as legacy_services', 'legacy_services.id', '=', 'appointments.service_id')
                 ->where('queues.queue_date', $queueDate)
                 ->whereNull('appointments.deleted_at')
                 ->where('queues.is_called', false)
@@ -215,10 +220,10 @@ class QueueService
                     'appointments.id as appointment_id',
                     'appointments.status',
                     'appointments.time_slot',
-                    'services.name as service_name',
                     'patient_records.first_name',
                     'patient_records.last_name',
                 ])
+                ->selectRaw($this->serviceNamesSelectExpression() . ' as service_name')
                 ->first();
 
             $totalQueued = Queue::query()
@@ -319,7 +324,11 @@ class QueueService
             return Queue::query()->find((int) $queue->id);
         });
 
-        $snapshot = $this->getQueueSnapshot(null, $queueDate);
+        if ($calledQueue !== null) {
+            $this->cacheService->flushQueue();
+        }
+
+        $snapshot = $this->getQueueSnapshot(null, $queueDate, $calledQueue !== null);
 
         if ($calledQueue !== null) {
             $appointment = Appointment::query()->find((int) $calledQueue->appointment_id);
@@ -356,7 +365,7 @@ class QueueService
                     Queue::query()
                         ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
                         ->leftJoin('patient_records', 'patient_records.id', '=', 'appointments.patient_id')
-                        ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+                        ->leftJoin('services as legacy_services', 'legacy_services.id', '=', 'appointments.service_id')
                         ->where('queues.appointment_id', (int) $calledQueue->appointment_id)
                         ->where('queues.queue_date', $queueDate)
                         ->whereNull('appointments.deleted_at')
@@ -366,10 +375,10 @@ class QueueService
                             'appointments.id as appointment_id',
                             'appointments.status',
                             'appointments.time_slot',
-                            'services.name as service_name',
                             'patient_records.first_name',
                             'patient_records.last_name',
                         ])
+                        ->selectRaw($this->serviceNamesSelectExpression() . ' as service_name')
                         ->first()
                 )
                 : null,
@@ -382,7 +391,7 @@ class QueueService
     {
         $queue = Queue::query()
             ->join('appointments', 'appointments.id', '=', 'queues.appointment_id')
-            ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
+            ->leftJoin('services as legacy_services', 'legacy_services.id', '=', 'appointments.service_id')
             ->where('appointments.patient_id', $patientRecordId)
             ->where('queues.queue_date', $queueDate)
             ->whereNull('appointments.deleted_at')
@@ -394,8 +403,8 @@ class QueueService
                 'appointments.id as appointment_id',
                 'appointments.status',
                 'appointments.time_slot',
-                'services.name as service_name',
             ])
+            ->selectRaw($this->serviceNamesSelectExpression() . ' as service_name')
             ->first();
 
         if ($queue === null) {
@@ -445,6 +454,27 @@ class QueueService
         return $serviceName !== null && $serviceName !== ''
             ? $serviceName
             : 'Unknown Service';
+    }
+
+    private function serviceNamesSelectExpression(): string
+    {
+        return "COALESCE((" . $this->serviceNamesSubquery() . "), legacy_services.name)";
+    }
+
+    private function serviceNamesSubquery(): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        $aggregate = match ($driver) {
+            'pgsql' => "STRING_AGG(DISTINCT selected_services.name, ', ' ORDER BY selected_services.name)",
+            'sqlite' => "GROUP_CONCAT(DISTINCT selected_services.name)",
+            default => "GROUP_CONCAT(DISTINCT selected_services.name ORDER BY selected_services.name SEPARATOR ', ')",
+        };
+
+        return "SELECT $aggregate
+            FROM appointment_service
+            INNER JOIN services selected_services ON selected_services.id = appointment_service.service_id
+            WHERE appointment_service.appointment_id = appointments.id";
     }
 
     private function displayStatus(string $status): string

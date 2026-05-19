@@ -15,7 +15,7 @@ class PatientMedicalHistoryApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_medical_history_returns_only_completed_appointments_sorted_by_date_desc(): void
+    public function test_medical_history_returns_full_appointment_activity(): void
     {
         $patient = $this->createUserWithRole('Patient');
         $otherPatient = $this->createUserWithRole('Patient');
@@ -55,21 +55,33 @@ class PatientMedicalHistoryApiTest extends TestCase
         $response = $this->getJson('/api/v1/patient/appointments/history');
 
         $response->assertOk()
-            ->assertJsonCount(2, 'appointments')
-            ->assertJsonPath('appointments.0.date', '2026-03-10')
-            ->assertJsonPath('appointments.1.date', '2026-03-01')
-            ->assertJsonMissingPath('appointments.0.id')
-            ->assertJsonMissingPath('appointments.0.notes');
+            ->assertJsonCount(3, 'appointments')
+            ->assertJsonStructure([
+                'appointments' => [
+                    '*' => [
+                        'appointment_id',
+                        'appointment_date',
+                        'appointment_time',
+                        'service_type',
+                        'status',
+                        'action',
+                        'action_status',
+                        'action_at',
+                    ],
+                ],
+                'history',
+            ]);
 
         $statuses = array_map(
             fn (array $appointment): string => (string) ($appointment['status'] ?? ''),
             $response->json('appointments', []),
         );
 
-        $this->assertSame(['Completed', 'Completed'], $statuses);
+        $this->assertContains('Completed', $statuses);
+        $this->assertContains('Pending', $statuses);
     }
 
-    public function test_medical_history_returns_empty_array_when_no_completed_appointments(): void
+    public function test_medical_history_includes_pending_appointments(): void
     {
         $patient = $this->createUserWithRole('Patient');
 
@@ -85,7 +97,9 @@ class PatientMedicalHistoryApiTest extends TestCase
         $response = $this->getJson('/api/v1/patient/appointments/history');
 
         $response->assertOk()
-            ->assertJsonPath('appointments', []);
+            ->assertJsonCount(1, 'appointments')
+            ->assertJsonPath('appointments.0.status', 'Pending')
+            ->assertJsonPath('appointments.0.action', 'Pending appointment created');
     }
 
     private function createAppointment(
