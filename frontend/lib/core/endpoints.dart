@@ -11,6 +11,7 @@ class Endpoints {
 
   static const services = '$_base/patient/services';
   static const appointments = '$_base/patient/appointments';
+  static const validateBooking = '$_base/patient/appointments/validate-booking';
   static String patientAppointment(int id) => '$_base/patient/appointments/$id';
   static const medicalHistory = '$_base/patient/appointments/history';
   static String availabilitySlots(String date, {int? ignoreAppointmentId}) =>
@@ -48,10 +49,10 @@ class Endpoints {
       '$_base/staff/notifications/$id/read';
   static String updateStaffProfile(int id) => '$_base/staff/profile/$id';
 
-  static String adminAppointmentsByDate(String date) =>
-      _withQueryParameters('$_base/admin/appointments', <String, String>{
-        'date': date,
-      });
+  static String adminAppointmentsByDate(String date) => _withQueryParameters(
+    '$_base/admin/appointments',
+    <String, String>{'date': date},
+  );
   static String adminCalendarAppointments(String date) => _withQueryParameters(
     '$_base/admin/calendar/appointments',
     <String, String>{'date': date},
@@ -76,6 +77,8 @@ class Endpoints {
   ]) => _withQueryParameters('$_base/admin/reports/export', queryParameters);
   static const adminProfileUpdate = '$_base/admin/profile';
   static const adminAppointments = '$_base/admin/appointments';
+  static const adminValidateBooking =
+      '$_base/admin/appointments/validate-booking';
   static String adminMasterList([
     Map<String, String> queryParameters = const <String, String>{},
   ]) => _withQueryParameters(

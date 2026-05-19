@@ -53,6 +53,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   Timer? _queueRefreshTimer;
   List<Map<String, dynamic>> _appointments = [];
   List<Map<String, dynamic>> _cancelledAppointments = [];
+  List<Map<String, dynamic>> _appointmentHistory = [];
   Map<String, dynamic>? _todayQueueStatus;
   _PatientAppointmentFilter _selectedFilter =
       _PatientAppointmentFilter.approved;
@@ -153,15 +154,21 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                 (Map<String, dynamic> value) => value,
               )
               .catchError((_) => null);
+      final Future<List<Map<String, dynamic>>> historyFuture =
+          _appointmentService.getMedicalHistory().catchError(
+            (_) => <Map<String, dynamic>>[],
+          );
 
       final List<Map<String, dynamic>> list = await appointmentsFuture;
       final List<Map<String, dynamic>> recycleBinAppointments =
           await recycleBinFuture;
       final Map<String, dynamic>? queueStatus = await queueStatusFuture;
+      final List<Map<String, dynamic>> history = await historyFuture;
       if (!mounted) return;
       setState(() {
         _appointments = list;
         _cancelledAppointments = recycleBinAppointments;
+        _appointmentHistory = history;
         _todayQueueStatus = queueStatus;
         _isLoadingAppointments = false;
       });
@@ -180,6 +187,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
 
       setState(() {
         _cancelledAppointments = [];
+        _appointmentHistory = [];
         _isLoadingAppointments = false;
         _todayQueueStatus = null;
       });
@@ -619,35 +627,30 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
   }
 
   Widget _buildMedicalHistoryView() {
-    final completedAppts = _appointments
-        .where((a) => a['status']?.toString().toLowerCase() == 'completed')
-        .toList();
-
-    // Sort by date descending
-    completedAppts.sort((a, b) {
-      final dateA = a['appointment_date']?.toString() ?? '';
-      final dateB = b['appointment_date']?.toString() ?? '';
-      return dateB.compareTo(dateA); // descending
+    final historyItems = List<Map<String, dynamic>>.from(_appointmentHistory);
+    historyItems.sort((a, b) {
+      final dateA =
+          a['action_at']?.toString() ?? a['created_at']?.toString() ?? '';
+      final dateB =
+          b['action_at']?.toString() ?? b['created_at']?.toString() ?? '';
+      return dateB.compareTo(dateA);
     });
 
     return Column(
       children: [
         const SizedBox(height: 18),
-        _buildPatientPageTitle(
-          title: 'Appointment History',
-          subtitle: null,
-        ),
+        _buildPatientPageTitle(title: 'Appointment History', subtitle: null),
         const SizedBox(height: 18),
-        if (completedAppts.isEmpty)
+        if (historyItems.isEmpty)
           const Expanded(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: AppEmptyState(
                 key: Key('patient-history-empty-state'),
                 icon: Icons.history_toggle_off_rounded,
-                title: 'No completed appointments yet',
+                title: 'No appointment history yet',
                 message:
-                    'Finished dental visits will appear here as part of your appointment history.',
+                    'Appointment activity will appear here once you book, update, or complete a visit.',
               ),
             ),
           )
@@ -655,13 +658,28 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: completedAppts.length,
+              itemCount: historyItems.length,
               itemBuilder: (context, index) {
-                final appt = completedAppts[index];
+                final appt = historyItems[index];
                 final serviceType =
                     appt['service_type']?.toString() ?? 'Service';
                 final date =
                     appt['appointment_date']?.toString() ?? 'YYYY-MM-DD';
+                final action =
+                    appt['action']?.toString() ?? 'Appointment activity';
+                final actionStatus =
+                    appt['action_status']?.toString() ??
+                    appt['new_status']?.toString() ??
+                    appt['status']?.toString() ??
+                    'Recorded';
+                final performedBy =
+                    appt['performed_by']?.toString().trim() ?? '';
+                final actionAt =
+                    appt['action_at']?.toString() ??
+                    appt['created_at']?.toString() ??
+                    '';
+                final cancellationReason =
+                    appt['cancellation_reason']?.toString().trim() ?? '';
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(18),
@@ -689,8 +707,8 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: const Icon(
-                              Icons.check_circle_outline_rounded,
-                              color: Color(0xFF28C48F),
+                              Icons.history_rounded,
+                              color: Color(0xFF3F67C7),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -699,7 +717,7 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  serviceType,
+                                  action,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w900,
                                     fontSize: 16,
@@ -727,13 +745,13 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFFCF7),
+                              color: _historyStatusBackground(actionStatus),
                               borderRadius: BorderRadius.circular(999),
                             ),
-                            child: const Text(
-                              'COMPLETED',
+                            child: Text(
+                              actionStatus.toUpperCase(),
                               style: TextStyle(
-                                color: Color(0xFF28C48F),
+                                color: _historyStatusColor(actionStatus),
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1,
@@ -747,6 +765,40 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                           ),
                         ],
                       ),
+                      const SizedBox(height: 14),
+                      Text(
+                        serviceType,
+                        style: const TextStyle(
+                          color: Color(0xFF233B6B),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        [
+                          if (performedBy.isNotEmpty)
+                            'Performed by $performedBy',
+                          if (actionAt.isNotEmpty)
+                            'Action date: ${_formatHistoryActionDate(actionAt)}',
+                        ].join(' • '),
+                        style: const TextStyle(
+                          color: Color(0xFF7D879A),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (cancellationReason.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          'Cancellation reason: $cancellationReason',
+                          style: const TextStyle(
+                            color: Color(0xFFB45309),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 );
@@ -1069,6 +1121,36 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
       return '$date • $time';
     }
     return '${DateFormat('MMM d, yyyy').format(parsed)} • $time';
+  }
+
+  String _formatHistoryActionDate(String rawValue) {
+    final DateTime? parsed = DateTime.tryParse(rawValue);
+    if (parsed == null) {
+      return rawValue;
+    }
+    return DateFormat('MMM d, yyyy • h:mm a').format(parsed.toLocal());
+  }
+
+  Color _historyStatusBackground(String status) {
+    final normalized = normalizeAppointmentStatus(status);
+    return switch (normalized) {
+      'pending' => const Color(0xFFFFF7DF),
+      'approved' => const Color(0xFFEAF2FF),
+      'completed' => const Color(0xFFEFFCF7),
+      'cancelled' => const Color(0xFFFFECEC),
+      _ => const Color(0xFFF2F5FA),
+    };
+  }
+
+  Color _historyStatusColor(String status) {
+    final normalized = normalizeAppointmentStatus(status);
+    return switch (normalized) {
+      'pending' => const Color(0xFFB77900),
+      'approved' => const Color(0xFF2F5EC4),
+      'completed' => const Color(0xFF1E8D69),
+      'cancelled' => const Color(0xFFD64545),
+      _ => const Color(0xFF53627A),
+    };
   }
 
   Widget _buildProfileView() {
@@ -2084,14 +2166,10 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                             ),
                                             const SizedBox(width: 10),
                                             _buildAppointmentAction(
-                                              label:
-                                                  status == 'pending' ||
-                                                      status == 'approved'
+                                              label: status == 'pending'
                                                   ? 'Cancel'
                                                   : 'Requires Action',
-                                              color:
-                                                  status == 'pending' ||
-                                                      status == 'approved'
+                                              color: status == 'pending'
                                                   ? (isDark
                                                         ? const Color(
                                                             0xFF3A1E24,
@@ -2106,14 +2184,10 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                                         : const Color(
                                                             0xFFF8FAFC,
                                                           )),
-                                              textColor:
-                                                  status == 'pending' ||
-                                                      status == 'approved'
+                                              textColor: status == 'pending'
                                                   ? const Color(0xFFE26B6B)
                                                   : mutedText,
-                                              onTap:
-                                                  status == 'pending' ||
-                                                      status == 'approved'
+                                              onTap: status == 'pending'
                                                   ? () =>
                                                         _showCancelConfirmationDialog(
                                                           appt,
@@ -2145,28 +2219,20 @@ class _PatientDashboardViewState extends State<PatientDashboardView>
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: _buildAppointmentAction(
-                                          label:
-                                              status == 'pending' ||
-                                                  status == 'approved'
+                                          label: status == 'pending'
                                               ? 'Cancel'
                                               : 'Requires Action',
-                                          color:
-                                              status == 'pending' ||
-                                                  status == 'approved'
+                                          color: status == 'pending'
                                               ? (isDark
                                                     ? const Color(0xFF3A1E24)
                                                     : const Color(0xFFFFF4F4))
                                               : (isDark
                                                     ? const Color(0xFF22314D)
                                                     : const Color(0xFFF8FAFC)),
-                                          textColor:
-                                              status == 'pending' ||
-                                                  status == 'approved'
+                                          textColor: status == 'pending'
                                               ? const Color(0xFFE26B6B)
                                               : mutedText,
-                                          onTap:
-                                              status == 'pending' ||
-                                                  status == 'approved'
+                                          onTap: status == 'pending'
                                               ? () =>
                                                     _showCancelConfirmationDialog(
                                                       appt,

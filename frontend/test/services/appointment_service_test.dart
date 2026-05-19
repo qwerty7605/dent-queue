@@ -115,6 +115,50 @@ void main() {
     },
   );
 
+  test('validateBooking posts to patient validation endpoint', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'valid': true,
+      'message': 'Schedule is available.',
+    };
+
+    final response = await appointmentService.validateBooking(<String, dynamic>{
+      'appointment_date': '2026-05-25',
+      'appointment_time': '09:30',
+      'service_ids': <int>[1, 2],
+    });
+
+    expect(
+      fakeBaseService.lastPath,
+      '/api/v1/patient/appointments/validate-booking',
+    );
+    expect(fakeBaseService.postJsonCallCount, 1);
+    expect(response['valid'], true);
+  });
+
+  test(
+    'validateBooking posts to admin validation endpoint when requested',
+    () async {
+      fakeBaseService.nextResponse = <String, dynamic>{
+        'valid': false,
+        'message':
+            'This time slot is already booked. Please choose another time.',
+      };
+
+      await appointmentService.validateBooking(<String, dynamic>{
+        'patient_id': 5,
+        'appointment_date': '2026-05-25',
+        'appointment_time': '09:30',
+        'service_ids': <int>[1],
+      }, isAdmin: true);
+
+      expect(
+        fakeBaseService.lastPath,
+        '/api/v1/admin/appointments/validate-booking',
+      );
+      expect(fakeBaseService.postJsonCallCount, 1);
+    },
+  );
+
   test('getAdminMasterList uses cache until invalidated', () async {
     fakeBaseService.nextResponse = {
       'data': [

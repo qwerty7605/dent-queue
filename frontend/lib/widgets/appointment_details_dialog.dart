@@ -11,15 +11,19 @@ class AppointmentDetailsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String serviceType = appointment['service_type']?.toString() ?? 'Service';
-    final String date = appointment['appointment_date']?.toString() ?? 'YYYY-MM-DD';
-    final String time = _formatTime(appointment['appointment_time']?.toString());
+    final String serviceType =
+        appointment['service_type']?.toString() ?? 'Service';
+    final String date =
+        appointment['appointment_date']?.toString() ?? 'YYYY-MM-DD';
+    final String time = _formatTime(
+      appointment['appointment_time']?.toString(),
+    );
     final AppointmentStatusVisual statusVisual = appointmentStatusVisual(
       appointment['status'],
     );
-    final String queueNumber = _formatQueueNumber(
-      _patientVisibleQueueNumber(),
-    );
+    final String cancellationReason =
+        appointment['cancellation_reason']?.toString().trim() ?? '';
+    final String queueNumber = _formatQueueNumber(_patientVisibleQueueNumber());
 
     return AppDialogScaffold(
       maxWidth: 420,
@@ -205,6 +209,14 @@ class AppointmentDetailsDialog extends StatelessWidget {
               ),
             ),
           ),
+          if (cancellationReason.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 12),
+            _InfoCard(
+              icon: Icons.info_outline_rounded,
+              label: 'CANCELLATION REASON',
+              value: cancellationReason,
+            ),
+          ],
         ],
       ),
     );
@@ -250,7 +262,9 @@ class AppointmentDetailsDialog extends StatelessWidget {
   }
 
   String? _patientVisibleQueueNumber() {
-    final String normalizedStatus = normalizeAppointmentStatus(appointment['status']);
+    final String normalizedStatus = normalizeAppointmentStatus(
+      appointment['status'],
+    );
     if (normalizedStatus != 'approved' && normalizedStatus != 'completed') {
       return null;
     }

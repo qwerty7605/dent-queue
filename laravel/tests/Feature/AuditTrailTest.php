@@ -61,6 +61,7 @@ class AuditTrailTest extends TestCase
 
         $this->patchJson('/api/v1/admin/appointments/' . $appointment->id . '/status', [
             'status' => 'cancelled',
+            'cancellation_reason' => 'Audit trail cancellation reason.',
         ]);
     }
 

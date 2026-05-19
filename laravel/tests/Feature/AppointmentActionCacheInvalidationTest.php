@@ -181,9 +181,11 @@ class AppointmentActionCacheInvalidationTest extends TestCase
 
         DB::beginTransaction();
         try {
-            app(AppointmentService::class)->cancelByPatient(
+            app(AppointmentService::class)->updateStatus(
                 $appointment->fresh(),
-                (int) $patientRecord->id,
+                'cancelled',
+                (int) $admin->id,
+                'Cache invalidation cancellation.',
             );
 
             $this->assertCacheVersionsUnchanged($initialVersions);

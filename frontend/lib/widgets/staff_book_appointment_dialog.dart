@@ -28,7 +28,14 @@ class _StaffBookAppointmentDialogState
     extends State<StaffBookAppointmentDialog> {
   static const Map<String, List<String>> _apiFieldMappings =
       <String, List<String>>{
-        'service': <String>['service_type', 'service_id'],
+        'service': <String>[
+          'service_types',
+          'service_types.*',
+          'services',
+          'services.*',
+          'service_type',
+          'service_id',
+        ],
         'date': <String>['appointment_date'],
         'time': <String>['appointment_time', 'time_slot'],
         'notes': <String>['notes'],
@@ -36,7 +43,7 @@ class _StaffBookAppointmentDialogState
 
   final _formKey = GlobalKey<FormState>();
 
-  String? _selectedService = 'Dental Check-up';
+  final Set<String> _selectedServices = <String>{'Dental Check-up'};
   DateTime? _selectedDate;
   String? _selectedTimeSlot;
 
@@ -212,7 +219,10 @@ class _StaffBookAppointmentDialogState
 
     final payload = <String, dynamic>{
       'patient_id': patientId,
-      'service_type': _selectedService,
+      'service_type': _selectedServices.first,
+      'service_types': _services
+          .where((String service) => _selectedServices.contains(service))
+          .toList(),
       'appointment_date':
           '${_selectedDate!.year}-${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}',
       'appointment_time': _selectedTimeSlot,
@@ -220,6 +230,23 @@ class _StaffBookAppointmentDialogState
     };
 
     try {
+      final validation = await widget.appointmentService.validateBooking(
+        payload,
+        isAdmin: true,
+      );
+      if (validation['valid'] != true) {
+        if (!mounted) return;
+        setState(() {
+          _isSubmitting = false;
+        });
+        _applyValidationFailure(
+          validation['message']?.toString() ??
+              'The selected appointment schedule is not available.',
+          validation['errors'],
+        );
+        return;
+      }
+
       await widget.appointmentService.createAdminAppointment(payload);
       if (!mounted) return;
 
@@ -249,6 +276,34 @@ class _StaffBookAppointmentDialogState
             'Unable to book the appointment right now. Please try again.';
       });
     }
+  }
+
+  void _applyValidationFailure(String message, dynamic errors) {
+    final Map<String, String> fieldErrors = collectApiFieldErrors(
+      errors is Map ? Map<String, dynamic>.from(errors) : null,
+      _apiFieldMappings,
+    );
+
+    if (fieldErrors.isEmpty) {
+      if (message.contains('past')) {
+        fieldErrors['time'] = 'You cannot book an appointment in the past.';
+      } else if (message.contains('already booked') ||
+          message.contains('time slot')) {
+        fieldErrors['time'] =
+            'This time slot is already booked. Please choose another time.';
+      } else if (message.contains('scheduled on this day') ||
+          message.contains('booking for this date')) {
+        fieldErrors['date'] =
+            'You already have an appointment scheduled on this day.';
+      }
+    }
+
+    setState(() {
+      _fieldErrors = fieldErrors;
+      _formErrorText = fieldErrors.isEmpty ? message : null;
+      _autoValidateMode = AutovalidateMode.always;
+    });
+    _formKey.currentState?.validate();
   }
 
   @override
@@ -354,35 +409,64 @@ class _StaffBookAppointmentDialogState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildFieldLabel('SERVICE TYPE'),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedService,
-          decoration: _inputDecoration(
-            prefixIcon: const Icon(
-              Icons.task_alt_outlined,
-              color: Color(0xFFB9C2D2),
-            ),
+        FormField<Set<String>>(
+          initialValue: _selectedServices,
+          validator: (_) => _mergeFieldError(
+            'service',
+            _selectedServices.isEmpty ? 'Required' : null,
           ),
-          items: _services.map((service) {
-            return DropdownMenuItem(
-              value: service,
-              child: Text(
-                service,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1E293B),
+          builder: (state) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: state.hasError
+                        ? Colors.redAccent
+                        : const Color(0xFFE2E8F0),
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: _services.map((service) {
+                    final bool selected = _selectedServices.contains(service);
+                    return CheckboxListTile(
+                      dense: true,
+                      value: selected,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: Text(
+                        service,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                      activeColor: const Color(0xFF1A2F64),
+                      onChanged: (checked) {
+                        setState(() {
+                          if (checked == true) {
+                            _selectedServices.add(service);
+                          } else {
+                            _selectedServices.remove(service);
+                          }
+                        });
+                        _clearFieldError('service');
+                        state.didChange(_selectedServices);
+                      },
+                    );
+                  }).toList(),
                 ),
               ),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedService = value;
-            });
-            _clearFieldError('service');
-          },
-          validator: (value) =>
-              _mergeFieldError('service', value == null ? 'Required' : null),
+              if (state.errorText != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  state.errorText!,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     );

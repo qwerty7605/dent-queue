@@ -377,15 +377,20 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
         showStatusActions: !_isReadOnlyAccount,
         onStatusUpdate: _isReadOnlyAccount
             ? null
-            : (nextStatus) => _updateAppointmentStatus(appointment, nextStatus),
+            : (nextStatus, {cancellationReason}) => _updateAppointmentStatus(
+                appointment,
+                nextStatus,
+                cancellationReason: cancellationReason,
+              ),
       ),
     );
   }
 
   Future<bool> _updateAppointmentStatus(
     Map<String, dynamic> appointment,
-    String nextStatus,
-  ) async {
+    String nextStatus, {
+    String? cancellationReason,
+  }) async {
     final appointmentId = _parseAppointmentId(appointment['id']);
     if (appointmentId == null) {
       _showStatusMessage('Unable to update status: invalid appointment ID.');
@@ -396,6 +401,7 @@ class _StaffDashboardViewState extends State<StaffDashboardView> {
       await _appointmentService.updateAdminAppointmentStatus(
         appointmentId,
         nextStatus,
+        cancellationReason: cancellationReason,
       );
       if (!mounted) return false;
 

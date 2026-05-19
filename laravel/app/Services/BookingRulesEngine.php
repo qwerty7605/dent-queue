@@ -95,6 +95,21 @@ class BookingRulesEngine
                 return;
             }
 
+            if (isset($payload['appointment_date'])) {
+                $appointmentDate = $this->parseDate((string) $payload['appointment_date'], $timezone);
+                if ($appointmentDate !== null) {
+                    $appointmentDateTime = Carbon::createFromFormat(
+                        'Y-m-d H:i',
+                        $appointmentDate->toDateString() . ' ' . $normalizedTimeSlot,
+                        $timezone,
+                    );
+
+                    if ($appointmentDateTime->isPast()) {
+                        $validator->errors()->add('time_slot', 'You cannot book an appointment in the past.');
+                    }
+                }
+            }
+
             $slot = Carbon::createFromFormat('H:i', $normalizedTimeSlot, $timezone);
             $open = Carbon::createFromFormat('H:i', $clinicSchedule['opening_time'], $timezone);
             $close = Carbon::createFromFormat('H:i', $clinicSchedule['closing_time'], $timezone);

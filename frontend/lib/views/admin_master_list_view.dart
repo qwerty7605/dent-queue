@@ -407,7 +407,8 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
                             ),
                           _MasterListRow(
                             appointment: appointment,
-                            onManage: () => _openAppointmentDetails(appointment),
+                            onManage: () =>
+                                _openAppointmentDetails(appointment),
                           ),
                         ],
                       );
@@ -771,16 +772,21 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
       builder: (_) => StaffAppointmentDetailsDialog(
         appointment: appointment,
         actorRole: 'admin',
-        onStatusUpdate: (String nextStatus) =>
-            _updateAppointmentStatus(appointment, nextStatus),
+        onStatusUpdate: (String nextStatus, {String? cancellationReason}) =>
+            _updateAppointmentStatus(
+              appointment,
+              nextStatus,
+              cancellationReason: cancellationReason,
+            ),
       ),
     );
   }
 
   Future<bool> _updateAppointmentStatus(
     Map<String, dynamic> appointment,
-    String nextStatus,
-  ) async {
+    String nextStatus, {
+    String? cancellationReason,
+  }) async {
     final int? appointmentId = _parseAppointmentId(
       appointment['id'] ?? appointment['appointment_id'],
     );
@@ -793,6 +799,7 @@ class _AdminMasterListViewState extends State<AdminMasterListView> {
       await widget.appointmentService.updateAdminAppointmentStatus(
         appointmentId,
         nextStatus,
+        cancellationReason: cancellationReason,
       );
       if (!mounted) {
         return false;

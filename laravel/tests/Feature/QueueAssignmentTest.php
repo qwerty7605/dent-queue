@@ -285,6 +285,7 @@ class QueueAssignmentTest extends TestCase
             \App\Models\Appointment::query()->findOrFail($secondId),
             'cancelled',
             (int) $staff->id,
+            'Queue resequencing test cancellation.',
         );
 
         $this->assertDatabaseMissing('queues', [

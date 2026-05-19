@@ -51,8 +51,9 @@ class _FakeAppointmentService extends Fake implements AppointmentService {
   @override
   Future<Map<String, dynamic>> updateAdminAppointmentStatus(
     int id,
-    String status,
-  ) async {
+    String status, {
+    String? cancellationReason,
+  }) async {
     updatedAppointmentId = id;
     updatedStatus = status;
     return <String, dynamic>{'message': 'Appointment status updated'};

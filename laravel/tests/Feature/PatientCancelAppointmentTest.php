@@ -19,6 +19,7 @@ class PatientCancelAppointmentTest extends TestCase
 
     public function test_patient_can_cancel_pending_appointment_and_audit_log_is_recorded(): void
     {
+        $staff = $this->createUserWithRole('Staff');
         $patient = $this->createUserWithRole('Patient');
         $appointment = $this->createAppointment($patient->id, 'pending');
         Log::spy();
@@ -33,9 +34,15 @@ class PatientCancelAppointmentTest extends TestCase
         $this->assertDatabaseHas('appointments', [
             'id' => $appointment->id,
             'status' => 'cancelled',
+            'cancelled_by' => $patient->id,
         ]);
         $this->assertSoftDeleted('appointments', [
             'id' => $appointment->id,
+        ]);
+        $this->assertDatabaseHas('staff_notifications', [
+            'user_id' => $staff->id,
+            'appointment_id' => $appointment->id,
+            'type' => 'staff_appointment_cancelled',
         ]);
 
         Log::shouldHaveReceived('info')
@@ -50,35 +57,22 @@ class PatientCancelAppointmentTest extends TestCase
             });
     }
 
-    public function test_patient_can_cancel_approved_appointment_and_audit_log_is_recorded(): void
+    public function test_patient_cannot_cancel_approved_appointment(): void
     {
         $patient = $this->createUserWithRole('Patient');
         $appointment = $this->createAppointment($patient->id, 'confirmed');
-        Log::spy();
         Sanctum::actingAs($patient);
 
         $response = $this->patchJson('/api/v1/patient/appointments/' . $appointment->id . '/cancel');
 
-        $response->assertOk()
-            ->assertJsonPath('appointment.status', 'Cancelled');
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['status'])
+            ->assertJsonPath('errors.status.0', 'Only pending appointments can be cancelled by patients.');
 
         $this->assertDatabaseHas('appointments', [
             'id' => $appointment->id,
-            'status' => 'cancelled',
+            'status' => 'confirmed',
         ]);
-        $this->assertSoftDeleted('appointments', [
-            'id' => $appointment->id,
-        ]);
-
-        Log::shouldHaveReceived('info')
-            ->once()
-            ->withArgs(function (string $message, array $context) use ($appointment, $patient): bool {
-                return $message === 'appointment.cancelled.by_patient'
-                    && (int) ($context['appointment_id'] ?? 0) === (int) $appointment->id
-                    && (int) ($context['patient_id'] ?? 0) === (int) $patient->id
-                    && ($context['previous_status'] ?? null) === 'confirmed'
-                    && ($context['new_status'] ?? null) === 'cancelled';
-            });
     }
 
     public function test_patient_can_cancel_appointment_when_patient_record_id_differs_from_user_id(): void
@@ -127,7 +121,7 @@ class PatientCancelAppointmentTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['status'])
-            ->assertJsonPath('errors.status.0', 'Only pending or approved appointments can be cancelled.');
+            ->assertJsonPath('errors.status.0', 'Only pending appointments can be cancelled by patients.');
 
         $this->assertDatabaseHas('appointments', [
             'id' => $appointment->id,
@@ -163,7 +157,7 @@ class PatientCancelAppointmentTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['status'])
-            ->assertJsonPath('errors.status.0', 'Only pending or approved appointments can be cancelled.');
+            ->assertJsonPath('errors.status.0', 'Only pending appointments can be cancelled by patients.');
 
         $this->assertDatabaseHas('appointments', [
             'id' => $appointment->id,

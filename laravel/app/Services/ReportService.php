@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Appointment;
+use App\Models\AuditTrail;
 use App\Models\Report;
 use App\Support\AppointmentQueueOrder;
 use Illuminate\Database\Eloquent\Builder;
@@ -287,8 +288,9 @@ class ReportService
     private function detailedRecordsQuery(array $filters): Builder
     {
         $query = $this->newFilteredAppointmentsQuery($filters)
-            ->leftJoin('services', 'services.id', '=', 'appointments.service_id')
-            ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id');
+            ->leftJoin('services as legacy_services', 'legacy_services.id', '=', 'appointments.service_id')
+            ->leftJoin('queues', 'queues.appointment_id', '=', 'appointments.id')
+            ->leftJoin('users as cancelled_by_users', 'cancelled_by_users.id', '=', 'appointments.cancelled_by');
 
         if (!empty($filters['search'])) {
             $this->applyDetailedRecordSearch($query, (string) $filters['search']);
@@ -301,16 +303,21 @@ class ReportService
                 'patient_records.first_name',
                 'patient_records.middle_name',
                 'patient_records.last_name',
-                'services.name as service_type',
                 'appointments.appointment_date',
                 'appointments.time_slot',
                 'appointments.created_at',
                 'patient_records.contact_number as contact',
                 'appointments.status',
                 'appointments.notes',
+                'appointments.cancellation_reason',
+                'appointments.cancelled_by',
+                'appointments.cancelled_at',
+                'cancelled_by_users.first_name as cancelled_by_first_name',
+                'cancelled_by_users.last_name as cancelled_by_last_name',
                 'patient_records.user_id',
                 'queues.queue_number',
-            ]);
+            ])
+            ->selectRaw($this->serviceNamesSelectExpression() . ' as service_type');
     }
 
     private function applyDetailedRecordSearch(Builder $query, string $search): void
@@ -347,7 +354,15 @@ class ReportService
                     ->orWhereRaw("LOWER(COALESCE(patient_records.first_name, '')) LIKE ?", [$like])
                     ->orWhereRaw("LOWER(COALESCE(patient_records.middle_name, '')) LIKE ?", [$like])
                     ->orWhereRaw("LOWER(COALESCE(patient_records.last_name, '')) LIKE ?", [$like])
-                    ->orWhereRaw("LOWER(COALESCE(services.name, '')) LIKE ?", [$like])
+                    ->orWhereRaw("LOWER(COALESCE((" . $this->serviceNamesSubquery() . "), legacy_services.name, '')) LIKE ?", [$like])
+                    ->orWhereExists(function ($serviceQuery) use ($like): void {
+                        $serviceQuery
+                            ->selectRaw('1')
+                            ->from('appointment_service')
+                            ->join('services as selected_services', 'selected_services.id', '=', 'appointment_service.service_id')
+                            ->whereColumn('appointment_service.appointment_id', 'appointments.id')
+                            ->whereRaw("LOWER(COALESCE(selected_services.name, '')) LIKE ?", [$like]);
+                    })
                     ->orWhereRaw("LOWER(COALESCE(patient_records.contact_number, '')) LIKE ?", [$like])
                     ->orWhereRaw("LOWER(COALESCE($appointmentIdExpression, '')) LIKE ?", [$like])
                     ->orWhereRaw("LOWER(COALESCE($queueNumberExpression, '')) LIKE ?", [$like]);
@@ -373,6 +388,27 @@ class ReportService
         return $driver === 'pgsql'
             ? "CAST($column AS TEXT)"
             : "CAST($column AS CHAR)";
+    }
+
+    private function serviceNamesSelectExpression(): string
+    {
+        return "COALESCE((" . $this->serviceNamesSubquery() . "), legacy_services.name)";
+    }
+
+    private function serviceNamesSubquery(): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        $aggregate = match ($driver) {
+            'pgsql' => "STRING_AGG(DISTINCT selected_services.name, ', ' ORDER BY selected_services.name)",
+            'sqlite' => "GROUP_CONCAT(DISTINCT selected_services.name)",
+            default => "GROUP_CONCAT(DISTINCT selected_services.name ORDER BY selected_services.name SEPARATOR ', ')",
+        };
+
+        return "SELECT $aggregate
+            FROM appointment_service
+            INNER JOIN services selected_services ON selected_services.id = appointment_service.service_id
+            WHERE appointment_service.appointment_id = appointments.id";
     }
 
     private function mapDetailedRecord(object $appointment): array
@@ -418,6 +454,12 @@ class ReportService
                 ? str_pad((string) $appointment->queue_number, 2, '0', STR_PAD_LEFT)
                 : '-',
             'created_at' => $createdAt,
+            'cancellation_reason' => $appointment->cancellation_reason,
+            'cancelled_by' => $appointment->cancelled_by !== null ? (int) $appointment->cancelled_by : null,
+            'cancelled_by_name' => $this->formatCancelledByName($appointment),
+            'cancelled_at' => $appointment->cancelled_at !== null
+                ? Carbon::parse((string) $appointment->cancelled_at)->toIso8601String()
+                : null,
         ];
     }
 
@@ -429,6 +471,15 @@ class ReportService
                 $this->newFilteredAppointmentsQuery($filters)->select('appointments.id'),
             )
             ->count();
+    }
+
+    private function formatCancelledByName(object $appointment): ?string
+    {
+        $firstName = trim((string) ($appointment->cancelled_by_first_name ?? ''));
+        $lastName = trim((string) ($appointment->cancelled_by_last_name ?? ''));
+        $name = trim($firstName . ' ' . $lastName);
+
+        return $name !== '' ? $name : null;
     }
 
     private function serializeDetailedRecord(object $appointment): array
@@ -448,7 +499,75 @@ class ReportService
             'booking_type' => $record['booking_type'],
             'queue_number' => $record['queue_number'],
             'created_at' => $record['created_at'],
+            'cancellation_reason' => $record['cancellation_reason'],
+            'cancelled_by' => $record['cancelled_by'],
+            'cancelled_by_name' => $record['cancelled_by_name'],
+            'cancelled_at' => $record['cancelled_at'],
+            'logs' => $this->appointmentLogs((int) $record['appointment_id']),
         ];
+    }
+
+    private function appointmentLogs(int $appointmentId): array
+    {
+        return AuditTrail::query()
+            ->with('user')
+            ->where('auditable_type', Appointment::class)
+            ->where('auditable_id', $appointmentId)
+            ->latest()
+            ->get()
+            ->map(function (AuditTrail $trail): array {
+                $metadata = is_array($trail->metadata) ? $trail->metadata : [];
+                $newStatus = (string) ($metadata['new_status'] ?? '');
+                $oldStatus = (string) ($metadata['old_status'] ?? '');
+                $reason = trim((string) ($metadata['reason'] ?? ''));
+
+                return [
+                    'id' => (int) $trail->id,
+                    'appointment_id' => (int) $trail->auditable_id,
+                    'action' => $this->historyActionLabel((string) $trail->event, $newStatus, $reason),
+                    'old_status' => $oldStatus !== '' ? $this->formatStatusLabel($oldStatus) : null,
+                    'new_status' => $newStatus !== '' ? $this->formatStatusLabel($newStatus) : null,
+                    'action_status' => $newStatus !== '' ? $this->formatStatusLabel($newStatus) : null,
+                    'performed_by' => $this->formatAuditUserName($trail),
+                    'performed_by_id' => $trail->user_id !== null ? (int) $trail->user_id : null,
+                    'action_at' => optional($trail->created_at)?->toIso8601String(),
+                    'created_at' => optional($trail->created_at)?->toIso8601String(),
+                    'reason' => $reason !== '' ? $reason : null,
+                    'cancellation_reason' => $reason !== '' ? $reason : null,
+                ];
+            })
+            ->all();
+    }
+
+    private function historyActionLabel(string $event, string $newStatus, ?string $reason = null): string
+    {
+        return match ($event) {
+            'appointment_created' => $newStatus === self::STATUS_PENDING
+                ? 'Pending appointment created'
+                : 'Appointment created',
+            'appointment_approved' => 'Approved appointment',
+            'appointment_cancelled' => trim((string) $reason) !== ''
+                ? 'Staff/Admin cancellation with reason'
+                : 'Patient cancellation while still pending',
+            'appointment_completed' => 'Completed appointment',
+            'appointment_rescheduled' => 'Rescheduled appointment',
+            default => 'Appointment status updated',
+        };
+    }
+
+    private function formatAuditUserName(AuditTrail $trail): ?string
+    {
+        if ($trail->user === null) {
+            return null;
+        }
+
+        $name = trim(sprintf(
+            '%s %s',
+            (string) $trail->user->first_name,
+            (string) $trail->user->last_name,
+        ));
+
+        return $name !== '' ? $name : (string) $trail->user->username;
     }
 
     private function newFilteredAppointmentsQuery(array $filters): Builder

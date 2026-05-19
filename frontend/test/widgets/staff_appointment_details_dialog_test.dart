@@ -21,10 +21,11 @@ void main() {
                 'queue_number': 1,
                 'notes': '',
               },
-              onStatusUpdate: (String nextStatus) async {
-                updaterCalled = nextStatus == 'approved';
-                return true;
-              },
+              onStatusUpdate:
+                  (String nextStatus, {String? cancellationReason}) async {
+                    updaterCalled = nextStatus == 'approved';
+                    return true;
+                  },
             ),
           ),
         ),
@@ -83,7 +84,7 @@ void main() {
               'allowed_actions': <String>['cancel'],
             },
             actorRole: 'admin',
-            onStatusUpdate: (_) async => true,
+            onStatusUpdate: (_, {String? cancellationReason}) async => true,
           ),
         ),
       ),
@@ -114,10 +115,12 @@ void main() {
               'allowed_actions': <String>['cancel'],
             },
             actorRole: 'admin',
-            onStatusUpdate: (String nextStatus) async {
-              submittedStatus = nextStatus;
-              return true;
-            },
+            onStatusUpdate:
+                (String nextStatus, {String? cancellationReason}) async {
+                  submittedStatus = nextStatus;
+                  expect(cancellationReason, 'Patient requested another day.');
+                  return true;
+                },
           ),
         ),
       ),
@@ -128,23 +131,16 @@ void main() {
     await tester.tap(find.text('CANCEL'));
     await tester.pumpAndSettle();
 
-    final Dialog confirmationDialog = tester.widget<Dialog>(
-      find.byType(Dialog).last,
-    );
-
     expect(find.text('Cancel Appointment?'), findsOneWidget);
-    expect(confirmationDialog.constraints?.maxWidth, 380);
-    expect(
-      find.text(
-        'Are you sure you want to cancel this appointment for '
-        'Dental Cleaning on Apr 20, 2026?',
-      ),
-      findsOneWidget,
-    );
-    expect(find.widgetWithText(ElevatedButton, 'No, Keep it'), findsOneWidget);
-    expect(find.widgetWithText(ElevatedButton, 'Yes, Cancel'), findsOneWidget);
+    expect(find.text('Cancellation reason'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'No, Keep it'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Yes, Cancel'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Yes, Cancel'));
+    await tester.enterText(
+      find.byType(TextField),
+      'Patient requested another day.',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Yes, Cancel'));
     await tester.pumpAndSettle();
 
     expect(submittedStatus, 'cancelled');
@@ -169,10 +165,11 @@ void main() {
               'allowed_actions': <String>['complete'],
             },
             actorRole: 'admin',
-            onStatusUpdate: (String nextStatus) async {
-              submittedStatus = nextStatus;
-              return true;
-            },
+            onStatusUpdate:
+                (String nextStatus, {String? cancellationReason}) async {
+                  submittedStatus = nextStatus;
+                  return true;
+                },
           ),
         ),
       ),
