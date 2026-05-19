@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../core/app_form_validators.dart';
 import '../core/api_exception.dart';
 import '../core/form_error_helpers.dart';
@@ -391,6 +392,8 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                     _firstNameController,
                                     fieldKey: 'first_name',
                                     readOnly: !_isEditingProfile,
+                                    inputFormatters:
+                                        AppFormValidators.nameInputFormatters(),
                                     validator: (value) => !_isEditingProfile
                                         ? null
                                         : _mergeFieldError(
@@ -408,6 +411,8 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                     _lastNameController,
                                     fieldKey: 'last_name',
                                     readOnly: !_isEditingProfile,
+                                    inputFormatters:
+                                        AppFormValidators.nameInputFormatters(),
                                     validator: (value) => !_isEditingProfile
                                         ? null
                                         : _mergeFieldError(
@@ -430,6 +435,8 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                       _firstNameController,
                                       fieldKey: 'first_name',
                                       readOnly: !_isEditingProfile,
+                                      inputFormatters:
+                                          AppFormValidators.nameInputFormatters(),
                                       validator: (value) => !_isEditingProfile
                                           ? null
                                           : _mergeFieldError(
@@ -449,6 +456,8 @@ class _AdminProfileViewState extends State<AdminProfileView> {
                                       _lastNameController,
                                       fieldKey: 'last_name',
                                       readOnly: !_isEditingProfile,
+                                      inputFormatters:
+                                          AppFormValidators.nameInputFormatters(),
                                       validator: (value) => !_isEditingProfile
                                           ? null
                                           : _mergeFieldError(
@@ -539,6 +548,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
     TextEditingController controller, {
     required String fieldKey,
     bool readOnly = false,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
     return Column(
@@ -557,6 +567,7 @@ class _AdminProfileViewState extends State<AdminProfileView> {
           controller: controller,
           onChanged: (_) => _clearFieldError(fieldKey),
           readOnly: readOnly,
+          inputFormatters: inputFormatters,
           validator: validator,
           decoration: InputDecoration(
             filled: !readOnly,

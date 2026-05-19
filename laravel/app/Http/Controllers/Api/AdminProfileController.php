@@ -55,8 +55,8 @@ class AdminProfileController extends Controller
         }
 
         return $request->validate([
-            'first_name' => ['sometimes', 'required', 'string', 'max:100'],
-            'last_name' => ['sometimes', 'required', 'string', 'max:100'],
+            'first_name' => ['sometimes', 'required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
+            'last_name' => ['sometimes', 'required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
             'gender' => ['sometimes', 'nullable', 'string', 'in:male,female,other'],
             'phone_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
             'contact_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
@@ -68,6 +68,8 @@ class AdminProfileController extends Controller
         ], [
             'phone_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
+            'first_name.regex' => 'First name may only contain letters and spaces.',
+            'last_name.regex' => 'Last name may only contain letters and spaces.',
             'username.unique' => 'The requested username is already taken. Please choose another one.',
         ]);
     }

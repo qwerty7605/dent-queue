@@ -153,6 +153,29 @@ class AuthControllerTest extends TestCase
             ->assertJsonPath('errors.username.0', 'Username may only contain letters, numbers, dots, hyphens, and underscores.');
     }
 
+    public function test_registration_rejects_invalid_name_characters_and_long_names(): void
+    {
+        Role::create(['name' => 'Patient']);
+
+        $response = $this->postJson('/api/v1/auth/register', [
+            'first_name' => 'Jane123',
+            'middle_name' => 'Middle!',
+            'last_name' => str_repeat('A', 31),
+            'email' => 'jane@example.com',
+            'username' => 'janesmith',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'terms_accepted' => true,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'first_name',
+                'middle_name',
+                'last_name',
+            ]);
+    }
+
     public function test_user_can_logout(): void
     {
         $role = Role::create(['name' => 'Patient']);

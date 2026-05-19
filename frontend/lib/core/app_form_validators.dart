@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 class AppFormValidators {
   AppFormValidators._();
 
-  static const int nameMaxLength = 100;
+  static const int nameMaxLength = 30;
   static const int usernameMaxLength = 50;
   static const int emailMaxLength = 255;
   static const int addressMaxLength = 255;
@@ -11,11 +11,17 @@ class AppFormValidators {
   static const int contactNumberLength = 11;
 
   static final RegExp _usernamePattern = RegExp(r'^[A-Za-z0-9._-]+$');
+  static final RegExp _namePattern = RegExp(r'^[A-Za-z ]+$');
   static final RegExp _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
   static final RegExp _contactNumberPattern = RegExp(r'^09\d{9}$');
 
-  static List<TextInputFormatter> nameInputFormatters([int maxLength = nameMaxLength]) {
-    return <TextInputFormatter>[LengthLimitingTextInputFormatter(maxLength)];
+  static List<TextInputFormatter> nameInputFormatters([
+    int maxLength = nameMaxLength,
+  ]) {
+    return <TextInputFormatter>[
+      FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
+      LengthLimitingTextInputFormatter(maxLength),
+    ];
   }
 
   static List<TextInputFormatter> usernameInputFormatters() {
@@ -36,7 +42,10 @@ class AppFormValidators {
     return <TextInputFormatter>[LengthLimitingTextInputFormatter(maxLength)];
   }
 
-  static String? requiredName(String? value, {String fieldLabel = 'This field'}) {
+  static String? requiredName(
+    String? value, {
+    String fieldLabel = 'This field',
+  }) {
     final String trimmed = value?.trim() ?? '';
     if (trimmed.isEmpty) {
       return '$fieldLabel is required';
@@ -44,16 +53,25 @@ class AppFormValidators {
     if (trimmed.length > nameMaxLength) {
       return '$fieldLabel must be at most $nameMaxLength characters';
     }
+    if (!_namePattern.hasMatch(trimmed)) {
+      return '$fieldLabel may only contain letters and spaces';
+    }
     return null;
   }
 
-  static String? optionalName(String? value, {String fieldLabel = 'This field'}) {
+  static String? optionalName(
+    String? value, {
+    String fieldLabel = 'This field',
+  }) {
     final String trimmed = value?.trim() ?? '';
     if (trimmed.isEmpty) {
       return null;
     }
     if (trimmed.length > nameMaxLength) {
       return '$fieldLabel must be at most $nameMaxLength characters';
+    }
+    if (!_namePattern.hasMatch(trimmed)) {
+      return '$fieldLabel may only contain letters and spaces';
     }
     return null;
   }
@@ -119,7 +137,11 @@ class AppFormValidators {
     return null;
   }
 
-  static String? address(String? value, {String fieldLabel = 'Address', bool required = false}) {
+  static String? address(
+    String? value, {
+    String fieldLabel = 'Address',
+    bool required = false,
+  }) {
     final String trimmed = value?.trim() ?? '';
     if (trimmed.isEmpty) {
       return required ? '$fieldLabel is required' : null;

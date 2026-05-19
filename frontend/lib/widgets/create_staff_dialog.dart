@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../core/app_form_validators.dart';
 import '../services/staff_service.dart';
 import 'terms_acceptance_form_field.dart';
 
@@ -114,6 +116,13 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
                             child: _buildTextField(
                               'First Name',
                               _firstNameController,
+                              inputFormatters:
+                                  AppFormValidators.nameInputFormatters(),
+                              validator: (value) =>
+                                  AppFormValidators.requiredName(
+                                    value,
+                                    fieldLabel: 'First name',
+                                  ),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -121,6 +130,13 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
                             child: _buildTextField(
                               'Last Name',
                               _lastNameController,
+                              inputFormatters:
+                                  AppFormValidators.nameInputFormatters(),
+                              validator: (value) =>
+                                  AppFormValidators.requiredName(
+                                    value,
+                                    fieldLabel: 'Last name',
+                                  ),
                             ),
                           ),
                         ],
@@ -250,6 +266,7 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
     String label,
     TextEditingController controller, {
     bool isPassword = false,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
     return Column(
@@ -267,6 +284,7 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
         TextFormField(
           controller: controller,
           obscureText: isPassword,
+          inputFormatters: inputFormatters,
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(

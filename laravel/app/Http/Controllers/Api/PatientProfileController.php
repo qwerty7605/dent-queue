@@ -38,9 +38,9 @@ class PatientProfileController extends Controller
         $this->normalizePayload($request);
 
         return $request->validate([
-            'first_name' => ['sometimes', 'required', 'string', 'max:100'],
-            'middle_name' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'last_name' => ['sometimes', 'required', 'string', 'max:100'],
+            'first_name' => ['sometimes', 'required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
+            'middle_name' => ['sometimes', 'nullable', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
+            'last_name' => ['sometimes', 'required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
             'location' => ['sometimes', 'nullable', 'string', 'max:255'],
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
             'gender' => ['sometimes', 'nullable', 'string', 'in:male,female,other'],
@@ -50,6 +50,9 @@ class PatientProfileController extends Controller
         ], [
             'phone_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
+            'first_name.regex' => 'First name may only contain letters and spaces.',
+            'middle_name.regex' => 'Middle name may only contain letters and spaces.',
+            'last_name.regex' => 'Last name may only contain letters and spaces.',
             'profile_picture.image' => 'The profile picture must be an image file.',
             'profile_picture.max' => 'The profile picture must not be greater than 2MB.',
         ]);
