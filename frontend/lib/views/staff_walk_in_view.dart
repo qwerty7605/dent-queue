@@ -555,6 +555,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
           hint: 'e.g. John',
           fieldKey: 'first_name',
           controller: _firstNameController,
+          inputFormatters: AppFormValidators.nameInputFormatters(),
           validator: (val) => _mergeFieldError(
             'first_name',
             AppFormValidators.requiredName(val, fieldLabel: 'First name'),
@@ -566,6 +567,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
           hint: 'e.g. Quio',
           fieldKey: 'middle_name',
           controller: _middleNameController,
+          inputFormatters: AppFormValidators.nameInputFormatters(),
           validator: (val) => _mergeFieldError(
             'middle_name',
             AppFormValidators.optionalName(val, fieldLabel: 'Middle name'),
@@ -577,6 +579,7 @@ class _StaffWalkInViewState extends State<StaffWalkInView> {
           hint: 'e.g. Doe',
           fieldKey: 'surname',
           controller: _surnameController,
+          inputFormatters: AppFormValidators.nameInputFormatters(),
           validator: (val) => _mergeFieldError(
             'surname',
             AppFormValidators.requiredName(val, fieldLabel: 'Surname'),

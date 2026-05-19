@@ -215,10 +215,10 @@ class AppointmentController extends Controller
         }
 
         $payload = $request->validate([
-            'first_name' => ['required', 'string', 'max:100'],
-            'middle_name' => ['nullable', 'string', 'max:100'],
-            'last_name' => ['required', 'string', 'max:100'],
-            'surname' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'first_name' => ['required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
+            'middle_name' => ['nullable', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
+            'last_name' => ['required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
+            'surname' => ['sometimes', 'nullable', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
             'address' => ['required', 'string', 'max:255'],
             'gender' => ['required', 'string', 'in:Male,Female,Other'],
             'contact_number' => ['required', 'regex:/^09\d{9}$/'],
@@ -232,6 +232,10 @@ class AppointmentController extends Controller
             'appointment_time' => ['required', 'string'],
         ], [
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
+            'first_name.regex' => 'First name may only contain letters and spaces.',
+            'middle_name.regex' => 'Middle name may only contain letters and spaces.',
+            'last_name.regex' => 'Last name may only contain letters and spaces.',
+            'surname.regex' => 'Surname may only contain letters and spaces.',
         ]);
 
         $serviceIds = $this->resolveServiceIdsFromPayload($payload);

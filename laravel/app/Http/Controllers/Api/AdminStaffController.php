@@ -64,9 +64,9 @@ class AdminStaffController extends Controller
         $this->forbidInternWrites($request);
 
         $data = $request->validate([
-            'first_name' => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
-            'last_name' => 'required|string|max:100',
+            'first_name' => ['required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
+            'middle_name' => ['nullable', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
+            'last_name' => ['required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
             'gender' => 'required|string|in:male,female,other',
             'address' => 'nullable|string|max:255',
             'contact_number' => ['required', 'regex:/^09\d{9}$/'],
@@ -77,6 +77,9 @@ class AdminStaffController extends Controller
         ], [
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'username.regex' => 'Username may only contain letters, numbers, dots, hyphens, and underscores.',
+            'first_name.regex' => 'First name may only contain letters and spaces.',
+            'middle_name.regex' => 'Middle name may only contain letters and spaces.',
+            'last_name.regex' => 'Last name may only contain letters and spaces.',
             'terms_accepted.accepted' => 'You must accept the Terms and Conditions before creating an account.',
         ]);
 

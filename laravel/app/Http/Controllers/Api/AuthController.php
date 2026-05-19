@@ -18,9 +18,9 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $data = $request->validate([
-            'first_name' => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
-            'last_name' => 'required|string|max:100',
+            'first_name' => ['required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
+            'middle_name' => ['nullable', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
+            'last_name' => ['required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
             'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', 'unique:users,username'],
             'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
@@ -33,6 +33,9 @@ class AuthController extends Controller
             'phone_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'contact_number.regex' => 'Contact number must be a valid 11-digit mobile number starting with 09.',
             'username.regex' => 'Username may only contain letters, numbers, dots, hyphens, and underscores.',
+            'first_name.regex' => 'First name may only contain letters and spaces.',
+            'middle_name.regex' => 'Middle name may only contain letters and spaces.',
+            'last_name.regex' => 'Last name may only contain letters and spaces.',
             'terms_accepted.accepted' => 'You must accept the Terms and Conditions before creating an account.',
         ]);
 
