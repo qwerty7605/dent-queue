@@ -67,9 +67,9 @@ Route::prefix('v1')->group(function () {
                 Route::patch('/appointments/{id}/restore', [AppointmentController::class, 'restore']);
                 Route::get('/appointments/recycle-bin', [AppointmentController::class, 'recycleBin']);
                 Route::post('/queues/call-next', [QueueController::class, 'callNext']);
-                Route::apiResource('reports', ReportController::class)->only(['index']);
 
                 Route::middleware('role:admin')->group(function () {
+                    Route::apiResource('reports', ReportController::class)->only(['index']);
                     Route::get('/reports/export', [ReportController::class, 'export']);
                     Route::get('/settings/clinic', [AdminClinicSettingsController::class, 'show']);
                     Route::put('/settings/clinic', [AdminClinicSettingsController::class, 'update']);

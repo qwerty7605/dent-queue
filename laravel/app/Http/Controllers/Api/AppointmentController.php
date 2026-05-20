@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\InteractsWithReportFilters;
+use App\Http\Controllers\Api\Concerns\ProtectsInternPatientPrivacy;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
@@ -17,6 +18,7 @@ use Illuminate\Validation\ValidationException;
 class AppointmentController extends Controller
 {
     use InteractsWithReportFilters;
+    use ProtectsInternPatientPrivacy;
 
     public function __construct(protected AppointmentService $appointmentService)
     {
@@ -56,10 +58,10 @@ class AppointmentController extends Controller
             (string) $payload['date'],
         );
 
-        return response()->json([
+        return response()->json($this->protectInternPatientPrivacy($request, [
             'date' => (string) $payload['date'],
             'appointments' => $appointments,
-        ]);
+        ]));
     }
 
     public function masterList(Request $request, ReportService $reportService): JsonResponse
@@ -73,19 +75,19 @@ class AppointmentController extends Controller
 
         if ($pagination !== null) {
             return response()->json(
-                $reportService->getDetailedRecordsPage(
+                $this->protectInternPatientPrivacy($request, $reportService->getDetailedRecordsPage(
                     $filters,
                     $pagination['page'],
                     $pagination['per_page'],
-                ),
+                )),
             );
         }
 
         $appointments = $reportService->getDetailedRecords($filters);
 
-        return response()->json([
+        return response()->json($this->protectInternPatientPrivacy($request, [
             'data' => $appointments,
-        ]);
+        ]));
     }
 
     public function validatePatientBooking(Request $request): JsonResponse
@@ -122,13 +124,13 @@ class AppointmentController extends Controller
             (string) $payload['date'],
         );
 
-        return response()->json([
+        return response()->json($this->protectInternPatientPrivacy($request, [
             'date' => (string) $payload['date'],
             'appointments' => $appointments,
-        ]);
+        ]));
     }
 
-    public function calendarAppointmentDetails(Appointment $appointment): JsonResponse
+    public function calendarAppointmentDetails(Request $request, Appointment $appointment): JsonResponse
     {
         $details = $this->appointmentService->getCalendarAppointmentDetails(
             (int) $appointment->id,
@@ -140,9 +142,9 @@ class AppointmentController extends Controller
             ], 404);
         }
 
-        return response()->json([
+        return response()->json($this->protectInternPatientPrivacy($request, [
             'appointment' => $details,
-        ]);
+        ]));
     }
 
     /**
