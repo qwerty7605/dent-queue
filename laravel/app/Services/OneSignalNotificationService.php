@@ -112,6 +112,10 @@ class OneSignalNotificationService
             ->values()
             ->all();
 
+        if (empty($subscriptionIds)) {
+            return false;
+        }
+
         $payload = [
             'app_id' => config('services.onesignal.app_id'),
             'target_channel' => 'push',
@@ -142,17 +146,6 @@ class OneSignalNotificationService
             'device_tokens_found' => $subscriptionIds,
             'payload' => $payload,
         ]);
-
-        if (empty($subscriptionIds)) {
-            Log::info('No active OneSignal device token found.', [
-                'appointment_id' => (int) $appointment->id,
-                'patient_id' => (int) $appointment->patient_id,
-                'resolved_patient_user_id' => (int) $user->id,
-                'patient_user_id' => (int) $user->id,
-            ]);
-
-            return false;
-        }
 
         if (empty(config('services.onesignal.app_id')) || empty(config('services.onesignal.rest_api_key'))) {
             Log::error('OneSignal appointment approval push configuration is missing.', [

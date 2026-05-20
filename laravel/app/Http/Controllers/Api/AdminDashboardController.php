@@ -9,6 +9,7 @@ use App\Models\PatientRecord;
 use App\Models\Report;
 use App\Models\StaffRecord;
 use App\Models\User;
+use App\Services\CentralizedCacheService;
 use App\Services\ReportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,9 +26,12 @@ class AdminDashboardController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function stats(): JsonResponse
+    public function stats(CentralizedCacheService $cacheService): JsonResponse
     {
-        $stats = $this->resolveDashboardStats();
+        $stats = $cacheService->rememberDashboardStats(
+            fn (): array => $this->resolveDashboardStats(),
+            request()->boolean('force_refresh'),
+        );
 
         return response()->json([
             'data' => $stats,
