@@ -50,10 +50,15 @@ void main() {
   test('getStats uses a short-term cache until invalidated', () async {
     fakeBaseService.nextResponse = <String, dynamic>{
       'data': <String, dynamic>{
+        'patient_accounts': 5,
+        'staff_registry': 4,
+        'appointments': 12,
+        'reports': 7,
         'patients_count': 5,
+        'admin_count': 1,
         'staff_count': 2,
         'intern_count': 1,
-        'staff_accounts_count': 3,
+        'staff_accounts_count': 4,
         'appointments_count': 12,
       },
     };
@@ -62,6 +67,8 @@ void main() {
     final Map<String, int> second = await adminDashboardService.getStats();
 
     expect(first['patients_count'], 5);
+    expect(first['staff_registry'], 4);
+    expect(first['reports'], 7);
     expect(second['appointments_count'], 12);
     expect(fakeBaseService.getJsonCallCount, 1);
 
@@ -69,6 +76,65 @@ void main() {
     await adminDashboardService.getStats();
 
     expect(fakeBaseService.getJsonCallCount, 2);
+  });
+
+  test('getStats accepts numeric counts returned as strings', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'data': <String, dynamic>{
+        'patient_accounts': '5',
+        'staff_registry': '3',
+        'appointments': '12',
+        'reports': '6',
+        'patients_count': '5',
+        'staff_count': '2',
+        'admin_count': '0',
+        'intern_count': '1',
+        'staff_accounts_count': '3',
+        'appointments_count': '12',
+      },
+    };
+
+    final Map<String, int> result = await adminDashboardService.getStats();
+
+    expect(result['patients_count'], 5);
+    expect(result['patient_accounts'], 5);
+    expect(result['staff_accounts_count'], 3);
+    expect(result['appointments_count'], 12);
+    expect(result['reports'], 6);
+  });
+
+  test('getOverview maps counts and recent pending appointments', () async {
+    fakeBaseService.nextResponse = <String, dynamic>{
+      'data': <String, dynamic>{
+        'patient_accounts': 5,
+        'staff_registry': 4,
+        'appointments': 12,
+        'reports': 6,
+        'recent_pending_appointments': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'appointment_id': 44,
+            'patient_name': 'Jamie Stone',
+            'service': 'Dental Check-up',
+            'status': 'Pending',
+          },
+        ],
+      },
+    };
+
+    final Map<String, dynamic> overview = await adminDashboardService
+        .getOverview();
+    final Map<String, int> stats = Map<String, int>.from(
+      overview['stats'] as Map,
+    );
+    final List<Map<String, dynamic>> recent =
+        overview['recent_pending_appointments'] as List<Map<String, dynamic>>;
+
+    expect(stats['patient_accounts'], 5);
+    expect(stats['staff_registry'], 4);
+    expect(stats['appointments_count'], 12);
+    expect(stats['reports'], 6);
+    expect(recent, hasLength(1));
+    expect(recent.single['appointment_id'], 44);
   });
 
   test(

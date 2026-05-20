@@ -87,6 +87,44 @@ class AuthControllerTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'jane@example.com']);
     }
 
+    public function test_registration_validation_endpoint_accepts_valid_step_fields(): void
+    {
+        Role::create(['name' => 'Patient']);
+
+        $response = $this->postJson('/api/v1/auth/register/validate', [
+            'fields' => ['email', 'contact_number', 'gender', 'location'],
+            'email' => 'jane@example.com',
+            'contact_number' => '09123456789',
+            'gender' => 'female',
+            'location' => 'Tester City',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('valid', true);
+    }
+
+    public function test_registration_validation_endpoint_rejects_duplicate_email(): void
+    {
+        $role = Role::create(['name' => 'Patient']);
+        User::create([
+            'first_name' => 'Jane',
+            'last_name' => 'Smith',
+            'email' => 'jane@example.com',
+            'username' => 'janesmith',
+            'password' => Hash::make('password123'),
+            'role_id' => $role->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/register/validate', [
+            'fields' => ['email'],
+            'email' => 'jane@example.com',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['email']);
+    }
+
     public function test_registration_requires_terms_acceptance(): void
     {
         Role::create(['name' => 'Patient']);

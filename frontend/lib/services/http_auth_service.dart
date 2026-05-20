@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import '../core/endpoints.dart';
 import '../core/short_term_cache.dart';
 import '../core/token_storage.dart';
 import 'auth_service.dart';
 import 'base_service.dart';
+import 'onesignal_device_service.dart';
 
 class HttpAuthService implements AuthService {
   HttpAuthService(this._baseService, this._tokenStorage);
@@ -15,9 +18,7 @@ class HttpAuthService implements AuthService {
     ShortTermCache.clear();
 
     // send the identifier under both possible keys, backend will pick one
-    final payload = {
-      'password': password,
-    };
+    final payload = {'password': password};
     if (identifier.contains('@')) {
       payload['email'] = identifier;
     } else {
@@ -34,12 +35,27 @@ class HttpAuthService implements AuthService {
     if (token != null && token.isNotEmpty) {
       await _tokenStorage.writeToken(token);
     }
-    final userInfo = _extractUserInfo(json);
+    Map<String, dynamic>? userInfo = _extractUserInfo(json);
     if (userInfo != null && userInfo['role'] != null) {
       await _tokenStorage.writeUserInfo(userInfo);
     } else {
-      await me(); // Fetch complete user info including roles
+      userInfo = await me(); // Fetch complete user info including roles
     }
+
+    unawaited(
+      OneSignalDeviceService(
+        _baseService,
+      ).saveCurrentSubscription(userInfo: userInfo),
+    );
+  }
+
+  @override
+  Future<void> validateRegistrationFields(Map<String, dynamic> payload) async {
+    await _baseService.postJson<dynamic>(
+      Endpoints.validateRegistration,
+      payload,
+      (data) => data,
+    );
   }
 
   @override
@@ -57,12 +73,18 @@ class HttpAuthService implements AuthService {
     if (token != null && token.isNotEmpty) {
       await _tokenStorage.writeToken(token);
     }
-    final userInfo = _extractUserInfo(json);
+    Map<String, dynamic>? userInfo = _extractUserInfo(json);
     if (userInfo != null && userInfo['role'] != null) {
       await _tokenStorage.writeUserInfo(userInfo);
     } else {
-      await me(); // Fetch complete user info including roles
+      userInfo = await me(); // Fetch complete user info including roles
     }
+
+    unawaited(
+      OneSignalDeviceService(
+        _baseService,
+      ).saveCurrentSubscription(userInfo: userInfo),
+    );
   }
 
   @override
@@ -79,7 +101,10 @@ class HttpAuthService implements AuthService {
 
   @override
   Future<Map<String, dynamic>?> me() async {
-    final json = await _baseService.getJson<dynamic>(Endpoints.me, (data) => data);
+    final json = await _baseService.getJson<dynamic>(
+      Endpoints.me,
+      (data) => data,
+    );
     final userInfo = _extractUserInfo(json);
     if (userInfo != null) {
       await _tokenStorage.writeUserInfo(userInfo);
@@ -121,7 +146,8 @@ class HttpAuthService implements AuthService {
     final directRole = user['role'];
     if (directRole is String && directRole.isNotEmpty) {
       role = directRole;
-    } else if (directRole is Map<String, dynamic> && directRole['name'] is String) {
+    } else if (directRole is Map<String, dynamic> &&
+        directRole['name'] is String) {
       role = directRole['name'] as String;
     } else {
       final roles = user['roles'];
@@ -142,7 +168,9 @@ class HttpAuthService implements AuthService {
 
     return {
       'id': user['id'],
-      'name': constructedName.isNotEmpty ? constructedName : (defaultName.isNotEmpty ? defaultName : 'User'),
+      'name': constructedName.isNotEmpty
+          ? constructedName
+          : (defaultName.isNotEmpty ? defaultName : 'User'),
       'email': user['email'],
       'role': role,
       'first_name': user['first_name'],

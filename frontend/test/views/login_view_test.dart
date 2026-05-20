@@ -14,6 +14,9 @@ class _FakeAuthService extends Fake implements AuthService {
   }
 
   @override
+  Future<void> validateRegistrationFields(Map<String, dynamic> payload) async {}
+
+  @override
   Future<void> register(Map<String, dynamic> payload) async {
     await onRegister?.call(payload);
   }

@@ -6,8 +6,10 @@ class Endpoints {
 
   static const login = '$_base/auth/login';
   static const register = '$_base/auth/register';
+  static const validateRegistration = '$_base/auth/register/validate';
   static const logout = '$_base/auth/logout';
   static const me = '$_base/user';
+  static const saveOneSignalId = '/api/save-onesignal-id';
 
   static const services = '$_base/patient/services';
   static const appointments = '$_base/patient/appointments';

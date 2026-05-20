@@ -414,8 +414,6 @@ class _NotificationsViewState extends State<NotificationsView> {
                 children: [
                   Row(
                     children: [
-                      _buildBackButton(isDark),
-                      const SizedBox(width: 16),
                       Expanded(
                         child: Text(
                           'Notifications',
@@ -451,32 +449,6 @@ class _NotificationsViewState extends State<NotificationsView> {
                   ..._buildNotificationTiles(),
                 ],
               ),
-      ),
-    );
-  }
-
-  Widget _buildBackButton(bool isDark) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => Navigator.of(context).maybePop(),
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF17243A) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Icon(
-          Icons.chevron_left_rounded,
-          color: isDark ? Colors.white : const Color(0xFF1F3763),
-        ),
       ),
     );
   }

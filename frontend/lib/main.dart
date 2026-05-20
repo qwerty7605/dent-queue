@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'core/api_exception.dart';
 import 'core/api_client.dart';
 import 'core/app_theme.dart';
@@ -16,6 +17,7 @@ Future<void> main() async {
   if (!kReleaseMode) {
     debugPrint('API env=${AppConfig.env.name} baseUrl=${AppConfig.baseUrl}');
   }
+  await _initializeOneSignal();
 
   final tokenStorage = SecureTokenStorage();
   final apiClient = ApiClient(tokenStorage: tokenStorage);
@@ -23,6 +25,36 @@ Future<void> main() async {
   final authService = HttpAuthService(baseService, tokenStorage);
 
   runApp(MyApp(authService: authService, tokenStorage: tokenStorage));
+}
+
+Future<void> _initializeOneSignal() async {
+  const String appId = '5afa369b-7d62-4312-b553-df44d952c8a2';
+  final bool supportsOneSignal =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  if (!supportsOneSignal) {
+    debugPrint('OneSignal initialization skipped: unsupported platform');
+    return;
+  }
+
+  try {
+    if (!kReleaseMode) {
+      await OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
+    }
+
+    await OneSignal.initialize(appId);
+    final bool permissionGranted =
+        await OneSignal.Notifications.requestPermission(true);
+    debugPrint('OneSignal notification permission granted: $permissionGranted');
+    debugPrint(
+      'OneSignal initial subscription ID: ${OneSignal.User.pushSubscription.id}',
+    );
+  } catch (error, stackTrace) {
+    debugPrint('OneSignal initialization failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
 }
 
 class MyApp extends StatelessWidget {

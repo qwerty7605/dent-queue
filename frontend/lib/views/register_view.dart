@@ -67,6 +67,7 @@ class _RegisterViewState extends State<RegisterView> {
 
   String? _gender;
   bool _submitting = false;
+  bool _validatingStep = false;
   bool _showPassword = false;
   bool _showConfirmPassword = false;
   bool _acceptedTerms = false;
@@ -98,6 +99,38 @@ class _RegisterViewState extends State<RegisterView> {
 
   String? _mergeFieldError(String fieldKey, String? localError) {
     return localError ?? _fieldErrors[fieldKey];
+  }
+
+  List<String> _fieldsForCurrentStep() {
+    return _fieldSteps.entries
+        .where((MapEntry<String, int> entry) => entry.value == _currentStep)
+        .map((MapEntry<String, int> entry) => entry.key)
+        .toList();
+  }
+
+  Map<String, dynamic> _registrationPayload({List<String>? fields}) {
+    final Map<String, dynamic> values = <String, dynamic>{
+      'first_name': _firstNameController.text.trim(),
+      'middle_name': _middleNameController.text.trim(),
+      'last_name': _lastNameController.text.trim(),
+      'email': _emailController.text.trim(),
+      'location': _locationController.text.trim(),
+      'gender': _gender,
+      'contact_number': _contactNumberController.text.trim(),
+      'username': _usernameController.text.trim(),
+      'password': _passwordController.text,
+      'password_confirmation': _confirmPasswordController.text,
+      'terms_accepted': _acceptedTerms,
+    };
+
+    if (fields == null) {
+      return values;
+    }
+
+    return <String, dynamic>{
+      for (final String field in fields) field: values[field],
+      'fields': fields,
+    };
   }
 
   int _resolveStepForErrors(Map<String, String> fieldErrors) {
@@ -132,19 +165,7 @@ class _RegisterViewState extends State<RegisterView> {
     });
 
     try {
-      await widget.authService.register({
-        'first_name': _firstNameController.text.trim(),
-        'middle_name': _middleNameController.text.trim(),
-        'last_name': _lastNameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'location': _locationController.text.trim(),
-        'gender': _gender,
-        'contact_number': _contactNumberController.text.trim(),
-        'username': _usernameController.text.trim(),
-        'password': _passwordController.text,
-        'password_confirmation': _confirmPasswordController.text,
-        'terms_accepted': _acceptedTerms,
-      });
+      await widget.authService.register(_registrationPayload());
 
       if (!mounted) return;
       widget.onRegisterSuccess?.call();
@@ -182,13 +203,54 @@ class _RegisterViewState extends State<RegisterView> {
     }
   }
 
-  void _nextStep() {
+  Future<void> _nextStep() async {
     if (!_formKey.currentState!.validate()) {
       setState(() {
         _autoValidateMode = AutovalidateMode.always;
       });
       return;
     }
+
+    final List<String> fields = _fieldsForCurrentStep();
+    setState(() {
+      _fieldErrors = <String, String>{};
+      _formErrorText = null;
+      _validatingStep = true;
+    });
+
+    try {
+      await widget.authService.validateRegistrationFields(
+        _registrationPayload(fields: fields),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      final Map<String, String> fieldErrors = collectApiFieldErrors(
+        e.errors,
+        _apiFieldMappings,
+      );
+      final String? formError =
+          firstUnhandledApiError(
+            e.errors,
+            handledKeys: flattenApiErrorKeys(_apiFieldMappings),
+          ) ??
+          (fieldErrors.isEmpty ? e.message : null);
+
+      setState(() {
+        _fieldErrors = fieldErrors;
+        _formErrorText = formError;
+        _autoValidateMode = AutovalidateMode.always;
+      });
+      _formKey.currentState?.validate();
+      return;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _validatingStep = false;
+        });
+      }
+    }
+
+    if (!mounted) return;
     setState(() {
       _currentStep++;
       _autoValidateMode = AutovalidateMode.disabled;
@@ -502,8 +564,8 @@ class _RegisterViewState extends State<RegisterView> {
         const SizedBox(height: 24),
         _buildPrimaryButton(
           label: 'Next',
-          onPressed: _nextStep,
-          submitting: false,
+          onPressed: _validatingStep ? null : _nextStep,
+          submitting: _validatingStep,
         ),
       ],
     );
@@ -656,8 +718,8 @@ class _RegisterViewState extends State<RegisterView> {
         const SizedBox(height: 24),
         _buildPrimaryButton(
           label: 'Next',
-          onPressed: _nextStep,
-          submitting: false,
+          onPressed: _validatingStep ? null : _nextStep,
+          submitting: _validatingStep,
         ),
       ],
     );

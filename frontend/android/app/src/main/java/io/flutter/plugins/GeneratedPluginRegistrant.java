@@ -45,5 +45,10 @@ public final class GeneratedPluginRegistrant {
     } catch (Exception e) {
       Log.e(TAG, "Error registering plugin network_info_plus, dev.fluttercommunity.plus.network_info.NetworkInfoPlusPlugin", e);
     }
+    try {
+      flutterEngine.getPlugins().add(new com.onesignal.flutter.OneSignalPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin onesignal_flutter, com.onesignal.flutter.OneSignalPlugin", e);
+    }
   }
 }
