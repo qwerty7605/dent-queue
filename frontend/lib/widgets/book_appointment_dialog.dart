@@ -221,6 +221,10 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
   Future<void> _handlePrimaryAction() async {
     if (_currentStep < 4) {
       if (_formKey.currentState!.validate() && _canMoveForward) {
+        if (_currentStep == 2 && !await _validateSelectedDateBeforeTime()) {
+          return;
+        }
+
         if (_currentStep == 3 && !await _validateSelectedBooking()) {
           return;
         }
@@ -299,6 +303,47 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
       return false;
     }
 
+    return _validateBookingPayload(_bookingValidationPayload());
+  }
+
+  Future<bool> _validateSelectedDateBeforeTime() async {
+    if (_selectedDate == null || _selectedServices.isEmpty) {
+      setState(() => _autoValidateMode = AutovalidateMode.always);
+      _formKey.currentState?.validate();
+      return false;
+    }
+
+    if (_availabilitySlots.isEmpty && !_isLoadingAvailability) {
+      await _loadAvailabilityForSelectedDate();
+    }
+
+    if (!mounted) return false;
+
+    Map<String, dynamic>? availableSlot;
+    for (final Map<String, dynamic> slot in _availabilitySlots) {
+      if (_effectiveSlotStatus(slot) == 'available') {
+        availableSlot = slot;
+        break;
+      }
+    }
+
+    final String? validationTime = availableSlot?['time']?.toString();
+    if (validationTime == null || validationTime.isEmpty) {
+      setState(() {
+        _fieldErrors['date'] =
+            'No available appointment times remain for this date.';
+        _autoValidateMode = AutovalidateMode.always;
+      });
+      _formKey.currentState?.validate();
+      return false;
+    }
+
+    return _validateBookingPayload(
+      _bookingValidationPayload(timeSlot: validationTime),
+    );
+  }
+
+  Future<bool> _validateBookingPayload(Map<String, dynamic> payload) async {
     setState(() {
       _isLoading = true;
       _fieldErrors = <String, String>{};
@@ -307,7 +352,7 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
 
     try {
       final Map<String, dynamic> response = await _appointmentService
-          .validateBooking(_bookingValidationPayload());
+          .validateBooking(payload);
       if (!mounted) return false;
 
       final bool isValid = response['valid'] == true;
@@ -336,13 +381,14 @@ class _BookAppointmentDialogState extends State<BookAppointmentDialog> {
     }
   }
 
-  Map<String, dynamic> _bookingValidationPayload() {
+  Map<String, dynamic> _bookingValidationPayload({String? timeSlot}) {
+    final String selectedTimeSlot = timeSlot ?? _selectedTimeSlot!;
     return <String, dynamic>{
       'service_id': _selectedServiceIds().first,
       'service_ids': _selectedServiceIds(),
       'appointment_date': _formatSelectedDate(),
-      'appointment_time': _selectedTimeSlot!,
-      'time_slot': _selectedTimeSlot!,
+      'appointment_time': selectedTimeSlot,
+      'time_slot': selectedTimeSlot,
     };
   }
 

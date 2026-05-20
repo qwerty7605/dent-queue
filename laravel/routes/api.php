@@ -14,12 +14,21 @@ use App\Http\Controllers\Api\QueueController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\StaffProfileController;
+use App\Http\Controllers\Api\UserDeviceController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+Route::post('/save-onesignal-id', [UserDeviceController::class, 'storeOneSignalId'])
+    ->middleware('auth:sanctum');
+Route::post('/test-push-notification', [UserDeviceController::class, 'testPush'])
+    ->middleware('auth:sanctum');
+Route::post('/test-onesignal-push', [UserDeviceController::class, 'testOneSignalPush'])
+    ->middleware('auth:sanctum');
 
 Route::prefix('v1')->group(function () {
     // Public routes (Auth)
     Route::prefix('auth')->group(function () {
+        Route::post('/register/validate', [AuthController::class, 'validateRegistration']);
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
     });

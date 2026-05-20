@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Appointment;
 use App\Models\PatientRecord;
+use App\Models\Report;
 use App\Models\Role;
 use App\Models\Service;
 use App\Models\User;
@@ -92,7 +93,7 @@ class AdminDashboardControllerTest extends TestCase
             'price' => 500,
         ]);
 
-        Appointment::create([
+        $confirmedAppointment = Appointment::create([
             'patient_id' => $walkInPatient->id,
             'service_id' => $service->id,
             'appointment_date' => now()->format('Y-m-d'),
@@ -100,15 +101,38 @@ class AdminDashboardControllerTest extends TestCase
             'status' => 'confirmed',
         ]);
 
+        Appointment::create([
+            'patient_id' => $walkInPatient->id,
+            'service_id' => $service->id,
+            'appointment_date' => now()->addDay()->format('Y-m-d'),
+            'time_slot' => '10:00',
+            'status' => 'pending',
+        ]);
+
+        Report::create([
+            'appointment_id' => $confirmedAppointment->id,
+            'report_type' => 'appointment_summary',
+            'report_date' => now()->format('Y-m-d'),
+            'data' => ['status' => 'confirmed'],
+        ]);
+
         Sanctum::actingAs($admin);
 
         $response = $this->getJson('/api/v1/admin/dashboard/stats');
 
         $response->assertOk()
-            ->assertJsonPath('data.patients_count', 2)
+            ->assertJsonPath('data.patient_accounts', 1)
+            ->assertJsonPath('data.staff_registry', 3)
+            ->assertJsonPath('data.appointments', 2)
+            ->assertJsonPath('data.reports', 1)
+            ->assertJsonPath('data.patients_count', 1)
+            ->assertJsonPath('data.admin_count', 1)
             ->assertJsonPath('data.staff_count', 1)
             ->assertJsonPath('data.intern_count', 1)
-            ->assertJsonPath('data.staff_accounts_count', 2)
-            ->assertJsonPath('data.appointments_count', 1);
+            ->assertJsonPath('data.staff_accounts_count', 3)
+            ->assertJsonPath('data.appointments_count', 2)
+            ->assertJsonPath('data.reports_count', 1)
+            ->assertJsonCount(1, 'data.recent_pending_appointments')
+            ->assertJsonPath('data.recent_pending_appointments.0.status', 'Pending');
     }
 }

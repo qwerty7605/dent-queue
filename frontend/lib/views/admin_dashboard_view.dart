@@ -84,9 +84,11 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
   Map<String, int> _dashboardStats = <String, int>{
     'patients_count': 0,
     'staff_count': 0,
+    'admin_count': 0,
     'intern_count': 0,
     'staff_accounts_count': 0,
     'appointments_count': 0,
+    'reports': 0,
   };
   Map<String, int> _reportSummary = <String, int>{
     'report_records': 0,
@@ -128,7 +130,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
     _appointmentService = AppointmentService(baseService);
 
     final bool showedCachedSnapshot = _applyCachedDashboardSnapshot();
-    unawaited(_loadDashboardSnapshot(showLoader: !showedCachedSnapshot));
+    unawaited(
+      _loadDashboardSnapshot(
+        forceRefresh: showedCachedSnapshot,
+        showLoader: !showedCachedSnapshot,
+      ),
+    );
   }
 
   bool _applyCachedDashboardSnapshot() {
@@ -199,15 +206,24 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
 
       final List<dynamic> results = await Future.wait<dynamic>(
         <Future<dynamic>>[
-          _adminDashboardService.getStats(forceRefresh: forceRefresh),
-          _adminDashboardService.getReportSummary(
-            const <String, String>{},
-            forceRefresh,
+          _loadOrFallback<Map<String, dynamic>>(
+            _adminDashboardService.getOverview(forceRefresh: forceRefresh),
+            <String, dynamic>{
+              'stats': _dashboardStats,
+              'recent_pending_appointments': _masterListPreview,
+            },
           ),
-          _appointmentService.getAdminMasterList(const <String, String>{
-            'status': 'pending',
-          }),
-          _adminSettingsService.getClinicSettings(),
+          _loadOrFallback<Map<String, int>>(
+            _adminDashboardService.getReportSummary(
+              const <String, String>{},
+              forceRefresh,
+            ),
+            _reportSummary,
+          ),
+          _loadOrFallback<Map<String, dynamic>>(
+            _adminSettingsService.getClinicSettings(),
+            _clinicSettings,
+          ),
         ],
       );
 
@@ -215,16 +231,20 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return;
       }
 
+      final Map<String, dynamic> overview = Map<String, dynamic>.from(
+        results[0] as Map,
+      );
       final List<Map<String, dynamic>> pendingAppointments =
           List<Map<String, dynamic>>.from(
-            results[2] as List<Map<String, dynamic>>,
+            overview['recent_pending_appointments']
+                as List<Map<String, dynamic>>,
           )..sort(_compareRecentAppointments);
 
       setState(() {
-        _dashboardStats = Map<String, int>.from(results[0] as Map);
+        _dashboardStats = Map<String, int>.from(overview['stats'] as Map);
         _reportSummary = Map<String, int>.from(results[1] as Map);
         _masterListPreview = pendingAppointments.take(10).toList();
-        _clinicSettings = Map<String, dynamic>.from(results[3] as Map);
+        _clinicSettings = Map<String, dynamic>.from(results[2] as Map);
         _isLoadingDashboard = false;
       });
     } catch (_) {
@@ -235,6 +255,14 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       setState(() {
         _isLoadingDashboard = false;
       });
+    }
+  }
+
+  Future<T> _loadOrFallback<T>(Future<T> future, T fallback) async {
+    try {
+      return await future;
+    } catch (_) {
+      return fallback;
     }
   }
 
@@ -881,9 +909,7 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
           const SizedBox(height: 12),
           _SystemLogStat(
             label: 'Reportable appointments',
-            value: NumberFormat.compact().format(
-              _reportSummary['total'] ?? 0,
-            ),
+            value: NumberFormat.compact().format(_reportSummary['total'] ?? 0),
           ),
           const SizedBox(height: 12),
           _SystemLogStat(
@@ -918,7 +944,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
       case 'Appointments':
         return _compactNumber(_dashboardStats['appointments_count'] ?? 0);
       case 'Reports':
-        return _compactNumber(_reportSummary['total'] ?? 0);
+        return _compactNumber(
+          _dashboardStats['reports'] ?? _reportSummary['report_records'] ?? 0,
+        );
       default:
         return '0';
     }
@@ -934,8 +962,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> {
         return fallback;
       case 'Staff':
         final int staff = _dashboardStats['staff_count'] ?? 0;
+        final int admins = _dashboardStats['admin_count'] ?? 0;
         final int interns = _dashboardStats['intern_count'] ?? 0;
-        return '$staff practitioners and $interns interns';
+        return '$staff staff, $admins admins, and $interns interns';
       case 'Appointments':
         return fallback;
       case 'Reports':

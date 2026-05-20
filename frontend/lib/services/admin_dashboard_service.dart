@@ -60,6 +60,38 @@ class AdminDashboardService {
     return null;
   }
 
+  Future<Map<String, dynamic>> getOverview({bool forceRefresh = false}) async {
+    final response = await _baseService.getJson<dynamic>(
+      Endpoints.adminDashboardStats(
+        forceRefresh
+            ? const <String, String>{'force_refresh': 'true'}
+            : const <String, String>{},
+      ),
+      (data) => data,
+    );
+
+    final Map<String, dynamic> data = response is Map && response['data'] is Map
+        ? Map<String, dynamic>.from(response['data'] as Map)
+        : <String, dynamic>{};
+    final Map<String, int> stats = _mapStats(data);
+    ShortTermCache.write(
+      _dashboardStatsCache,
+      'all',
+      stats,
+      ttl: _dashboardCacheTtl,
+    );
+
+    return <String, dynamic>{
+      'stats': stats,
+      'recent_pending_appointments':
+          (data['recent_pending_appointments'] as List?)
+              ?.whereType<Map>()
+              .map((dynamic item) => Map<String, dynamic>.from(item as Map))
+              .toList() ??
+          <Map<String, dynamic>>[],
+    };
+  }
+
   Future<Map<String, int>> getStats({bool forceRefresh = false}) async {
     final dynamic cachedStats = ShortTermCache.read<dynamic>(
       _dashboardStatsCache,
@@ -86,13 +118,7 @@ class AdminDashboardService {
           final dataMap = response['data'];
           if (dataMap is Map) {
             final data = Map<String, dynamic>.from(dataMap);
-            final result = <String, int>{
-              'patients_count': data['patients_count'] as int? ?? 0,
-              'staff_count': data['staff_count'] as int? ?? 0,
-              'intern_count': data['intern_count'] as int? ?? 0,
-              'staff_accounts_count': data['staff_accounts_count'] as int? ?? 0,
-              'appointments_count': data['appointments_count'] as int? ?? 0,
-            };
+            final result = _mapStats(data);
             ShortTermCache.write(
               _dashboardStatsCache,
               'all',
@@ -150,16 +176,18 @@ class AdminDashboardService {
           if (dataMap is Map) {
             final data = Map<String, dynamic>.from(dataMap);
             final result = <String, int>{
-              'total': data['total_appointments'] as int? ?? 0,
-              'report_records': data['total_report_records'] as int? ?? 0,
-              'pending': data['pending_count'] as int? ?? 0,
-              'approved': data['approved_count'] as int? ?? 0,
-              'completed': data['completed_count'] as int? ?? 0,
-              'cancelled': data['cancelled_count'] as int? ?? 0,
-              'cancelled_by_doctor':
-                  data['cancelled_by_doctor_count'] as int? ?? 0,
-              'reschedule_required':
-                  data['reschedule_required_count'] as int? ?? 0,
+              'total': _readInt(data['total_appointments']),
+              'report_records': _readInt(data['total_report_records']),
+              'pending': _readInt(data['pending_count']),
+              'approved': _readInt(data['approved_count']),
+              'completed': _readInt(data['completed_count']),
+              'cancelled': _readInt(data['cancelled_count']),
+              'cancelled_by_doctor': _readInt(
+                data['cancelled_by_doctor_count'],
+              ),
+              'reschedule_required': _readInt(
+                data['reschedule_required_count'],
+              ),
             };
             ShortTermCache.write(
               _reportSummaryCache,
@@ -338,6 +366,37 @@ class AdminDashboardService {
     }
 
     return int.tryParse(value.trim());
+  }
+
+  int _readInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  Map<String, int> _mapStats(Map<String, dynamic> data) {
+    return <String, int>{
+      'patient_accounts': _readInt(data['patient_accounts']),
+      'staff_registry': _readInt(data['staff_registry']),
+      'appointments': _readInt(data['appointments']),
+      'reports': _readInt(data['reports'] ?? data['reports_count']),
+      'patients_count': _readInt(
+        data['patients_count'] ?? data['patient_accounts'],
+      ),
+      'staff_count': _readInt(data['staff_count']),
+      'admin_count': _readInt(data['admin_count']),
+      'intern_count': _readInt(data['intern_count']),
+      'staff_accounts_count': _readInt(
+        data['staff_accounts_count'] ?? data['staff_registry'],
+      ),
+      'appointments_count': _readInt(
+        data['appointments_count'] ?? data['appointments'],
+      ),
+    };
   }
 
   void invalidateDashboardStatsCache() {
