@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\InteractsWithReportFilters;
+use App\Http\Controllers\Api\Concerns\ProtectsInternPatientPrivacy;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
@@ -20,22 +21,23 @@ use Illuminate\Validation\Rule;
 class AdminDashboardController extends Controller
 {
     use InteractsWithReportFilters;
+    use ProtectsInternPatientPrivacy;
 
     /**
      * Get real-time stats for the admin dashboard.
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function stats(CentralizedCacheService $cacheService): JsonResponse
+    public function stats(Request $request, CentralizedCacheService $cacheService): JsonResponse
     {
         $stats = $cacheService->rememberDashboardStats(
             fn (): array => $this->resolveDashboardStats(),
             request()->boolean('force_refresh'),
         );
 
-        return response()->json([
+        return response()->json($this->protectInternPatientPrivacy($request, [
             'data' => $stats,
-        ]);
+        ]));
     }
 
     private function resolveDashboardStats(): array

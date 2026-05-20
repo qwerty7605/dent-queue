@@ -183,10 +183,10 @@ void main() {
     expect(find.text('Clinic operations analytics'), findsOneWidget);
     expect(adminDashboardService.reportSummaryCalls, 1);
     expect(adminDashboardService.trendTypes, contains('monthly'));
-    expect(appointmentService.adminMasterListPageCalls, 1);
-    expect(find.text('Detailed Records'), findsOneWidget);
-    expect(find.text('Casey Patient'), findsOneWidget);
-    expect(find.text('Online Booking'), findsOneWidget);
+    expect(appointmentService.adminMasterListPageCalls, 0);
+    expect(find.text('Detailed Records'), findsNothing);
+    expect(find.text('Casey Patient'), findsNothing);
+    expect(find.text('Online Booking'), findsNothing);
     expect(find.byKey(const Key('report-export-button')), findsNothing);
   });
 }

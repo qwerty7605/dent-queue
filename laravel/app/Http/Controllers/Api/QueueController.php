@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\ProtectsInternPatientPrivacy;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\PatientRecord;
@@ -13,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class QueueController extends Controller
 {
+    use ProtectsInternPatientPrivacy;
+
     public function __construct(protected QueueService $queueService)
     {
     }
@@ -37,7 +40,7 @@ class QueueController extends Controller
             $request->boolean('force_refresh'),
         );
 
-        return response()->json($snapshot);
+        return response()->json($this->protectInternPatientPrivacy($request, $snapshot));
     }
 
     /**

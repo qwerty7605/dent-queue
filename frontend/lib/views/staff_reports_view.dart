@@ -20,6 +20,7 @@ class StaffReportsView extends StatelessWidget {
       adminDashboardService: adminDashboardService,
       appointmentService: appointmentService,
       canExport: false,
+      showDetailedRecords: false,
     );
   }
 }
