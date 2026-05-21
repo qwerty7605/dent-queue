@@ -97,7 +97,7 @@ class PatientNotificationApiTest extends TestCase
         $service = $this->createService();
         Sanctum::actingAs($patient);
 
-        $appointmentDate = now(config('app.timezone'))->addDays(3)->format('Y-m-d');
+        $appointmentDate = now(config('app.timezone'))->next('Wednesday')->format('Y-m-d');
 
         $response = $this->postJson('/api/v1/patient/appointments', [
             'service_id' => $service->id,

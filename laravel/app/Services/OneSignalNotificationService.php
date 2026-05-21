@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Appointment;
 use App\Models\PatientRecord;
+use App\Models\PatientNotification;
+use App\Models\StaffNotification;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -12,15 +14,6 @@ class OneSignalNotificationService
 {
     public function sendToUser(User $user, string $title, string $message, array $data = []): bool
     {
-        $appId = config('services.onesignal.app_id');
-        $restApiKey = config('services.onesignal.rest_api_key');
-
-        if (empty($appId) || empty($restApiKey)) {
-            Log::error('OneSignal configuration is missing.');
-
-            return false;
-        }
-
         $subscriptionIds = $user->userDevices()
             ->where('provider', 'onesignal')
             ->where('is_active', true)
@@ -31,6 +24,15 @@ class OneSignalNotificationService
             ->all();
 
         if (empty($subscriptionIds)) {
+            return false;
+        }
+
+        $appId = config('services.onesignal.app_id');
+        $restApiKey = config('services.onesignal.rest_api_key');
+
+        if (empty($appId) || empty($restApiKey)) {
+            Log::error('OneSignal configuration is missing.');
+
             return false;
         }
 
@@ -80,6 +82,48 @@ class OneSignalNotificationService
 
             return false;
         }
+    }
+
+    public function sendPatientNotification(PatientNotification $notification): bool
+    {
+        $notification->loadMissing('patient.user');
+
+        $user = $notification->patient?->user;
+        if ($user === null) {
+            return false;
+        }
+
+        return $this->sendNotificationModelToUser($user, $notification);
+    }
+
+    public function sendStaffNotification(StaffNotification $notification): bool
+    {
+        $notification->loadMissing('user');
+
+        $user = $notification->user;
+        if ($user === null) {
+            return false;
+        }
+
+        return $this->sendNotificationModelToUser($user, $notification);
+    }
+
+    private function sendNotificationModelToUser(
+        User $user,
+        PatientNotification|StaffNotification $notification,
+    ): bool {
+        return $this->sendToUser(
+            $user,
+            (string) $notification->title,
+            (string) $notification->message,
+            [
+                'type' => (string) $notification->type,
+                'notification_id' => (int) $notification->id,
+                'appointment_id' => $notification->appointment_id !== null
+                    ? (int) $notification->appointment_id
+                    : null,
+            ],
+        );
     }
 
     public function sendAppointmentApproved(Appointment $appointment): bool

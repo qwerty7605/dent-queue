@@ -60,9 +60,9 @@ class AdminProfileController extends Controller
             'gender' => ['sometimes', 'nullable', 'string', 'in:male,female,other'],
             'phone_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
             'contact_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
-            'username' => ['sometimes', 'required', 'string', 'max:255', 'unique:users,username,' . $userId],
+            'username' => ['sometimes', 'required', 'string', 'max:30', 'unique:users,username,' . $userId],
             'email' => ['sometimes', 'required', 'email', 'max:255', 'unique:users,email,' . $userId],
-            'password' => ['sometimes', 'required', 'string', 'min:8', 'confirmed'],
+            'password' => ['sometimes', 'required', 'string', 'min:8', 'max:30', 'confirmed'],
             'password_confirmation' => ['required_with:password', 'string'],
             'current_password' => ['sometimes', 'string'],
         ], [

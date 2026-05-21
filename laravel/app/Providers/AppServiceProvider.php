@@ -10,6 +10,7 @@ use App\Models\Service;
 use App\Models\StaffNotification;
 use App\Models\User;
 use App\Services\CentralizedCacheService;
+use App\Services\OneSignalNotificationService;
 use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -48,9 +49,11 @@ class AppServiceProvider extends ServiceProvider
         Queue::saved($this->afterCommitListener($this->flushReportsAndQueue(...)));
         Queue::deleted($this->afterCommitListener($this->flushReportsAndQueue(...)));
 
+        PatientNotification::created($this->afterCommitListener($this->pushPatientNotification(...)));
         PatientNotification::saved($this->afterCommitListener($this->flushPatientNotifications(...)));
         PatientNotification::deleted($this->afterCommitListener($this->flushPatientNotifications(...)));
 
+        StaffNotification::created($this->afterCommitListener($this->pushStaffNotification(...)));
         StaffNotification::saved($this->afterCommitListener($this->flushStaffNotifications(...)));
         StaffNotification::deleted($this->afterCommitListener($this->flushStaffNotifications(...)));
     }
@@ -103,9 +106,21 @@ class AppServiceProvider extends ServiceProvider
             ->flushNotificationsForPatientRecord((int) $notification->patient_id);
     }
 
+    private function pushPatientNotification(PatientNotification $notification): void
+    {
+        app(OneSignalNotificationService::class)
+            ->sendPatientNotification($notification);
+    }
+
     private function flushStaffNotifications(StaffNotification $notification): void
     {
         app(CentralizedCacheService::class)
             ->flushNotificationsForStaffUser((int) $notification->user_id);
+    }
+
+    private function pushStaffNotification(StaffNotification $notification): void
+    {
+        app(OneSignalNotificationService::class)
+            ->sendStaffNotification($notification);
     }
 }

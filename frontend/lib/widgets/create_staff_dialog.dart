@@ -164,18 +164,27 @@ class _CreateStaffDialogState extends State<CreateStaffDialog> {
                       const SizedBox(height: 32),
                       _buildSectionTitle('Create Account'),
                       const SizedBox(height: 16),
-                      _buildTextField('Username', _usernameController),
+                      _buildTextField(
+                        'Username',
+                        _usernameController,
+                        inputFormatters:
+                            AppFormValidators.usernameInputFormatters(),
+                      ),
                       const SizedBox(height: 16),
                       _buildTextField(
                         'Password',
                         _passwordController,
                         isPassword: true,
+                        inputFormatters:
+                            AppFormValidators.passwordInputFormatters(),
                       ),
                       const SizedBox(height: 16),
                       _buildTextField(
                         'Confirm Password',
                         _confirmPasswordController,
                         isPassword: true,
+                        inputFormatters:
+                            AppFormValidators.passwordInputFormatters(),
                         validator: (value) {
                           if (value != _passwordController.text) {
                             return 'Passwords do not match';

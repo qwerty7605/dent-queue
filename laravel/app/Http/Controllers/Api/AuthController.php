@@ -64,8 +64,8 @@ class AuthController extends Controller
         // allow login with either email or username
         $credentials = $request->validate([
             'email' => 'sometimes|required|string|email',
-            'username' => 'sometimes|required|string',
-            'password' => 'required|string',
+            'username' => 'sometimes|required|string|max:30',
+            'password' => 'required|string|max:30',
         ]);
 
         // choose field for lookup
@@ -103,9 +103,9 @@ class AuthController extends Controller
             'first_name' => ['required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
             'middle_name' => ['nullable', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
             'last_name' => ['required', 'string', 'max:30', 'regex:/^[\pL\s]+$/u'],
-            'username' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', 'unique:users,username'],
+            'username' => ['required', 'string', 'max:30', 'regex:/^[A-Za-z0-9._-]+$/', 'unique:users,username'],
             'email' => 'required|string|email|max:255|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:8|max:30|confirmed',
             'password_confirmation' => ['required_with:password', 'same:password'],
             'phone_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],
             'contact_number' => ['sometimes', 'nullable', 'regex:/^09\d{9}$/'],

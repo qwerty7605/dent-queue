@@ -64,7 +64,6 @@ class AppointmentService
         protected BookingRulesEngine $bookingRulesEngine,
         protected QueueService $queueService,
         protected DoctorAvailabilityService $doctorAvailabilityService,
-        protected OneSignalNotificationService $oneSignalNotificationService,
     )
     {
     }
@@ -464,7 +463,6 @@ class AppointmentService
 
                 if ($targetStatus === self::STATUS_CONFIRMED) {
                     $this->createApprovalNotification($appointment);
-                    $this->oneSignalNotificationService->sendAppointmentApproved($appointment);
                 }
 
                 $updatedAppointment = $this->loadAppointmentForResponse((int) $appointment->id);

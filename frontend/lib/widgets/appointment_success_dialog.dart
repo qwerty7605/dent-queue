@@ -128,13 +128,13 @@ class AppointmentSuccessDialog extends StatelessWidget {
               color: isDark ? const Color(0xFF17243A) : const Color(0xFFF8F9FE),
               borderRadius: BorderRadius.circular(18),
             ),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   'APPOINTMENT STATUS',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: isDark
                         ? const Color(0xFFAAB7CD)
@@ -144,6 +144,7 @@ class AppointmentSuccessDialog extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -162,6 +163,7 @@ class AppointmentSuccessDialog extends StatelessWidget {
                   ),
                   child: Text(
                     statusLabel,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       color: isDark ? Colors.white : const Color(0xFF3A4B68),
                       fontWeight: FontWeight.w800,

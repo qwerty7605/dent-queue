@@ -4,10 +4,11 @@ class AppFormValidators {
   AppFormValidators._();
 
   static const int nameMaxLength = 30;
-  static const int usernameMaxLength = 50;
+  static const int usernameMaxLength = 30;
   static const int emailMaxLength = 255;
   static const int addressMaxLength = 255;
   static const int passwordMinLength = 8;
+  static const int passwordMaxLength = 30;
   static const int contactNumberLength = 11;
 
   static final RegExp _usernamePattern = RegExp(r'^[A-Za-z0-9._-]+$');
@@ -28,6 +29,12 @@ class AppFormValidators {
     return <TextInputFormatter>[
       LengthLimitingTextInputFormatter(usernameMaxLength),
       FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9._-]')),
+    ];
+  }
+
+  static List<TextInputFormatter> passwordInputFormatters() {
+    return <TextInputFormatter>[
+      LengthLimitingTextInputFormatter(passwordMaxLength),
     ];
   }
 
@@ -111,6 +118,9 @@ class AppFormValidators {
     }
     if (text.length < passwordMinLength) {
       return 'Password must be at least $passwordMinLength characters';
+    }
+    if (text.length > passwordMaxLength) {
+      return 'Password must be at most $passwordMaxLength characters';
     }
     return null;
   }
