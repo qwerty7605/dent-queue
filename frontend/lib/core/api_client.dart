@@ -8,6 +8,7 @@ import 'package:http_parser/http_parser.dart';
 
 import 'api_exception.dart';
 import 'config.dart';
+import 'lan_api_discovery.dart';
 import 'token_storage.dart';
 
 class ApiClient {
@@ -24,12 +25,12 @@ class ApiClient {
 
   String _networkHint(String url) {
     if (url.contains('10.0.2.2')) {
-      return '10.0.2.2 is Android emulator-only; for phones use API_BASE_URL/API_HOST or adb reverse tcp:8080 tcp:8080';
+      return '10.0.2.2 is Android emulator-only; for phones run ./scripts/run_phone.sh or set API_BASE_URL/API_HOST';
     }
     if (url.contains('localhost') || url.contains('127.0.0.1')) {
-      return 'localhost on physical phones points to the phone itself; use API_BASE_URL/API_HOST with your PC LAN IP';
+      return 'localhost on physical phones points to the phone itself unless adb reverse is active; run ./scripts/run_phone.sh';
     }
-    return 'check backend and API_BASE_URL/API_HOST';
+    return 'check backend and run ./scripts/run_phone.sh (or set API_BASE_URL/API_HOST)';
   }
 
   String _normalizeBaseUrl(String raw) {
@@ -40,7 +41,7 @@ class ApiClient {
         : trimmed;
   }
 
-  List<String> _baseUrlCandidates() {
+  Future<List<String>> _baseUrlCandidates() async {
     final ordered = <String>[];
     final seen = <String>{};
 
@@ -59,6 +60,10 @@ class ApiClient {
         !AppConfig.hasManualBaseUrl &&
         defaultTargetPlatform == TargetPlatform.android &&
         AppConfig.env == AppEnvironment.auto;
+
+    if (shouldPreferAndroidLocalhost) {
+      add(await LanApiDiscovery.discover(port: AppConfig.port));
+    }
 
     // In Android auto mode, prefer localhost first (works with adb reverse).
     if (shouldPreferAndroidLocalhost) {
@@ -113,7 +118,7 @@ class ApiClient {
     required Map<String, String> fields,
     Map<String, File>? files,
   }) async {
-    final baseUrls = _baseUrlCandidates();
+    final baseUrls = await _baseUrlCandidates();
     ApiException? lastNetworkError;
 
     for (var i = 0; i < baseUrls.length; i++) {
@@ -205,7 +210,7 @@ class ApiClient {
 
   Future<dynamic> _send(String method, String path, {Object? body}) async {
     final headers = await _buildHeaders();
-    final baseUrls = _baseUrlCandidates();
+    final baseUrls = await _baseUrlCandidates();
     ApiException? lastNetworkError;
 
     for (var i = 0; i < baseUrls.length; i++) {
@@ -264,7 +269,7 @@ class ApiClient {
       ...await _buildHeaders(),
       ...headers,
     };
-    final baseUrls = _baseUrlCandidates();
+    final baseUrls = await _baseUrlCandidates();
     ApiException? lastNetworkError;
 
     for (var i = 0; i < baseUrls.length; i++) {
