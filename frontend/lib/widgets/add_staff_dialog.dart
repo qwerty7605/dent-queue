@@ -518,8 +518,9 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
           child: _buildTextField(
             controller: _passwordController,
             validator: AppFormValidators.password,
+            inputFormatters: AppFormValidators.passwordInputFormatters(),
             helperText:
-                'Minimum ${AppFormValidators.passwordMinLength} characters',
+                '${AppFormValidators.passwordMinLength}-${AppFormValidators.passwordMaxLength} characters',
             obscureText: !_showPassword,
             textInputAction: TextInputAction.next,
             suffixIcon: IconButton(
@@ -544,6 +545,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
               value,
               _passwordController.text,
             ),
+            inputFormatters: AppFormValidators.passwordInputFormatters(),
             obscureText: !_showConfirmPassword,
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => _handleSubmit(),

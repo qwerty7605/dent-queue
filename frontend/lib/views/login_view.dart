@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_exception.dart';
+import '../core/app_form_validators.dart';
 import '../core/form_error_helpers.dart';
 import '../core/mobile_typography.dart';
 import '../services/auth_service.dart';
@@ -287,6 +288,10 @@ class _LoginViewState extends State<LoginView> {
                               TextFormField(
                                 controller: _usernameController,
                                 onChanged: (_) => _clearIdentifierErrors(),
+                                inputFormatters:
+                                    AppFormValidators.maxLengthInputFormatters(
+                                      AppFormValidators.usernameMaxLength,
+                                    ),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   color: Colors.black87,
@@ -311,6 +316,8 @@ class _LoginViewState extends State<LoginView> {
                               TextFormField(
                                 controller: _passwordController,
                                 onChanged: (_) => _clearPasswordErrors(),
+                                inputFormatters:
+                                    AppFormValidators.passwordInputFormatters(),
                                 obscureText: !_showPassword,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,

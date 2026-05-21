@@ -916,6 +916,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
       obscureText: !isVisible,
       enableSuggestions: false,
       autocorrect: false,
+      inputFormatters: AppFormValidators.passwordInputFormatters(),
       validator: validator,
       decoration: InputDecoration(
         labelText: labelText,
@@ -1279,6 +1280,7 @@ class _ChangeUsernameDialogState extends State<_ChangeUsernameDialog> {
                 key: const Key('admin-profile-change-username-password-field'),
                 controller: _passwordController,
                 onChanged: (_) => _clearFieldError('current_password'),
+                inputFormatters: AppFormValidators.passwordInputFormatters(),
                 obscureText: true,
                 enableSuggestions: false,
                 autocorrect: false,

@@ -753,6 +753,7 @@ class _RegisterViewState extends State<RegisterView> {
             controller: _passwordController,
             forceErrorText: _fieldErrors['password'],
             onChanged: (_) => _clearFieldError('password'),
+            inputFormatters: AppFormValidators.passwordInputFormatters(),
             obscureText: !_showPassword,
             style: const TextStyle(
               fontWeight: FontWeight.w700,
@@ -784,6 +785,7 @@ class _RegisterViewState extends State<RegisterView> {
             controller: _confirmPasswordController,
             forceErrorText: _fieldErrors['password_confirmation'],
             onChanged: (_) => _clearFieldError('password_confirmation'),
+            inputFormatters: AppFormValidators.passwordInputFormatters(),
             obscureText: !_showConfirmPassword,
             style: const TextStyle(
               fontWeight: FontWeight.w700,
