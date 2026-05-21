@@ -29,7 +29,7 @@ class AppConfig {
   );
   static const String _physicalHostFallback = String.fromEnvironment(
     'API_PHYSICAL_HOST',
-    defaultValue: '192.168.1.20',
+    defaultValue: '',
   );
   static const String _envOverride = String.fromEnvironment(
     'API_ENV',
@@ -46,7 +46,11 @@ class AppConfig {
   // Android emulator maps host machine localhost through 10.0.2.2.
   static String get androidEmulatorBaseUrl => 'http://10.0.2.2:$port';
   // Physical-device fallback should use the host machine LAN IP, not localhost.
-  static String get physicalDeviceBaseUrl => 'http://$_physicalHostFallback:$port';
+  static String? get physicalDeviceBaseUrl {
+    final host = _physicalHostFallback.trim();
+    if (host.isEmpty) return null;
+    return 'http://$host:$port';
+  }
   static const productionBaseUrl = 'https://example.com'; // TODO
 
   static int get port => int.tryParse(_portOverride) ?? defaultPort;
@@ -160,7 +164,7 @@ class AppConfig {
       case AppEnvironment.androidEmulator:
         return androidEmulatorBaseUrl;
       case AppEnvironment.physicalDevice:
-        return physicalDeviceBaseUrl;
+        return physicalDeviceBaseUrl ?? localhostBaseUrl;
       case AppEnvironment.production:
         return productionBaseUrl;
     }
